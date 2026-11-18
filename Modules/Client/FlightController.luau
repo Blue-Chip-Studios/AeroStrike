@@ -375,7 +375,8 @@ local function step(dt: number)
 				-- heading away: turn through the side you're already leaning to (no lerp through zero)
 				local side = Vector3.yAxis:Cross(out.Unit)
 				if Flight.AimDir:Dot(side) < 0 then side = -side end
-				home = (side + Vector3.yAxis * 0.05).Unit
+				-- (target stays well inward of the tangent, or the jet just orbits the edge)
+				home = (-out.Unit + side * 0.8 + Vector3.yAxis * 0.05).Unit
 			end
 			local k = math.clamp(0.25 + past / 400, 0, 1) * math.clamp(dt * 2.5, 0, 1)
 			Flight.AimDir = Flight.AimDir:Lerp(home, k).Unit
