@@ -1,0 +1,229 @@
+--!strict
+--[[
+    CombatHUD: targets, lock, lead pip, threat, ammo, cash, toasts, kill card.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Fusion = require(ReplicatedStorage.Packages.fusion)
+local Store = require(ReplicatedStorage.BCDKClient.LMGui.Store)
+local Theme = require(script.Parent.Theme)
+local C = require(script.Parent.Components)
+
+local Children = Fusion.Children
+local V = Store.Values
+
+local KIND_COLOR = {
+	Enemy = Theme.Threat,
+	Ace = Theme.Gold,
+	Mission = Color3.fromRGB(255, 150, 60),
+	Revenge = Color3.fromRGB(255, 60, 120),
+}
+
+local function fmt(n: number): string
+	local s = tostring(math.floor(n))
+	local out = s:reverse():gsub("(%d%d%d)", "%1,"):reverse()
+	return (out:gsub("^,", ""))
+end
+
+return function(scope: any, props: { [string]: any })
+	local flying = scope:Computed(function(use) return use(V.sPhase) == "Flying" end)
+
+	local function pos(val: any, off: Vector2?)
+		return scope:Computed(function(use)
+			local v = use(val) :: Vector2
+			local o = off or Vector2.zero
+			return UDim2.fromOffset(v.X + o.X, v.Y + o.Y)
+		end)
+	end
+
+	-- target boxes (rebuilt per frame list; capped at 12 for perf)
+	local targetBoxes = scope:ForValues(scope:Computed(function(use)
+		local t = use(V.tTargets) :: { any }
+		local out = {}
+		for i = 1, math.min(#t, 12) do out[i] = t[i] end
+		return out
+	end), function(use, scope2, tgt: any)
+		local col = KIND_COLOR[tgt.Kind] or Theme.Threat
+		local size = math.clamp(4000 / math.max(tgt.Dist, 1), 22, 64)
+		return scope2:New("Frame")({
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromOffset(tgt.Pos.X, tgt.Pos.Y),
+			Size = UDim2.fromOffset(size, size),
+			BackgroundTransparency = 1,
+			[Children] = {
+				scope2:New("UIStroke")({ Color = col, Thickness = if tgt.Kind == "Ace" then 2.5 else 1.5, Transparency = 0.1 }),
+				C.HudText(scope2, {
+					Text = string.format("%s  %.1fkm", tgt.Name, tgt.Dist / 1000),
+					TextSize = 12, Color = col, Font = Theme.Mono,
+					Position = UDim2.new(0.5, 0, 1, 10), Size = UDim2.fromOffset(220, 16),
+				}),
+			},
+		})
+	end)
+
+	local threatText = scope:Computed(function(use)
+		local t = use(V.sThreat)
+		if t == "Inbound" then return "MISSILE INBOUND — FLARE!" end
+		if t == "Locked" then return "LOCKED ON" end
+		return ""
+	end)
+
+	return scope:New("ScreenGui")({
+		Name = "CombatHUD",
+		Parent = props.Parent,
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		ScreenInsets = Enum.ScreenInsets.None,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		[Children] = {
+			scope:New("Frame")({
+				Name = "Combat",
+				BackgroundTransparency = 1,
+				Size = UDim2.fromScale(1, 1),
+				Visible = flying,
+				[Children] = {
+					scope:New("Folder")({ Name = "Targets", [Children] = targetBoxes }),
+					-- lock reticle: closes in as lock progresses, red when locked
+					scope:New("Frame")({
+						Name = "Lock",
+						AnchorPoint = Vector2.new(0.5, 0.5),
+						Position = pos(V.tLockScreen),
+						BackgroundTransparency = 1,
+						Size = scope:Computed(function(use)
+							local p = use(V.nLockProgress) :: number
+							local s = 90 - 46 * math.clamp(p, 0, 1)
+							return UDim2.fromOffset(s, s)
+						end),
+						Visible = scope:Computed(function(use) return use(V.sLockState) ~= "None" end),
+						[Children] = {
+							scope:New("UIStroke")({ Thickness = 3,
+								Color = scope:Computed(function(use) return if use(V.sLockState) == "Locked" then Theme.Threat else Theme.Hud end) }),
+							C.HudText(scope, { Font = Theme.Display, TextSize = 13, Position = UDim2.new(0.5, 0, 1, 14), Size = UDim2.fromOffset(120, 16),
+								Color = Theme.Threat, Text = scope:Computed(function(use) return if use(V.sLockState) == "Locked" then "LOCK" else "" end) }),
+						},
+					}),
+					-- gun lead pip
+					scope:New("Frame")({
+						Name = "Lead",
+						AnchorPoint = Vector2.new(0.5, 0.5),
+						Position = pos(V.tLeadScreen),
+						Size = UDim2.fromOffset(12, 12),
+						BackgroundColor3 = Theme.Hud,
+						BackgroundTransparency = 0.2,
+						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(1, 0) }) },
+					}),
+					-- mission objective marker (clamped to screen edge) + banner
+					scope:New("Frame")({
+						Name = "Objective",
+						AnchorPoint = Vector2.new(0.5, 0.5),
+						Position = pos(V.tObjectiveScreen),
+						Size = UDim2.fromOffset(26, 26),
+						Rotation = 45,
+						BackgroundTransparency = 1,
+						[Children] = { scope:New("UIStroke")({ Color = Color3.fromRGB(255, 150, 60), Thickness = 3 }) },
+					}),
+					C.HudText(scope, { Name = "ObjectiveText", Font = Theme.Display, TextSize = 14, Color = Color3.fromRGB(255, 150, 60),
+						Position = UDim2.fromScale(0.5, 0.11), Size = UDim2.fromOffset(600, 20), Text = V.sObjective }),
+					-- threat banner
+					C.HudText(scope, { Name = "Threat", Font = Theme.Display, TextSize = 26, Color = Theme.Threat,
+						Position = UDim2.fromScale(0.5, 0.24), Size = UDim2.fromOffset(700, 40), Text = threatText }),
+					-- ammo panel (right of centre, above touch controls)
+					scope:New("Frame")({
+						Name = "Ammo",
+						AnchorPoint = Vector2.new(1, 1),
+						Position = UDim2.new(1, -24, 0.62, 0),
+						Size = UDim2.fromOffset(190, 96),
+						BackgroundTransparency = 1,
+						[Children] = {
+							C.HudText(scope, { Font = Theme.Mono, TextSize = 18, XAlign = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0),
+								Position = UDim2.fromScale(1, 0), Size = UDim2.fromOffset(190, 24),
+								Text = scope:Computed(function(use) return `MSL {use(V.nMissiles)}/{use(V.nMissilesMax)}` end) }),
+							C.HudText(scope, { Font = Theme.Mono, TextSize = 18, XAlign = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0),
+								Position = UDim2.new(1, 0, 0, 26), Size = UDim2.fromOffset(190, 24),
+								Text = scope:Computed(function(use) return `FLR {use(V.nFlares)}/{use(V.nFlaresMax)}` end) }),
+							C.HudText(scope, { Font = Theme.Display, TextSize = 11, XAlign = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0),
+								Position = UDim2.new(1, 0, 0, 56), Size = UDim2.fromOffset(190, 14), Text = "GUN HEAT" }),
+							C.HudBar(scope, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 74), Size = UDim2.fromOffset(150, 8), Fill = V.nGunHeat,
+								FillColor = scope:Computed(function(use) return if use(V.nGunHeat) > 0.8 then Theme.Threat else Theme.Hud end) }),
+						},
+					}),
+				},
+			}),
+
+			-- CASH (top-right, always on) ----------------------------------------
+			scope:New("Frame")({
+				Name = "Cash",
+				AnchorPoint = Vector2.new(1, 0),
+				Position = UDim2.new(1, -20, 0, 16),
+				Size = UDim2.fromOffset(330, 44),
+				BackgroundTransparency = 1,
+				[Children] = {
+					scope:New("UIListLayout")({ FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 8) }),
+					scope:New("TextLabel")({
+						Name = "Sortie", LayoutOrder = 1, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 40),
+						BackgroundColor3 = Theme.Panel, BackgroundTransparency = 0.15, FontFace = Theme.Mono, TextSize = 18,
+						TextColor3 = Theme.Amber,
+						Visible = scope:Computed(function(use) return use(V.nSortieCash) > 0 end),
+						Text = scope:Computed(function(use) return `  SORTIE +{fmt(use(V.nSortieCash))}  ` end),
+						[Children] = { scope:New("UIStroke")({ Color = Theme.Amber, Thickness = 1 }), scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }) },
+					}),
+					scope:New("TextLabel")({
+						Name = "Bank", LayoutOrder = 2, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 40),
+						BackgroundColor3 = Theme.Panel, BackgroundTransparency = 0.15, FontFace = Theme.Mono, TextSize = 20,
+						TextColor3 = Theme.Ink,
+						Text = scope:Computed(function(use) return `  ◉ {fmt(use(V.nCash))}  ` end),
+						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }) },
+					}),
+					scope:New("TextLabel")({
+						Name = "Rank", LayoutOrder = 3, Size = UDim2.fromOffset(64, 40),
+						BackgroundColor3 = Theme.Panel, BackgroundTransparency = 0.15, FontFace = Theme.Mono, TextSize = 20,
+						TextColor3 = Theme.Gold,
+						Text = scope:Computed(function(use) return string.format("R%02d", use(V.nRank)) end),
+						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }) },
+					}),
+				},
+			}),
+
+			-- TOASTS / KILL FEED (left) -----------------------------------------
+			scope:New("Frame")({
+				Name = "Feed",
+				Position = UDim2.new(0, 20, 0, 70),
+				Size = UDim2.fromOffset(460, 140),
+				BackgroundTransparency = 1,
+				[Children] = {
+					scope:New("UIListLayout")({ Padding = UDim.new(0, 4) }),
+					scope:ForValues(V.tToasts, function(use, scope2, t: any)
+						return C.HudText(scope2, { Text = t.Text, Font = Theme.Body, TextSize = 18, Color = t.Color or Theme.Ink,
+							AnchorPoint = Vector2.zero, XAlign = Enum.TextXAlignment.Left, Size = UDim2.fromOffset(460, 24) })
+					end),
+				},
+			}),
+
+			-- KILL CARD (shown while dead) ---------------------------------------
+			scope:New("Frame")({
+				Name = "KillCard",
+				AnchorPoint = Vector2.new(0.5, 0),
+				Position = UDim2.fromScale(0.5, 0.44),
+				Size = UDim2.fromOffset(460, 92),
+				BackgroundColor3 = Theme.Panel,
+				BackgroundTransparency = 0.05,
+				Visible = scope:Computed(function(use) return use(V.sPhase) == "Dead" and use(V.tKillCard) ~= false end),
+				[Children] = {
+					scope:New("Frame")({ Size = UDim2.new(1, 0, 0, 3), BackgroundColor3 = Theme.Threat, BorderSizePixel = 0 }),
+					C.HudText(scope, { Text = "SHOT DOWN BY", Font = Theme.Display, TextSize = 12, Color = Theme.Threat, AnchorPoint = Vector2.zero,
+						XAlign = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(18, 14), Size = UDim2.fromOffset(300, 16) }),
+					C.HudText(scope, { Font = Theme.Body, TextSize = 26, Color = Theme.Ink, AnchorPoint = Vector2.zero, XAlign = Enum.TextXAlignment.Left,
+						Position = UDim2.fromOffset(18, 32), Size = UDim2.fromOffset(420, 30),
+						Text = scope:Computed(function(use) local k = use(V.tKillCard) return if k and k.Killer ~= "" then k.Killer else "The ground" end) }),
+					C.HudText(scope, { Font = Theme.Body, TextSize = 15, Color = Theme.Mute, AnchorPoint = Vector2.zero, XAlign = Enum.TextXAlignment.Left,
+						Position = UDim2.fromOffset(18, 62), Size = UDim2.fromOffset(420, 20),
+						Text = scope:Computed(function(use)
+							local k = use(V.tKillCard)
+							if not k then return "" end
+							return if k.Killer ~= "" then `{k.Weapon} · Revenge Mark on them for 90 s (2× Cash)` else k.Weapon
+						end) }),
+				},
+			}),
+		},
+	})
+end

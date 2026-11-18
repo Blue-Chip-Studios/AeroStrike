@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>AeroStrike UI Design System</title>
+<link href="https://fonts.googleapis.com/css2?family=Michroma&family=Titillium+Web:wght@400;600;700&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b121a;--p1:#131d28;--p2:#1a2633;--p3:#22313f;--line:#2e4153;--ink:#e8eef4;--mute:#8fa1b3;--hud:#5cff8f;--hudDim:#2f8a52;--amber:#ffc23d;--amberDk:#b8861b;--red:#ff4b3e;--blue:#4fa9ff;--gold:#ffd86b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 "Titillium Web",sans-serif;padding:36px;width:1400px}
+h1{font:28px Michroma,sans-serif;letter-spacing:.08em;margin:0}h1 b{color:var(--hud);font-weight:400}
+h2{font:14px Michroma,sans-serif;letter-spacing:.14em;color:var(--hud);margin:30px 0 12px;text-transform:uppercase;display:flex;align-items:center;gap:10px}
+h2::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+.row{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.note{color:var(--mute);font-size:13px;max-width:900px}
+/* chamfer = signature shape */
+.ch{clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px)}
+.chs{clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
+.sw{width:150px}.sw div{height:64px}.sw p{margin:6px 0 0;font:600 12px "Roboto Mono"}.sw span{color:var(--mute);font-size:12px}
+.btn{font:700 18px "Titillium Web";letter-spacing:.12em;text-transform:uppercase;padding:14px 34px;border:0;color:#10161d;background:var(--amber);position:relative}
+.btn.sec{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 2px var(--line)}
+.btn.hud{background:transparent;color:var(--hud);box-shadow:inset 0 0 0 2px var(--hud)}
+.btn.focus{outline:3px solid var(--hud);outline-offset:3px}
+.btn.press{transform:translateY(2px);filter:brightness(.85)}
+.btn.dis{background:var(--p3);color:#56687a}
+.chev{display:inline-block;width:46px;height:12px;background:repeating-linear-gradient(115deg,var(--amber) 0 8px,transparent 8px 14px);opacity:.9}
+.cur{display:inline-flex;align-items:center;gap:10px;background:var(--p2);padding:8px 16px 8px 10px}
+.cur i{width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff3b0,var(--amber) 55%,var(--amberDk));display:inline-block}
+.cur b{font:700 20px "Roboto Mono"}
+.cur .plus{background:var(--amber);color:#10161d;font:700 18px "Titillium Web";width:26px;height:26px;display:grid;place-items:center;margin-left:6px}
+.card{width:280px;background:var(--p1);padding:14px 16px;border-left:3px solid var(--line)}
+.card.sel{border-left-color:var(--amber);background:linear-gradient(90deg,rgba(255,194,61,.1),var(--p1) 60%)}
+.card .t{font:700 20px "Titillium Web";text-transform:uppercase;letter-spacing:.04em}
+.card .r{font:12px Michroma;color:var(--mute);letter-spacing:.12em}
+.card .price{font:700 15px "Roboto Mono";color:var(--amber)}
+.jet{height:70px;margin:8px 0;background:linear-gradient(180deg,#1d2b39,#131d28);display:grid;place-items:center;color:#4b6075;font-size:11px;letter-spacing:.2em}
+.bar{height:8px;background:var(--p3);position:relative}.bar b{position:absolute;inset:0 auto 0 0;background:var(--hud)}
+.stat{display:grid;grid-template-columns:96px 1fr 60px;gap:10px;align-items:center;font-size:13px;color:var(--mute);margin:6px 0}
+.stat em{font:600 12px "Roboto Mono";color:var(--amber);font-style:normal;text-align:right}
+.modal{width:520px;background:var(--p1);box-shadow:0 0 0 1px var(--line),0 30px 60px rgba(0,0,0,.6)}
+.modal header{background:var(--p2);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--amber)}
+.modal header h3{margin:0;font:16px Michroma;letter-spacing:.1em}
+.modal .body{padding:18px}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:12px 0 16px}
+.day{background:var(--p2);padding:8px 4px;text-align:center;font:600 11px Michroma;color:var(--mute)}
+.day b{display:block;font:700 15px "Roboto Mono";color:var(--ink);margin-top:4px}
+.day.on{box-shadow:inset 0 0 0 2px var(--amber);color:var(--amber)}
+.day.done{opacity:.45}
+.shop{width:230px;background:var(--p1);padding:0 0 14px;position:relative}
+.shop .art{height:110px;background:radial-gradient(circle at 50% 120%,rgba(92,255,143,.25),transparent 60%),linear-gradient(180deg,#1d2b39,#101820)}
+.shop .tag{position:absolute;top:10px;right:-4px;background:var(--red);color:#fff;font:700 12px "Titillium Web";letter-spacing:.1em;padding:2px 10px}
+.shop h4{margin:10px 14px 2px;font:700 17px "Titillium Web";text-transform:uppercase}
+.shop p{margin:0 14px 10px;color:var(--mute);font-size:13px}
+.robux{margin:0 14px;display:block;text-align:center;background:var(--hud);color:#0b1a10;font:700 16px "Roboto Mono";padding:9px}
+.hudbox{width:560px;height:300px;background:linear-gradient(180deg,#3d6f9e,#9dc4de 70%,#cfe0ea);position:relative;overflow:hidden}
+.hudbox *{position:absolute}
+.tape{top:50px;width:70px;height:200px;border-right:2px solid var(--hud);color:var(--hud);font:700 13px "Roboto Mono";text-shadow:0 0 6px rgba(0,0,0,.6)}
+.tape.l{left:40px}.tape.r{right:40px;border-right:0;border-left:2px solid var(--hud);text-align:right}
+.tape .v{top:88px;left:-6px;padding:2px 6px;border:2px solid var(--hud);background:rgba(8,20,12,.55);font-size:16px}
+.tape.r .v{left:auto;right:-6px}
+.lock{left:250px;top:105px;width:64px;height:64px;border:3px solid var(--red);box-shadow:0 0 12px rgba(255,75,62,.6)}
+.lockt{left:236px;top:176px;color:var(--red);font:700 13px Michroma;letter-spacing:.14em;text-shadow:0 0 6px #000}
+.warn{left:170px;top:18px;color:var(--red);font:700 18px Michroma;letter-spacing:.12em;text-shadow:0 0 10px rgba(255,75,62,.8)}
+.ring{left:200px;top:60px;width:170px;height:170px;border:2px solid rgba(92,255,143,.8);border-radius:50%}
+.fuel{right:130px;bottom:24px;width:120px;height:10px;background:rgba(0,0,0,.4)}.fuel b{position:absolute;inset:0 40% 0 0;background:var(--amber)}
+.fl{right:130px;bottom:38px;color:var(--hud);font:600 11px Michroma;letter-spacing:.1em}
+.gm{left:120px;bottom:24px;color:var(--amber);font:700 22px "Roboto Mono";text-shadow:0 0 6px #000}
+.touch{display:flex;gap:14px;align-items:flex-end}
+.tb{width:104px;height:104px;background:rgba(19,29,40,.72);box-shadow:inset 0 0 0 2px rgba(92,255,143,.55);display:grid;place-items:center;font:700 14px "Titillium Web";letter-spacing:.14em;color:var(--hud)}
+.tb.big{width:132px;height:132px;color:var(--amber);box-shadow:inset 0 0 0 2px var(--amber)}
+.tb.red{color:var(--red);box-shadow:inset 0 0 0 2px var(--red)}
+.tb.cd{background:linear-gradient(0deg,rgba(92,255,143,.18) 40%,rgba(19,29,40,.72) 40%)}
+.prog{width:420px;background:var(--p1);padding:14px 16px}
+.prog .top{display:flex;justify-content:space-between;font:12px Michroma;letter-spacing:.1em;color:var(--mute)}
+.prog .rank{font:700 30px "Roboto Mono";color:var(--gold)}
+.prog .bar{height:12px;margin-top:8px}.prog .bar b{background:linear-gradient(90deg,var(--hud),#b5ffcc)}
+.kill{width:460px;background:var(--p1);border-top:3px solid var(--red);padding:14px 18px;display:grid;grid-template-columns:70px 1fr;gap:14px}
+.kill .av{width:70px;height:70px;background:var(--p3);clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
+.kill small{font:12px Michroma;color:var(--red);letter-spacing:.14em}.kill b{display:block;font:700 22px "Titillium Web"}.kill span{color:var(--mute);font-size:13px}
+table{border-collapse:collapse;font-size:13px}td,th{border-bottom:1px solid var(--line);padding:6px 12px;text-align:left}th{color:var(--hud);font:12px Michroma;letter-spacing:.1em}
+.toast{font:700 22px "Roboto Mono";color:var(--amber);text-shadow:0 0 10px rgba(255,194,61,.5)}
+</style></head><body>
+<h1>AERO<b>STRIKE</b> &nbsp;·&nbsp; UI DESIGN SYSTEM v1</h1>
+<p class="note">Two layers: <b>HUD</b> (green telemetry drawn over the world, transparent, glows) and <b>Deck</b> (gunmetal panels for hangar, shop and modals). The signature shape is the <b>chamfered corner</b> (45° cuts top-left and bottom-right); the signature accent is <b>runway chevrons</b> <span class="chev"></span>. References were used for layout and information hierarchy only.</p>
+
+<h2>Palette</h2>
+<div class="row">
+ <div class="sw"><div style="background:#0b121a;outline:1px solid #2e4153"></div><p>#0B121A</p><span>Night: background</span></div>
+ <div class="sw"><div style="background:#131d28"></div><p>#131D28</p><span>Gunmetal 1: panel</span></div>
+ <div class="sw"><div style="background:#1a2633"></div><p>#1A2633</p><span>Gunmetal 2: raised</span></div>
+ <div class="sw"><div style="background:#5cff8f"></div><p>#5CFF8F</p><span>HUD green: info, OK</span></div>
+ <div class="sw"><div style="background:#ffc23d"></div><p>#FFC23D</p><span>Amber: action, Cash</span></div>
+ <div class="sw"><div style="background:#ff4b3e"></div><p>#FF4B3E</p><span>Threat: lock, warning</span></div>
+ <div class="sw"><div style="background:#4fa9ff"></div><p>#4FA9FF</p><span>Squad blue</span></div>
+ <div class="sw"><div style="background:#ffd86b"></div><p>#FFD86B</p><span>Ace gold: bounty, rank</span></div>
+</div>
+<p class="note">Colour meaning is fixed game-wide: <b style="color:var(--amber)">amber = press me / money</b>, <b style="color:var(--hud)">green = information / friendly-OK</b>, <b style="color:var(--red)">red = danger</b>, <b style="color:var(--blue)">blue = squad</b>, <b style="color:var(--gold)">gold = prestige</b>. Never use red decoratively.</p>
+
+<h2>Type</h2>
+<table><tr><th>Role</th><th>Roblox font</th><th>Size (phone / PC)</th><th>Sample</th></tr>
+<tr><td>Display / labels</td><td>Michroma</td><td>14–28</td><td style="font:20px Michroma;letter-spacing:.1em">MISSILE WARNING</td></tr>
+<tr><td>Body / buttons</td><td>Titillium Web 600/700</td><td>16–22</td><td style="font:700 20px 'Titillium Web';letter-spacing:.1em">LAUNCH</td></tr>
+<tr><td>Numbers / HUD</td><td>Roboto Mono 700</td><td>16–30</td><td style="font:700 20px 'Roboto Mono';color:var(--hud)">750 KT · 1,100 FT</td></tr></table>
+<p class="note">Minimum 14 px on phone. Uppercase + tracking +8 to +14% for labels; sentence case for descriptions.</p>
+
+<h2>Buttons &amp; states</h2>
+<div class="row">
+ <button class="btn ch">Launch</button><button class="btn ch focus">Launch (focus)</button><button class="btn ch press">Pressed</button><button class="btn ch dis">Disabled</button><button class="btn sec ch">Secondary</button><button class="btn hud ch">HUD action</button>
+</div>
+<p class="note">Primary = amber fill (one per screen). Secondary = outline. Controller focus = 3 px HUD-green outline offset 3 px (never colour-only). Press = 2 px drop + darken, 80 ms. Disabled = gunmetal 3, no glow.</p>
+
+<h2>Currency · progression · cards</h2>
+<div class="row">
+ <div class="cur chs"><i></i><b>5,284</b><span class="plus chs">+</span></div>
+ <div class="cur chs" style="box-shadow:inset 0 0 0 1px var(--amber)"><span style="font:12px Michroma;color:var(--mute)">SORTIE</span><b style="color:var(--amber)">+450</b></div>
+ <span class="toast">+150</span>
+ <div class="prog ch"><div class="top"><span>ACE RANK</span><span>2,240 / 3,000 XP</span></div><div class="rank">07</div><div class="bar"><b style="width:74%"></b></div></div>
+</div>
+<div class="row" style="margin-top:14px">
+ <div class="card ch"><div class="r">TIER 1 · TRAINER</div><div class="t">Sparrow T-2</div><div class="jet">JET RENDER</div><div class="price" style="color:var(--hud)">OWNED</div></div>
+ <div class="card sel ch"><div class="r">TIER 2 · INTERCEPTOR</div><div class="t">Viper IX</div><div class="jet">JET RENDER</div><div class="price">6,000 · RANK 3</div></div>
+ <div class="card ch" style="width:360px"><div class="r">SPECIFICATIONS</div>
+  <div class="stat">Top speed<div class="bar"><b style="width:70%"></b></div><em>+400</em></div>
+  <div class="stat">Turn<div class="bar"><b style="width:86%"></b></div><em>+400</em></div>
+  <div class="stat">Fuel<div class="bar"><b style="width:52%"></b></div><em>+300</em></div>
+  <div class="stat">G-suit<div class="bar"><b style="width:40%"></b></div><em>+350</em></div>
+  <div class="stat">Flares<div class="bar"><b style="width:60%"></b></div><em>+250</em></div>
+ </div>
+</div>
+
+<h2>Modal · shop</h2>
+<div class="row">
+ <div class="modal ch"><header><h3>DAILY SORTIE PAY</h3><span class="chev"></span></header><div class="body">
+  <div style="color:var(--mute)">Fly every day for bigger rewards.</div>
+  <div class="days"><div class="day done">D1<b>100</b></div><div class="day on">D2<b>150</b></div><div class="day">D3<b>250</b></div><div class="day">D4<b>400</b></div><div class="day">D5<b>600</b></div><div class="day">D6<b>900</b></div><div class="day" style="color:var(--gold)">D7<b style="color:var(--gold)">PAINT</b></div></div>
+  <button class="btn ch" style="width:100%">Claim +150</button></div></div>
+ <div class="shop ch"><span class="tag">BEST VALUE</span><div class="art"></div><h4>Starter Ace Bundle</h4><p>Viper IX + 5,000 Cash + Rookie Ace paint</p><span class="robux chs">R$ 99</span></div>
+ <div class="shop ch"><div class="art"></div><h4>G-Suit Pro</h4><p>+3G before vignette. No blackout.</p><span class="robux chs">R$ 299</span></div>
+</div>
+
+<h2>HUD · combat touch layout · kill card</h2>
+<div class="row">
+ <div class="hudbox ch">
+  <div class="warn">MISSILE WARNING</div><div class="ring"></div>
+  <div class="tape l">SPD<div class="v">750</div></div><div class="tape r">ALT<div class="v">1,100</div></div>
+  <div class="lock"></div><div class="lockt">LOCK</div>
+  <div class="gm">6.2 G</div><div class="fl">FUEL</div><div class="fuel"><b></b></div>
+ </div>
+ <div>
+  <div class="touch"><div class="tb chs">GUNS</div><div class="tb chs red">MISSILE</div></div>
+  <div class="touch" style="margin-top:14px"><div class="tb chs cd">FLARE 3</div><div class="tb big chs">BOOST</div></div>
+  <p class="note" style="max-width:260px">Thumb arc, bottom-right. 104–132 px. Chamfered squares (not circles). Cooldown fills bottom-up. Positions user-adjustable.</p>
+ </div>
+ <div class="kill ch"><div class="av"></div><div><small>SHOT DOWN BY</small><b>RIVAL_PILOT</b><span>Viper IX · IR missile · Revenge Mark active for 90 s</span><div style="margin-top:10px"><button class="btn ch" style="padding:9px 22px;font-size:15px">Relaunch</button></div></div></div>
+</div>
+
+<h2>Spacing · motion · responsive</h2>
+<table><tr><th>Token</th><th>Value</th></tr>
+<tr><td>Grid</td><td>8 px; panel padding 16; section gap 24; chamfer 14 (panels) / 8 (chips)</td></tr>
+<tr><td>Motion</td><td>Buttons 80 ms; panels slide-in 180 ms Quint Out; toasts fly to counter 450 ms; HUD lock box snaps with 2-frame flicker; never animate layout during combat</td></tr>
+<tr><td>Responsive</td><td>Scale with UIScale from 1080p; ScreenInsets = CoreUISafeInsets; UIAspectRatioConstraint on art; phone: deck panels go full-height sheets; console: everything Selectable with NextSelection set</td></tr>
+<tr><td>HUD legibility</td><td>Every HUD label and number gets a 1.5 px UIStroke in #06110A at 0.35 transparency, plus a soft glow; bright skies must never wash out lock, warning or fuel text</td></tr>
+<tr><td>Assets</td><td>Panel and chamfer frames as 9-slice ImageLabels (SliceCenter); icons as one 1024 px atlas; all text native TextLabels</td></tr></table>
+</body></html>

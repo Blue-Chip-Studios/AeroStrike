@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AeroStrike: Game Design Document</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b121a;--panel:#131d28;--panel2:#1a2633;--line:#2a3a4b;--ink:#e8eef4;--mute:#93a4b5;--hud:#5cff8f;--amber:#ffc23d;--red:#ff4b3e;--sky:#4fa9ff;--dev:#4fa9ff;--rec:#ffc23d}
+@page{size:A4;margin:0}
+*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:10.5pt/1.5 Inter,Segoe UI,Arial,sans-serif}
+.page{width:210mm;min-height:297mm;padding:16mm 16mm 18mm;page-break-after:always;position:relative;background:var(--bg)}
+.page:last-child{page-break-after:auto}
+.page::after{content:"AEROSTRIKE · GDD v1.0 · BLUE CHIP STUDIOS";position:absolute;bottom:8mm;left:16mm;font:600 7.5pt Rajdhani,sans-serif;letter-spacing:.2em;color:#4a5d70}
+h1,h2,h3{font-family:Rajdhani,sans-serif;text-transform:uppercase;letter-spacing:.06em;margin:0}
+h2{font-size:20pt;color:var(--ink);border-left:5px solid var(--hud);padding-left:10px;margin:0 0 10px}
+h2 small{display:block;font-size:9pt;color:var(--hud);letter-spacing:.25em}
+h3{font-size:12.5pt;color:var(--amber);margin:14px 0 4px}
+p{margin:4px 0 8px}
+ul{margin:4px 0 8px 18px;padding:0}li{margin:2px 0}
+table{width:100%;border-collapse:collapse;margin:6px 0 10px;font-size:9.2pt}
+th{font:700 8.8pt Rajdhani,sans-serif;letter-spacing:.08em;text-transform:uppercase;text-align:left;background:var(--panel2);color:var(--hud);padding:5px 6px;border-bottom:1px solid var(--line)}
+td{padding:4px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:nth-child(even) td{background:#0f1821}
+.tag{display:inline-block;font:700 7.2pt Rajdhani,sans-serif;letter-spacing:.12em;padding:1px 6px;border-radius:2px;vertical-align:middle;margin-right:4px}
+.dev{background:rgba(79,169,255,.16);color:var(--dev);border:1px solid var(--dev)}
+.rec{background:rgba(255,194,61,.14);color:var(--rec);border:1px solid var(--rec)}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:9px 12px;margin:8px 0}
+.box.warn{border-color:var(--red)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.kpi{background:var(--panel);border:1px solid var(--line);padding:8px 10px;border-radius:4px}
+.kpi b{display:block;font:700 18pt Rajdhani,sans-serif;color:var(--hud)}
+.kpi span{font-size:8.5pt;color:var(--mute)}
+.mute{color:var(--mute)}
+.cover{background:radial-gradient(120% 80% at 70% 20%,#1c3550 0%,#0b121a 60%);display:flex;flex-direction:column;justify-content:flex-end;padding:22mm}
+.cover::after{display:none}
+.cover h1{font-size:64pt;line-height:.9;letter-spacing:.04em}
+.cover h1 em{font-style:normal;color:var(--hud)}
+.cover .sub{font:600 14pt Rajdhani,sans-serif;letter-spacing:.2em;color:var(--amber);margin-top:6px}
+.legend{margin-top:18px;font-size:9.5pt}
+.toc{columns:2;column-gap:18px;font-size:9.6pt}
+.toc div{break-inside:avoid;padding:2px 0;border-bottom:1px dotted var(--line)}
+svg text{font-family:Rajdhani,sans-serif}
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<section class="page cover">
+  <svg viewBox="0 0 600 300" width="100%" style="position:absolute;top:22mm;left:0;opacity:.95">
+    <defs><linearGradient id="trail" x1="0" x2="1"><stop offset="0" stop-color="#5cff8f" stop-opacity="0"/><stop offset="1" stop-color="#5cff8f"/></linearGradient></defs>
+    <path d="M20 250 C180 230 300 120 520 60" stroke="url(#trail)" stroke-width="3" fill="none"/>
+    <path d="M20 270 C200 255 330 160 540 95" stroke="url(#trail)" stroke-width="2" fill="none" opacity=".5"/>
+    <g transform="translate(520 60) rotate(-22)"><path d="M0 0 L-46 -9 L-60 -30 L-66 -30 L-58 -6 L-80 -4 L-90 -14 L-95 -14 L-90 0 L-95 14 L-90 14 L-80 4 L-58 6 L-66 30 L-60 30 L-46 9 Z" fill="#cfd8e2"/><circle cx="-92" cy="0" r="6" fill="#ffc23d"/></g>
+    <g stroke="#5cff8f" fill="none" opacity=".8"><rect x="430" y="150" width="44" height="44"/><line x1="452" y1="140" x2="452" y2="204"/><line x1="420" y1="172" x2="484" y2="172"/></g>
+    <text x="436" y="218" fill="#ff4b3e" font-size="13" font-weight="700" letter-spacing="2">LOCK</text>
+  </svg>
+  <div class="sub">GAME DESIGN DOCUMENT · V1.0 · 18 NOV 2026</div>
+  <h1>AERO<em>STRIKE</em></h1>
+  <p style="max-width:140mm;font-size:12pt;margin-top:10px">Instant-action arcade jet combat for Roblox. Catapult off a carrier into live PvP dogfights and in-sky missions, lock on, flare at the last millisecond, and become the ace everyone is hunting.</p>
+  <div class="legend"><span class="tag dev">DEVELOPER REQUESTED</span> from the brief &nbsp; <span class="tag rec">BCDK RECOMMENDED</span> added or changed by BCDK, with the reason</div>
+  <p class="mute" style="margin-top:14px">Blue Chip Studios · BCDK-Build-Game · Art style: Stylized (military aviation) · Platforms: mobile and tablet first, PC, console</p>
+</section>
+
+<!-- TOC + HIGH CONCEPT -->
+<section class="page">
+  <h2><small>Contents</small>Index</h2>
+  <div class="toc">
+    <div>1 High concept</div><div>2 Player fantasy</div><div>3 Target audience</div><div>4 Design pillars</div><div>5 Core gameplay loop</div><div>6 Session loop</div><div>7 FTUE: first 10 minutes</div><div>8 Controls</div><div>9 Game mechanics</div><div>10 Progression</div><div>11 Map</div><div>12 Characters</div><div>13 Enemies (PvE)</div><div>14 Items: jets and weapons</div><div>15 Abilities</div><div>16 Economy</div><div>17 Rewards</div><div>18 Social systems</div><div>19 Multiplayer</div><div>20 Matchmaking</div><div>21 Retention</div><div>22 Monetisation</div><div>23 Gamepasses</div><div>24 Developer products</div><div>25 UI/UX</div><div>26 Art direction</div><div>27 Audio direction</div><div>28 Analytics</div><div>29 Technical architecture</div><div>30 Performance</div><div>31 Platforms</div><div>32 Content pipeline</div><div>33 Live-ops</div><div>34 MVP scope</div><div>35 Post-launch</div><div>36 Risks</div><div>37 Decisions</div>
+  </div>
+
+  <h2 style="margin-top:18px"><small>01</small>High concept</h2>
+  <p><span class="tag dev">DEV</span><b>AeroStrike</b> is an instant-action arcade fighter-jet game. Players spawn straight onto a carrier catapult and are in the air within 5 seconds, then dogfight rival players and complete live missions that spawn in the sky. Kills and missions earn <b>Cash</b> and <b>Ace XP</b>, which unlock faster jets, better missiles, more flares, bigger fuel tanks and G-suits.</p>
+  <div class="grid3">
+    <div class="kpi"><b>&lt; 5 s</b><span>spawn to airborne</span></div>
+    <div class="kpi"><b>&lt; 60 s</b><span>first lock-on and missile fired (FTUE)</span></div>
+    <div class="kpi"><b>~25 min</b><span>first jet unlock (Viper IX)</span></div>
+  </div>
+
+  <h2 style="margin-top:14px"><small>02</small>Player fantasy</h2>
+  <p><span class="tag dev">DEV</span>"Untouchable fighter ace": blast off the deck at Mach 1, hear the missile-lock alarm, pop flares at the last millisecond, pull heavy Gs through canyon arches and turn the tables on a rival.</p>
+  <p><span class="tag rec">BCDK</span>The fantasy is delivered as three "hero beats" that every session must hit within its first minute: <b>The Launch</b> (catapult and sonic crack), <b>The Lock</b> (lock tone rising to a solid tone, missile away) and <b>The Evade</b> (siren, flare, missile spirals away, "ACE EVADE!"). Every system is judged by whether it makes these beats louder.</p>
+
+  <h2 style="margin-top:14px"><small>03</small>Target audience</h2>
+  <p><span class="tag dev">DEV</span>Ages 9 to 18+. Mobile and tablet first, plus PC and console. <span class="tag rec">BCDK</span>Two personas: <b>"Rookie"</b> (9 to 13, mobile, wants explosions and to feel good fast, low tolerance for menus) and <b>"Ace"</b> (13 to 18+, PC or controller, wants mastery, rank and bragging rights). Every design choice must work for the Rookie and have depth for the Ace.</p>
+</section>
+
+<!-- PILLARS + LOOPS -->
+<section class="page">
+  <h2><small>04</small>Design pillars</h2>
+  <table>
+    <tr><th>Pillar</th><th>Means</th><th>Kills ideas that…</th></tr>
+    <tr><td><b>Instant action</b> <span class="tag dev">DEV</span></td><td>No lobbies, no queues, under 5 s to air; every menu reachable mid-flight or on the deck.</td><td>…add waiting, loading screens or mandatory menus.</td></tr>
+    <tr><td><b>Ace in 10 seconds</b> <span class="tag dev">DEV</span></td><td>Aim-to-fly steering, generous lock cones, big thumb buttons.</td><td>…need flight-sim knowledge to have fun.</td></tr>
+    <tr><td><b>Every lock is a duel</b> <span class="tag rec">BCDK</span></td><td>Missiles always have counterplay (flares, terrain, Gs); guns reward skill.</td><td>…create unbeatable weapons or immunity.</td></tr>
+    <tr><td><b>Loud feedback</b> <span class="tag dev">DEV</span></td><td>Audio-first combat language; screen shake, vignette, tracers, booms.</td><td>…resolve combat silently or in text.</td></tr>
+  </table>
+
+  <h2 style="margin-top:12px"><small>05</small>Core gameplay loop</h2>
+  <svg viewBox="0 0 680 252" width="100%">
+    <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5cff8f"/></marker></defs>
+    <g font-size="15" font-weight="700" text-anchor="middle">
+      <rect x="10" y="80" width="140" height="56" rx="4" fill="#131d28" stroke="#5cff8f"/><text x="80" y="104" fill="#e8eef4">CATAPULT</text><text x="80" y="122" fill="#93a4b5" font-size="11">deck → air in &lt;5 s</text>
+      <rect x="190" y="10" width="150" height="56" rx="4" fill="#131d28" stroke="#5cff8f"/><text x="265" y="34" fill="#e8eef4">DOGFIGHT</text><text x="265" y="52" fill="#93a4b5" font-size="11">PvP · guns · missiles · flares</text>
+      <rect x="190" y="150" width="150" height="56" rx="4" fill="#131d28" stroke="#5cff8f"/><text x="265" y="174" fill="#e8eef4">LIVE MISSIONS</text><text x="265" y="192" fill="#93a4b5" font-size="11">bombers · destroyer · canyon</text>
+      <rect x="380" y="80" width="140" height="56" rx="4" fill="#131d28" stroke="#ffc23d"/><text x="450" y="104" fill="#ffc23d">BANK IT</text><text x="450" y="122" fill="#93a4b5" font-size="11">touch-and-go · ×1.25</text>
+      <rect x="560" y="80" width="110" height="56" rx="4" fill="#131d28" stroke="#5cff8f"/><text x="615" y="104" fill="#e8eef4">UPGRADE</text><text x="615" y="122" fill="#93a4b5" font-size="11">jets · gear</text>
+    </g>
+    <g stroke="#5cff8f" stroke-width="2" fill="none" marker-end="url(#ar)">
+      <path d="M150 100 L188 50"/><path d="M150 116 L188 168"/><path d="M340 40 L378 96"/><path d="M340 178 L378 122"/><path d="M520 108 L558 108"/>
+      <path d="M615 136 L615 228 L80 228 L80 140"/>
+    </g>
+    <text x="350" y="246" fill="#93a4b5" font-size="11" text-anchor="middle">relaunch instantly (or keep flying: banking is optional)</text>
+  </svg>
+  <p><span class="tag dev">DEV</span>Catapult → dogfight and missions → earn Cash and Ace XP → buy jets, missiles, flares, fuel and G-suits (or Robux) → relaunch.</p>
+  <p><span class="tag rec">BCDK</span><b>Bank It (new):</b> Cash from kills and missions is held as <b>Sortie Cash</b> until you bank it by touching down on the carrier deck (a touch-and-go also refuels and rearms) for a <b>×1.25 bonus</b>. If you're shot down you keep 75% (25% is lost). This gives the carrier a reason to exist after launch, ties into the fuel tension in your brief, and creates "one more kill or go home?" decisions. Mission rewards bank automatically, so Rookies never feel robbed.</p>
+
+  <h2 style="margin-top:10px"><small>06</small>Session loop</h2>
+  <p><span class="tag rec">BCDK</span>A typical 20-minute session is 4 to 6 sorties. Join, already on the catapult, launch. Fight and do missions for 2 to 4 minutes per sortie. Bank or get shot down. Hangar on the deck (10 to 30 s: claim the daily reward, buy an upgrade). Relaunch. A <b>mission rotation every 3 minutes</b> and the <b>Ace Bounty</b> keep the server's goals changing, so there's always a reason for one more sortie.</p>
+</section>
+
+<!-- FTUE -->
+<section class="page">
+  <h2><small>07</small>FTUE: the first 10 minutes</h2>
+  <p><span class="tag dev">DEV</span>"A flawless first 10 minutes." <span class="tag rec">BCDK</span>The FTUE is played in the live map, in a <b>training lane</b> (a private ring course on the carrier's lee side, protected by the carrier's air-defence umbrella), so new pilots see real players fighting in the distance from second one. No text walls: every step is one prompt plus one action, voiced by "Deck Boss" (ElevenLabs).</p>
+  <table>
+    <tr><th>t</th><th>Step (analytics funnel step)</th><th>Player does</th><th>Teaches</th></tr>
+    <tr><td>0:00</td><td>1 Spawned on catapult</td><td>Nothing; the camera sweeps the deck and the launch countdown runs</td><td>Fantasy (The Launch)</td></tr>
+    <tr><td>0:04</td><td>2 Launched</td><td>Optional "TAP FOR BOOST" timing prompt</td><td>Perfect Launch</td></tr>
+    <tr><td>0:08</td><td>3 Steer</td><td>Drag / move the mouse / right stick to fly through 3 green rings</td><td>Aim-to-fly</td></tr>
+    <tr><td>0:30</td><td>4 Afterburner</td><td>Hold BOOST through a speed gate; the fuel bar drains and a fuel ring refills it</td><td>Fuel tension, refuel rings</td></tr>
+    <tr><td>0:50</td><td>5 Guns</td><td>Shoot down 2 slow target drones</td><td>Gun lead marker</td></tr>
+    <tr><td>1:20</td><td>6 Lock and fire</td><td>Keep a drone in the lock circle, hear the tone go solid, fire a missile</td><td>The Lock</td></tr>
+    <tr><td>1:45</td><td>7 Flare</td><td>A training SAM fires at you: siren, "FLARE NOW!", tap FLARE</td><td>The Evade (scripted success)</td></tr>
+    <tr><td>2:05</td><td>8 Pull G</td><td>Hard turn through a canyon arch; G meter, vignette</td><td>G-force</td></tr>
+    <tr><td>2:30</td><td>9 Bank it</td><td>Touch down on the carrier (auto-assisted landing for first time)</td><td>Bank It, hangar entry</td></tr>
+    <tr><td>3:00</td><td>10 First upgrade</td><td>Free +1 Flare Pod upgrade from the tutorial reward</td><td>Progression</td></tr>
+    <tr><td>3:15</td><td>11 Go live</td><td>Launch into the live zone with a 15 s spawn shield; "Hunt bombers →" objective arrow</td><td>What to do next</td></tr>
+    <tr><td>3–10</td><td>12 First kill / first mission</td><td>Mission arrow guides to the bomber squadron (soft AI targets)</td><td>Why it's fun; "what next" goal shown: Viper IX at 6,000 Cash</td></tr>
+  </table>
+  <ul>
+    <li>Answers the five FTUE questions: <b>what</b> (shoot down jets, complete missions), <b>how</b> (steps 3 to 8), <b>why fun</b> (hero beats in under 2 min), <b>working toward</b> (Viper IX progress bar on the HUD), <b>next</b> (mission arrow).</li>
+    <li>Progress is saved per step in the profile (<code>FTUE.Step</code>), so a rejoin resumes at that step. Each step can be skipped after 20 s ("Skip" for experienced pilots), and the whole FTUE can be skipped from step 3.</li>
+    <li>New pilots (under 3 sorties) get softer bomber AI and +20% lock-cone size: <b>rookie assist</b>, invisible to others.</li>
+  </ul>
+</section>
+
+<!-- CONTROLS + MECHANICS -->
+<section class="page">
+  <h2><small>08</small>Controls</h2>
+  <p><span class="tag rec">BCDK</span><b>Aim-to-fly</b> on every platform: the player moves an aim point (the "reticle") and the jet automatically banks, pitches and rolls to chase it. Implemented as input actions (<code>ContextActionService</code>), never hard-coded keys.</p>
+  <table>
+    <tr><th>Action</th><th>Touch (default)</th><th>Keyboard + mouse</th><th>Controller</th></tr>
+    <tr><td>Steer (aim point)</td><td>Drag anywhere on the left 60% of the screen</td><td>Mouse</td><td>Right stick</td></tr>
+    <tr><td>Throttle / Boost (afterburner)</td><td>Hold BOOST (big, right thumb)</td><td>W / Shift (S = airbrake)</td><td>RT (LT = airbrake)</td></tr>
+    <tr><td>Guns</td><td>Hold GUNS</td><td>Left mouse</td><td>RB</td></tr>
+    <tr><td>Missile (lock and fire)</td><td>Tap MISSILE when locked</td><td>Right mouse / Space</td><td>LB</td></tr>
+    <tr><td>Flare</td><td>Tap FLARE</td><td>F</td><td>B / Circle</td></tr>
+    <tr><td>Roll / yaw (advanced, optional)</td><td>Optional left joystick</td><td>A / D, Q / E</td><td>Left stick</td></tr>
+    <tr><td>Free look</td><td>Two-finger drag</td><td>C (hold)</td><td>R3 (hold)</td></tr>
+    <tr><td>Hangar / map</td><td>Top-bar buttons</td><td>H / M</td><td>Menu / View</td></tr>
+  </table>
+  <p class="mute">Touch buttons are at least 96 px, placed in the thumb arc and resizable; layout validated at 375×812, 768×1024 and 1920×1080.</p>
+
+  <h2 style="margin-top:10px"><small>09</small>Game mechanics</h2>
+  <h3>Flight</h3>
+  <p><span class="tag rec">BCDK</span>Arcade model: speed 180 to 900 km/h (trainer) up to 1,250 km/h (stealth). Turn rate falls at very high speed, so the "corner speed" sweet spot (~600 km/h) is the skill ceiling. Stalling is impossible below the minimum speed; the jet nose-dips and recovers. Terrain collision destroys the jet unless the spawn shield is active (then it bounces).</p>
+  <h3>Combat triangle <span class="tag dev">DEV</span></h3>
+  <ul>
+    <li><b>Nose cannon:</b> rapid fire with tracers every 3rd round, and a lead-indicator pip on a target in range (under 800 m). Overheats after ~3 s of continuous fire (heat bar), rewarding bursts.</li>
+    <li><b>Heat-seeking missiles:</b> keep the target inside the lock circle for the lock time (1.2 s base) → rising tone → solid tone and red box "LOCK" → fire. Missiles have limited turn rate: sharp turns, terrain masking and flares defeat them.</li>
+    <li><b>Flares:</b> each flare has a 70% decoy chance (90% within the last 0.6 s of missile flight: <b>"Ace Evade"</b> <span class="tag rec">BCDK</span>, a cash bonus plus a slow-motion beat). Visible flare arcs; decoyed missiles spiral and detonate on the flare.</li>
+  </ul>
+  <h3>G-force and fuel <span class="tag dev">DEV</span></h3>
+  <ul>
+    <li><b>G meter</b> builds with turn rate × speed. Above 6G: camera shake, a red/grey edge vignette and stiffer steering. At 9G for more than 2 s: "G-LOC" grey-out for 1.5 s (controls go soft, not lost). G-suit upgrades raise the thresholds.</li>
+    <li><b>Fuel:</b> the base burn is slow; the afterburner burns 8× faster. At 0 fuel, top speed is capped at 55% (no flame-out: it's a kid-friendly tension, not a death). Refuel at golden <b>fuel rings</b> (spawn along flight corridors) or via a carrier touch-and-go.</li>
+  </ul>
+  <h3>Anti-spawn-camp <span class="tag dev">DEV</span></h3>
+  <p>The carrier zone (1.2 km radius) has automated CIWS (guns) and SAMs that only target players with kills in the last 30 s who enter the zone, with a clear warning ring first. Launched jets get a 6 s spawn shield (a visible shimmer) that breaks early if they fire.</p>
+</section>
+
+<!-- MORE MECHANICS + PROGRESSION -->
+<section class="page">
+  <h3>Ace Bounty <span class="tag dev">DEV</span></h3>
+  <p>A player on a 5-kill streak becomes an <b>Ace</b>: a gold diamond is shown to every player on HUD and map, and a gold contrail. The bounty value rises with streak length (500 → 2,000 Cash) and is paid to whoever shoots them down. Bounty kills by a much lower-rank pilot pay +50% (<b>Giant Slayer</b> <span class="tag rec">BCDK</span>).</p>
+  <h3>Original mechanics <span class="tag rec">BCDK</span></h3>
+  <table>
+    <tr><th>Mechanic</th><th>How it works</th><th>Why</th></tr>
+    <tr><td><b>Perfect Launch</b></td><td>A timing bar on the catapult; tap in the green zone for +30% launch speed and 3 s of free afterburner.</td><td>Turns the dead "spawn" second into a skill moment and a micro dopamine hit, every sortie.</td></tr>
+    <tr><td><b>Nerve Meter</b></td><td>Flying close to terrain or canyon walls at speed fills Nerve. Full Nerve = 1.5× Cash on your next kill and faster missile lock for 10 s.</td><td>Rewards the canyon-run fantasy from your brief; gives aces depth.</td></tr>
+    <tr><td><b>Revenge Mark</b></td><td>Whoever shot you down is marked red for you for 90 s; taking them down pays double.</td><td>Social drama and an instant "what next" after dying.</td></tr>
+    <tr><td><b>Formation Bonus</b></td><td>Flying within 150 m of a wingman slowly regenerates fuel for both.</td><td>Makes squads feel physically different, not just a number.</td></tr>
+    <tr><td><b>Storm Cells</b></td><td>Drifting storm clouds in the cloud ceiling break missile locks inside them.</td><td>Living airspace; a defensive tool that isn't an item.</td></tr>
+  </table>
+
+  <h2 style="margin-top:10px"><small>10</small>Progression</h2>
+  <p><span class="tag dev">DEV</span>Cash buys jets and upgrades; Ace XP raises <b>Ace Rank</b>. <span class="tag rec">BCDK</span>Rank 1 to 50 with a cosmetic insignia per 5 ranks; jets are gated by Cash <i>and</i> Rank, so they can't be bought by grinding cash alone in a single session.</p>
+  <table>
+    <tr><th>Jet</th><th>Role</th><th>Rank</th><th>Cash</th><th>Robux</th><th>Top speed</th><th>Turn</th><th>Missiles</th><th>Flares</th></tr>
+    <tr><td><b>Sparrow T-2</b></td><td>Starter trainer</td><td>1</td><td>Free</td><td>–</td><td>900</td><td>★★★★</td><td>2</td><td>4</td></tr>
+    <tr><td><b>Viper IX</b></td><td>Agile interceptor</td><td>3</td><td>6,000</td><td>–</td><td>1,050</td><td>★★★★★</td><td>2</td><td>6</td></tr>
+    <tr><td><b>Rhino HX</b></td><td>Heavy strike fighter</td><td>8</td><td>18,000</td><td>–</td><td>1,000</td><td>★★★</td><td>6</td><td>8</td></tr>
+    <tr><td><b>Wraith-X</b></td><td>Premium stealth ace</td><td>15</td><td>60,000</td><td>799</td><td>1,250</td><td>★★★★</td><td>4</td><td>8</td></tr>
+  </table>
+  <p class="mute">Wraith-X special: <b>Low Observable</b>, enemies need +40% longer to lock it. Rhino HX special: can lock 2 targets (the "multi-lock" taste for free players).</p>
+  <h3>Upgrades (per jet, 5 levels each)</h3>
+  <table>
+    <tr><th>Track</th><th>Effect per level</th><th>Cost L1 → L5</th></tr>
+    <tr><td>Engine</td><td>+3% top speed, +4% acceleration</td><td>400 · 900 · 1,800 · 3,200 · 5,500</td></tr>
+    <tr><td>Fuel Tanks</td><td>+10% fuel, −4% afterburner burn</td><td>300 · 700 · 1,400 · 2,600 · 4,500</td></tr>
+    <tr><td>G-Suit</td><td>+0.4 G before vignette, +0.4 s before G-LOC</td><td>350 · 800 · 1,600 · 3,000 · 5,000</td></tr>
+    <tr><td>Flare Pod</td><td>+1 flare</td><td>250 · 600 · 1,200 · 2,400 · 4,000</td></tr>
+    <tr><td>Seeker</td><td>−6% lock time, +4% missile turn</td><td>450 · 1,000 · 2,000 · 3,600 · 6,000</td></tr>
+  </table>
+</section>
+
+<!-- MAP / CHARACTERS / ENEMIES / ITEMS / ABILITIES -->
+<section class="page">
+  <h2><small>11</small>Map: "Kestrel Archipelago"</h2>
+  <p><span class="tag dev">DEV</span>One carrier hub plus one multi-biome island map. <span class="tag rec">BCDK</span>Layout (about 8 × 8 km of playable airspace, streamed):</p>
+  <svg viewBox="0 0 680 250" width="100%">
+    <rect width="680" height="250" fill="#0e2233"/>
+    <path d="M300 60 C360 30 470 40 520 90 C560 130 540 200 460 215 C380 230 300 200 270 150 C250 110 260 80 300 60Z" fill="#2c4a33" stroke="#5cff8f" stroke-opacity=".4"/>
+    <path d="M410 80 C440 110 450 150 420 190" stroke="#c4542f" stroke-width="10" fill="none" opacity=".85"/>
+    <circle cx="470" cy="110" r="22" fill="#5a3a2a"/><circle cx="470" cy="110" r="8" fill="#ff7a2f"/>
+    <rect x="80" y="150" width="70" height="14" rx="3" fill="#cfd8e2"/><circle cx="115" cy="157" r="60" fill="none" stroke="#4fa9ff" stroke-dasharray="4 4"/>
+    <g fill="#93a4b5"><rect x="560" y="40" width="30" height="6"/><rect x="600" y="60" width="26" height="6"/><rect x="590" y="200" width="34" height="7"/></g>
+    <ellipse cx="300" cy="35" rx="120" ry="16" fill="#e8eef4" opacity=".25"/>
+    <g font-size="12" font-weight="700" fill="#e8eef4">
+      <text x="62" y="140">CARRIER "ANVIL" (SAFE ZONE)</text><text x="380" y="240">VOLCANIC CANYON TRENCHES</text><text x="540" y="30">ENEMY FLEET</text><text x="250" y="24">CLOUD CEILING + STORM CELLS</text><text x="480" y="105">CALDERA</text>
+    </g>
+  </svg>
+  <ul>
+    <li><b>Open ocean fleet</b> (east): destroyer patrol routes; flat, fast, exposed.</li>
+    <li><b>Volcanic canyon trenches</b> (island centre): narrow red-rock canyons with <b>natural arches</b>, lava glow, the canyon checkpoint run and Nerve farming.</li>
+    <li><b>High-altitude cloud ceiling</b> (above 2,500 m): volumetric cloud layer, storm cells, bomber squadron lanes.</li>
+    <li><b>Carrier "Anvil"</b> (west): spawn hub, hangar deck, CIWS/SAM umbrella, training lane on its lee side.</li>
+  </ul>
+
+  <h2 style="margin-top:8px"><small>12–13</small>Characters and enemies</h2>
+  <p><span class="tag rec">BCDK</span>The pilot avatar is only seen in the hangar and the kill card (player's own avatar in a flight suit and helmet accessory overlay). PvE enemies are original, faction-neutral "Red Talon" forces: <b>Talon bomber</b> (slow, tail gunner, 3 per squadron), <b>Talon escort drone</b> (light, weak), <b>Talon destroyer</b> (moving ship with flak bursts, 3 weak points), <b>SAM sites</b> on canyon ridges (canyon run only).</p>
+
+  <h2 style="margin-top:8px"><small>14–15</small>Items and abilities</h2>
+  <table>
+    <tr><th>Weapon</th><th>Damage</th><th>Notes</th></tr>
+    <tr><td>Cannon</td><td>8 / hit (jets have 100 HP)</td><td>~12 hits to kill; overheats; best at under 600 m</td></tr>
+    <tr><td>IR missile</td><td>70</td><td>Two missiles or a missile plus guns; flares counter it</td></tr>
+    <tr><td>Multi-lock pod (premium)</td><td>4 × 40</td><td>Locks up to 4 targets; each still flare-able; longer lock (1.8 s)</td></tr>
+    <tr><td>Flare</td><td>–</td><td>70% decoy, 90% "Ace Evade" window; 2 s cooldown</td></tr>
+  </table>
+  <p>Jet abilities: Rhino HX <b>Twin Lock</b>, Wraith-X <b>Low Observable</b>. All jets: <b>Perfect Launch</b> and <b>Nerve</b>.</p>
+</section>
+
+<!-- ECONOMY / REWARDS / SOCIAL / MP -->
+<section class="page">
+  <h2><small>16</small>Economy</h2>
+  <div class="grid2">
+  <div>
+  <table>
+    <tr><th>Source</th><th>Cash</th><th>XP</th></tr>
+    <tr><td>Player kill</td><td>150</td><td>100</td></tr>
+    <tr><td>Assist (over 25% damage)</td><td>50</td><td>40</td></tr>
+    <tr><td>Ace Bounty kill</td><td>500 to 2,000</td><td>300</td></tr>
+    <tr><td>Bomber shot down</td><td>60</td><td>40</td></tr>
+    <tr><td>Squadron cleared bonus</td><td>300</td><td>150</td></tr>
+    <tr><td>Destroyer sunk (shared)</td><td>600</td><td>300</td></tr>
+    <tr><td>Canyon run (gold time +150)</td><td>250</td><td>150</td></tr>
+    <tr><td>Ace Evade</td><td>40</td><td>25</td></tr>
+    <tr><td>Bank It bonus</td><td>+25%</td><td>–</td></tr>
+    <tr><td>Squad co-op multiplier</td><td>×1.2 (2) / ×1.3 (3–4)</td><td>same</td></tr>
+  </table>
+  </div>
+  <div>
+  <table>
+    <tr><th>Sink</th><th>Cost</th></tr>
+    <tr><td>Jets</td><td>6k / 18k / 60k</td></tr>
+    <tr><td>Upgrades (all 5 tracks maxed, per jet)</td><td>~73k</td></tr>
+    <tr><td>Paint schemes (cosmetic)</td><td>1.5k to 8k</td></tr>
+    <tr><td>Contrail colours (cosmetic)</td><td>2k to 5k</td></tr>
+  </table>
+  <div class="box"><b>Pacing target</b> (free player, analytics-tuned)<br>Early income ≈ 250 Cash/min → <b>Viper IX ≈ 25 min</b> (in session 1) · <b>Rhino HX ≈ 2 h</b> · <b>Wraith-X ≈ 9 h</b> of play. All values live in <code>Config/EconomyConfig.luau</code> with server overrides.</div>
+  </div>
+  </div>
+  <p class="mute">Every source and sink is logged with <code>AnalyticsService:LogEconomyEvent</code>.</p>
+
+  <h2><small>17</small>Rewards</h2>
+  <p>Kill-card popups, "+150" Cash toasts that fly into the Sortie Cash counter, rank-up fanfare, Ace Evade slow-mo, a 7-day <b>daily login track</b> (100 → 1,500 Cash, day 7 = paint scheme) <span class="tag rec">BCDK</span>, and 3 daily challenges ("Ace Evade 3 times", "Sink a destroyer").</p>
+
+  <h2><small>18</small>Social systems</h2>
+  <p><span class="tag dev">DEV</span><b>Wingman squads</b> (2 to 4): friends in the server get a one-tap "Invite to squad" chip on spawn; squadmates can't lock each other, share mission credit and get the co-op multiplier. <span class="tag rec">BCDK</span>Squad markers (blue chevrons), Formation Bonus, and squad-spawn: launching right after a wingman uses the next catapult so you take off together.</p>
+
+  <h2><small>19–20</small>Multiplayer and matchmaking</h2>
+  <p><span class="tag rec">BCDK</span>Free-for-all, 16 players per server (performance budget for jets, missiles and AI). No matches: the server is a <b>persistent sky</b> with 3-minute mission rotations and a 15-minute "Top Ace" leaderboard reset that pays the top 3. Standard Roblox matchmaking fills servers; friends follow into the same server.</p>
+
+  <h2><small>21</small>Retention</h2>
+  <p>Daily login track · daily challenges · rank insignia · jet mastery (per-jet kill counts unlock paint) · weekly "Top Ace" global leaderboard · rotating weekend events (e.g. "Bomber Blitz": 2× mission cash) <span class="tag rec">BCDK</span>.</p>
+</section>
+
+<!-- MONETISATION -->
+<section class="page">
+  <h2><small>22</small>Monetisation</h2>
+  <p><span class="tag dev">DEV</span>Pay-to-win and fast-track progression, with direct Robux unlocks. Free players can still earn top-tier jets.</p>
+  <div class="box warn"><b>BCDK flag: needs your decision.</b> Two of the requested passes as written, <b>G-Force Immunity</b> and <b>Unlimited Fuel / Infinite Afterburner</b>, remove the two tension systems your brief lists as must-keeps. In a 9 to 18 PvP game, "can't be beaten" purchases also push free players (usually more than 95% of the audience) to quit, which shrinks the pool of targets payers enjoy shooting. <span class="tag rec">BCDK</span>Recommendation: keep every product and keep it powerful, but make it <b>strong advantage, not immunity</b> (the "Recommended" column). Every premium weapon stays counterable by flares and terrain.</div>
+  <h2 style="margin-top:8px"><small>23</small>Gamepasses</h2>
+  <table>
+    <tr><th>Pass</th><th>R$</th><th>As requested</th><th>BCDK recommended version</th></tr>
+    <tr><td>Wraith-X Stealth Ace</td><td>799</td><td>Direct unlock</td><td>Same (also earnable: Rank 15 + 60k)</td></tr>
+    <tr><td>Hyper-Tracking Multi-Lock Missiles</td><td>499</td><td>Unbeatable tracking</td><td>Locks 4, +25% missile turn; flares still work</td></tr>
+    <tr><td>Infinite Afterburner Pass</td><td>349</td><td>Unlimited fuel</td><td>Afterburner burn −60%, fuel rings refill 2× faster</td></tr>
+    <tr><td>G-Suit Pro Pass</td><td>299</td><td>G-force immunity</td><td>+3G before vignette, no G-LOC; shake kept (feel)</td></tr>
+    <tr><td>Extra Flare Pod Pass</td><td>199</td><td>More flares</td><td>+4 flares on every jet</td></tr>
+    <tr><td>2× Cash Pass</td><td>399</td><td>2× Cash</td><td>Same</td></tr>
+    <tr><td>VIP Pilot <span class="tag rec">BCDK</span></td><td>249</td><td>–</td><td>Gold name tag, exclusive contrail, +10% XP</td></tr>
+  </table>
+  <h2 style="margin-top:8px"><small>24</small>Developer products</h2>
+  <table>
+    <tr><th>Product</th><th>R$</th><th>Contents</th></tr>
+    <tr><td>Starter Ace Bundle <span class="tag dev">DEV</span></td><td>99</td><td>Viper IX unlock + 5,000 Cash + "Rookie Ace" paint. <b>Once per account</b> (enforced server-side), offered after the FTUE and on the 3rd death</td></tr>
+    <tr><td>Cash Crate S / M / L <span class="tag rec">BCDK</span></td><td>75 / 299 / 899</td><td>5,000 / 25,000 / 100,000 Cash</td></tr>
+    <tr><td>Instant Rearm <span class="tag rec">BCDK</span></td><td>25</td><td>Refill missiles, flares and fuel mid-air (60 s cooldown)</td></tr>
+    <tr><td>Bounty Shield <span class="tag rec">BCDK</span></td><td>49</td><td>Keep 100% of Sortie Cash on your next shoot-down</td></tr>
+  </table>
+  <p class="mute">All purchases go through one server module (<code>MonetizationServer</code>) that owns <code>ProcessReceipt</code>, grants idempotently (PurchaseIds recorded in the profile) and logs viewed / prompted / success / fail / cancel.</p>
+</section>
+
+<!-- UI / ART / AUDIO -->
+<section class="page">
+  <h2><small>25</small>UI/UX</h2>
+  <p><span class="tag rec">BCDK</span>Two layers: the <b>HUD</b> (green fighter-HUD telemetry over the world: speed and altitude tapes, lock circle, target boxes, missile warning, G meter, fuel bar, ammo) and the <b>Deck UI</b> (gunmetal panels with amber accents for hangar, shop and results). References in <code>Docs/UI/References/</code> are used for layout and hierarchy only. AeroStrike's visual identity is its own and is defined in the UI design system (Phase 3).</p>
+  <ul>
+    <li>Screens: Spawn/Launch overlay · Flight HUD · Kill card / kill cam · Death → relaunch (one tap) · Deck Hangar (jets, upgrades, paints) · Shop · Daily reward · Squad · Map · Settings (controls, sensitivity, button layout).</li>
+    <li>Golden rule: <b>no screen blocks relaunch</b>. LAUNCH is always one tap from anywhere on the deck.</li>
+  </ul>
+
+  <h2 style="margin-top:8px"><small>26</small>Art direction: Stylized (military aviation)</h2>
+  <p><span class="tag dev">DEV</span>Sleek, mature modern military aviation: metallic PBR jet bodies, dramatic volumetric clouds, crisp tracers, glowing afterburners, clean green HUD. Never blocky or childish; 60 fps on mobile.</p>
+  <ul>
+    <li><b>Shape language:</b> slightly exaggerated silhouettes (bigger intakes and canopies, swept wings, readable from 2 km), soft bevels, no greebles. Each jet has a unique silhouette at icon size.</li>
+    <li><b>Materials:</b> <code>SurfaceAppearance</code> with a shared 512 px trim/atlas per jet family: gunmetal, panel lines baked into the normal map, metalness and roughness for sheen. Paint schemes are colour-map swaps.</li>
+    <li><b>World:</b> stylised terrain (Roblox Terrain + custom <code>MaterialVariant</code>s), red volcanic rock kit, low-poly stylised pines, the ocean as Terrain water.</li>
+    <li><b>Lighting preset "Golden Sortie":</b> Future lighting, warm low sun, <code>Atmosphere</code> density 0.3 with blue haze, <code>Clouds</code> cover 0.55, Bloom 0.6, SunRays, ColorCorrection contrast +0.08.</li>
+    <li><b>Palette:</b> <span style="color:#5cff8f">HUD green #5CFF8F</span> · <span style="color:#ffc23d">Amber #FFC23D</span> · <span style="color:#ff4b3e">Threat red #FF4B3E</span> · <span style="color:#4fa9ff">Squad blue #4FA9FF</span> · Gunmetal #131D28.</li>
+    <li><b>All 3D art is made in Blender via MCP</b> <span class="tag dev">DEV</span>: four jets, carrier, destroyer, bomber, drones, missiles, flares, SAM site, canyon rock and arch kit, pines, rings. A style kit is built first and shown for approval.</li>
+  </ul>
+
+  <h2 style="margin-top:8px"><small>27</small>Audio direction</h2>
+  <p><span class="tag dev">DEV</span>Tactile and loud. <span class="tag rec">BCDK</span>Combat audio is a <b>language</b>: each threat has a unique, instantly readable sound.</p>
+  <table>
+    <tr><th>Cue</th><th>Design</th></tr>
+    <tr><td>Lock seeking → locked</td><td>Low pulsing growl → high continuous tone (you're the hunter)</td></tr>
+    <tr><td>Being locked → missile inbound</td><td>Slow beeping → fast panic siren (you're the prey), always louder than everything</td></tr>
+    <tr><td>Afterburner</td><td>Layered roar that pitches with throttle; sonic boom crack crossing Mach 1</td></tr>
+    <tr><td>Cannon / flare / hits</td><td>Punchy cannon burst · flare "pop-hiss" · metallic hit ticks on the target</td></tr>
+    <tr><td>Voice</td><td>"Deck Boss" FTUE and launch calls, "Splash one!" on kills (ElevenLabs)</td></tr>
+  </table>
+  <p class="mute">Source: ElevenLabs connector (sound effects + voice) as primary; Roblox Toolbox fallback documented per cue.</p>
+</section>
+
+<!-- ANALYTICS / TECH -->
+<section class="page">
+  <h2><small>28</small>Analytics</h2>
+  <p>Central <code>AnalyticsServer</code> with a typed catalogue in <code>Config/AnalyticsConfig.luau</code>; client UI events through one rate-limited, server-validated remote.</p>
+  <table>
+    <tr><th>Funnel / type</th><th>Events</th></tr>
+    <tr><td>Onboarding (LogOnboardingFunnelStepEvent)</td><td>FTUE steps 1 to 12 (see section 7), skip, abandon</td></tr>
+    <tr><td>Session funnel (LogFunnelStepEvent)</td><td>join → loaded → spawned → launched → first shot → first lock → first kill → first bank → first upgrade</td></tr>
+    <tr><td>Shop funnel</td><td>shop_open → product_view → prompt → success / fail / cancel</td></tr>
+    <tr><td>Economy (LogEconomyEvent)</td><td>every Cash source and sink, with item SKU</td></tr>
+    <tr><td>Progression (LogProgressionEvent)</td><td>rank ups, jet unlocks, upgrade levels</td></tr>
+    <tr><td>Custom (LogCustomEvent)</td><td>sortie_end (duration, kills, cause), missile_fired / hit / evaded, flare_used, g_loc, fuel_empty, bounty_start / claimed, mission_join / complete, squad_create / join, perfect_launch</td></tr>
+  </table>
+
+  <h2 style="margin-top:8px"><small>29</small>Technical architecture (BCDK)</h2>
+  <table>
+    <tr><th>Layer</th><th>Modules</th></tr>
+    <tr><td>Server (<code>Modules/Server</code>)</td><td>FlightServer (spawn, catapult, ownership, validation) · CombatServer (guns, missiles, flares, damage, kills) · BountyServer · SquadServer · MissionServer (+ AI) · CarrierDefenseServer · EconomyServer (Sortie Cash, banking, shop) · FTUEServer · MonetizationServer · AnalyticsServer</td></tr>
+    <tr><td>Client (<code>Modules/Client</code>)</td><td>InputController (actions) · FlightController · CameraController (G effects) · WeaponsController · HUDController · AudioController · FTUEClient</td></tr>
+    <tr><td>Shared (<code>Modules/Shared</code>)</td><td>FlightModel (deterministic math) · Ballistics · Types</td></tr>
+    <tr><td>Config</td><td>JetConfig · WeaponConfig · UpgradeConfig · MissionConfig · EconomyConfig · MonetizationConfig · AnalyticsConfig · ProfileConfig · GuiConfig · CurrencyConfig · XPConfig</td></tr>
+    <tr><td>GUI (<code>Gui/</code>, Fusion via LMGui)</td><td>HUD · LaunchOverlay · KillCard · Hangar · Shop · DailyReward · Squad · Settings</td></tr>
+    <tr><td>BCDK kit</td><td>SMProfile + Replica (saves), SMCurrency (Cash), SMXP (Ace XP)</td></tr>
+  </table>
+  <p><b>Authority:</b> the client owns its jet's physics for responsiveness. The server checks max speed per jet, teleport distance, fire rate, ammo, lock geometry and hit claims (range, angle, line of sight), and owns damage, kills, Cash, XP and purchases. Missiles are server-simulated at 20 Hz and replicated as compact state; clients interpolate the visuals. Remotes are rate-limited; payloads are buffer-serialised via BCDK Remote.</p>
+  <h2 style="margin-top:8px"><small>30</small>Performance</h2>
+  <p>StreamingEnabled; jets 3 to 6k tris with an LOD at 300 m; pooled tracers, flares, explosions and missiles; cosmetic VFX client-only; 16-player cap; AI under 12 units; mobile graphics fallback (no SunRays, lower cloud density). Budget: 60 fps on iPhone 12 / mid Android at 16 players.</p>
+</section>
+
+<!-- PLATFORMS / PIPELINE / LIVEOPS / MVP -->
+<section class="page">
+  <h2><small>31</small>Platforms</h2>
+  <p>Touch first (safe areas via <code>ScreenInsets</code>, movable buttons), full controller navigation for every menu (<code>Selectable</code>, <code>NextSelection*</code>), keyboard and mouse. Text 14 pt minimum on phone. Haptics on missile warning (mobile and controller).</p>
+  <h2 style="margin-top:8px"><small>32</small>Content pipeline</h2>
+  <ul>
+    <li><b>Blender 5.3 via MCP</b>: model, UV, bake and export FBX per asset into <code>Assets/Models/</code>; upload with Open Cloud (<code>ROBLOX_API_KEY</code> from <code>.env</code>, read only by the upload script).</li>
+    <li><b>ElevenLabs</b>: SFX and voice into <code>Assets/Audio/</code>, uploaded via Open Cloud.</li>
+    <li><b>Codex</b>: only if a UI direction must be generated (references were supplied).</li>
+    <li>Temporary art is prefixed <code>TEMP_</code> and tracked in <code>Docs/TEMP_ART.md</code>.</li>
+  </ul>
+  <h2 style="margin-top:8px"><small>33</small>Live-ops</h2>
+  <p>All economy, prices, mission timers, AI difficulty, bounty values and offers are in <code>Config/</code> with server overrides. Event hooks: weekend 2× missions, new paint drops, seasonal skyboxes, limited-time jet trials.</p>
+  <h2 style="margin-top:8px"><small>34</small>MVP scope: vertical slice</h2>
+  <table>
+    <tr><th>In the slice</th><th>Done when</th></tr>
+    <tr><td>Carrier hub + catapult + Perfect Launch</td><td>Spawn to air in under 5 s on mobile, PC and controller</td></tr>
+    <tr><td>Flight model + aim-to-fly + camera + G + fuel</td><td>Rookie can fly rings in 10 s; G and fuel effects feel heavy</td></tr>
+    <tr><td>Guns, missiles, flares, damage, kills, kill card</td><td>Server-validated; full audio language</td></tr>
+    <tr><td>Sparrow T-2 + Viper IX (Blender, PBR)</td><td>In game with LOD and paint swap</td></tr>
+    <tr><td>Island map slice: carrier, ocean, one canyon with arch</td><td>60 fps mobile</td></tr>
+    <tr><td>Mission: Bomber squadron</td><td>Spawns live, AI, rewards</td></tr>
+    <tr><td>Economy, Bank It, Hangar purchase of Viper IX, saves</td><td>Survives rejoin; no dupes</td></tr>
+    <tr><td>FTUE steps 1 to 12, analytics funnels</td><td>Every step logged and resumable</td></tr>
+  </table>
+  <p>After the slice: Rhino HX, Wraith-X, destroyer and canyon missions, full map biomes, Ace Bounty, squads, monetisation, daily rewards and polish (in the BCDK priority order).</p>
+  <h2 style="margin-top:8px"><small>35</small>Post-launch</h2>
+  <p>New jets per season, team "Carrier Clash" mode (two carriers), night maps, ranked Ace league, helicopter gunner role, clan squadrons.</p>
+</section>
+
+<!-- RISKS + DECISIONS -->
+<section class="page">
+  <h2><small>36</small>Risks</h2>
+  <table>
+    <tr><th>Risk</th><th>Impact</th><th>Mitigation</th></tr>
+    <tr><td>Client-owned flight enables speed or teleport hacks</td><td>High</td><td>Server speed/position validation, damage server-side, kick on repeated violations</td></tr>
+    <tr><td>Mobile performance (open map, clouds, 16 jets)</td><td>High</td><td>Streaming, LODs, pooled VFX, quality tiers; test on device early</td></tr>
+    <tr><td>Pay-to-win churns free players</td><td>High</td><td>"Advantage not immunity" product tuning (needs dev decision)</td></tr>
+    <tr><td>Flight too hard for 9-year-olds on touch</td><td>High</td><td>Aim-to-fly, rookie assist, FTUE analytics per step</td></tr>
+    <tr><td>Empty-server feel at launch</td><td>Med</td><td>PvE missions always live; AI wingmen fill to 6 jets</td></tr>
+    <tr><td>Blender/MCP asset throughput</td><td>Med</td><td>Shared trim sheets, modular kits, style kit first</td></tr>
+  </table>
+  <h2 style="margin-top:8px"><small>37</small>Decisions (summary)</h2>
+  <table>
+    <tr><th>Decision</th><th>By</th></tr>
+    <tr><td>Stylized art; Blender 5.3; build fresh; FFA + Wingman squads</td><td><span class="tag dev">DEV</span></td></tr>
+    <tr><td>Original jet names (Sparrow T-2, Viper IX, Rhino HX, Wraith-X)</td><td><span class="tag rec">BCDK</span></td></tr>
+    <tr><td>Aim-to-fly steering on all platforms</td><td><span class="tag rec">BCDK</span></td></tr>
+    <tr><td>Bank It (Sortie Cash, ×1.25 on landing, keep 75% on death)</td><td><span class="tag rec">BCDK</span></td></tr>
+    <tr><td>Perfect Launch, Nerve Meter, Revenge Mark, Formation Bonus, Storm Cells, Ace Evade, Giant Slayer</td><td><span class="tag rec">BCDK</span></td></tr>
+    <tr><td>FTUE in the live map (training lane), not a separate place</td><td><span class="tag rec">BCDK</span></td></tr>
+    <tr><td>Fuel empty = 55% speed cap (no flame-out death)</td><td><span class="tag rec">BCDK</span></td></tr>
+    <tr><td>16-player FFA persistent sky, 3-min mission rotation</td><td><span class="tag rec">BCDK</span></td></tr>
+    <tr><td>Monetisation: advantage-not-immunity versions (approved by developer)</td><td><span class="tag dev">DEV</span></td></tr>
+  </table>
+  <p class="mute">Full log: <code>Docs/DECISIONS.md</code>.</p>
+</section>
+
+</body>
+</html>

@@ -1,0 +1,22 @@
+# AeroStrike: decision log
+
+Significant decisions made during BCDK-Build-Game, newest last. "Dev" = developer decided; "BCDK" = autonomous recommendation (reason given).
+
+| # | Date | Decision | By | Reason |
+| --- | --- | --- | --- | --- |
+| 1 | 2026-11-18 | Art style: **Stylized** (sleek military-aviation flavour of it). | Dev (brief) | Stated explicitly in the brief. |
+| 2 | 2026-11-18 | Use **Blender 5.3** instead of the 5.2 the pre-flight expects. | Dev | 5.3 installed; official Blender MCP v1.0.3 add-on verified working on port 9876. Checker only accepts 5.2. |
+| 3 | 2026-11-18 | Build fresh in this repo; no prior codebase. | Dev | Project created 2026-11-18. |
+| 4 | 2026-11-18 | PvP structure: **free-for-all from one shared neutral carrier, with Wingman squads** (no fixed teams). | Dev | Best fit for "zero lobbies", Ace Bounty and friend squads. |
+| 5 | 2026-11-18 | UI references in `Docs/UI/References/` (brief said `Docs/UI-refs/`). 5 are screenshots of another Roblox game (Tiny Skies Fighter) and 2 are AI concept renders. They are used for **layout and information hierarchy only**. AeroStrike gets its own visual identity, not a copy of that game's look. | BCDK | Originality; the brief names Tiny Skies as a feel reference, not a template. |
+| 6 | 2026-11-18 | Original jet names (no real-world aircraft names): Sparrow T-2 (trainer), Viper IX (interceptor), Rhino HX (strike fighter), Wraith-X (premium stealth). | BCDK | Avoids trademark issues; names were listed as flexible. |
+| 7 | 2026-11-18 | Steering: **follow-reticle "aim to fly"** on every platform (touch-drag / mouse / right stick move an aim point; the jet chases it). Manual roll is optional (advanced). | BCDK | Delivers "ace in 10 seconds" on mobile while keeping PC/console precise. |
+| 8 | 2026-11-18 | Network model: client owns its own jet's physics for responsiveness; server validates speed, position deltas, fire rate and hit claims. Missiles are server-authoritative, with client-interpolated visuals. | BCDK | Responsiveness without trusting the client for damage, kills or rewards. |
+| 10 | 2026-11-18 | Premium passes are **advantage, not immunity**: G-Suit Pro +3G and no G-LOC (shake kept); afterburner burn −60%; multi-lock locks 4 targets with +25% turn, still flare-able. | Dev | Preserves the must-keep G and fuel tension and keeps PvP winnable for free players. |
+| 11 | 2026-11-18 | Original systems added: Bank It (Sortie Cash), Perfect Launch, Nerve Meter, Revenge Mark, Formation Bonus, Storm Cells, Ace Evade, Giant Slayer. | BCDK | Developer asked for original, creative solutions; each reinforces a hero beat (see GDD §9). |
+| 12 | 2026-11-18 | All 3D art (jets, carrier, ships, AI aircraft, environment kit, missiles, props) is modelled in Blender via MCP; no primitive-part placeholders in the shipped game. | Dev | Developer instruction. |
+| 13 | 2026-11-18 | Steering changed from "cursor offset = turn" to **camera-led aim**: input rotates a world-space aim direction, the camera follows it and the jet chases it; release = fly straight where you pointed. Mouse locks to centre in flight. | BCDK | Playtest showed offset steering always kept turning (loops). Camera-led aim is stable and beginner-friendly on touch, mouse and pad. |
+| 14 | 2026-11-18 | Climb-out assist: after launch the jet climbs to ~280 studs then levels unless the pilot steers. | BCDK | Rookies otherwise climb forever or drift into the sea right after launch. |
+| 15 | 2026-11-18 | Blender assets are uploaded to the **Blue Chip Games** group via Studio's Open Cloud MCP and loaded at runtime by asset id from `Config/` (InsertService). Part colours/materials come from config (paint schemes). | BCDK | Repo stays the source of truth; group ownership keeps assets usable in the group game; liveries are data. |
+| 16 | 2026-11-18 | Studio-only QA hooks: `ServerStorage.AS_Debug` BindableFunction, `TestAim` / `QA_Lock` player attributes. Never created in live servers (`RunService:IsStudio()` guard). | BCDK | Automated playtests can't reach live module instances or a real mouse. |
+| 9 | 2026-11-18 | FTUE is played in the live map (a private training lane right after the first catapult launch), not in a separate place. | BCDK | Keeps "zero lobbies"; every new player sees the carrier and live combat within 5 s. |

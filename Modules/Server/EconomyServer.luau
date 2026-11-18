@@ -1,0 +1,279 @@
+--!strict
+--[[
+    EconomyServer
+    -------------
+    Rewards, Bank It and the hangar shop. Server-only authority over Cash
+    (BCDK SMCurrency) and Ace XP (BCDK SMXP).
+
+    Bank It: kill/combat Cash is held as Sortie Cash until the player touches
+    down on the carrier (x BankBonus). Shot down -> keep KeepOnDeath. Mission
+    and onboarding rewards bank immediately.
+
+    Remotes
+      S->C EconomyEvent { a="Sortie", v } | { a="Toast", text, cash, xp, kind } | { a="Banked", v } | { a="RankUp", rank }
+      C<->S Shop (RemoteFunction) { a="BuyJet", jet } | { a="Equip", jet } | { a="Upgrade", jet, track } -> { ok, err? }
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
+
+local ModuleUtil = require(ReplicatedStorage.Shared.ModuleUtil)
+local Remote = require(ReplicatedStorage.BCDKShared.Remote)
+local EconomyConfig = require(ReplicatedStorage.Config.EconomyConfig)
+local CurrencyConfig = require(ReplicatedStorage.Config.CurrencyConfig)
+local JetConfig = require(ReplicatedStorage.Config.JetConfig)
+local XPConfig = require(ReplicatedStorage.Config.XPConfig)
+
+local mProfile = require(ServerStorage.BCDKServer.SMProfile)
+local mCurrency = require(ServerStorage.BCDKServer.SMCurrency)
+local mXP = require(ServerStorage.BCDKServer.SMXP)
+
+local Economy = ModuleUtil.New({
+	OnBanked = Instance.new("BindableEvent"),
+})
+
+local oEvent = Remote:GetEvent("EconomyEvent")
+local oShop = Remote:GetFunction("Shop")
+local tSortie: { [Player]: number } = {}
+local tShopLimiter = ModuleUtil.RateLimiter(8, 2)
+
+local Analytics: any
+local function analytics()
+	Analytics = Analytics or require(ServerStorage.ServerModules.AnalyticsServer)
+	return Analytics
+end
+
+local function cash(oPlayer: Player): number
+	return mProfile:GetAsync(oPlayer, "Cash") or 0
+end
+
+local function rank(oPlayer: Player): number
+	return XPConfig.fXPToLevel(mProfile:GetAsync(oPlayer, "XP") or 0)
+end
+
+local function cashMult(oPlayer: Player): number
+	local m = 1
+	local ok, Mon = pcall(require, ServerStorage.ServerModules:FindFirstChild("MonetizationServer") :: any)
+	if ok and Mon and Mon.GetPasses then
+		local p = Mon:GetPasses(oPlayer)
+		if p.DoubleCash then m *= 2 end
+	end
+	local ok2, Squad = pcall(require, ServerStorage.ServerModules:FindFirstChild("SquadServer") :: any)
+	if ok2 and Squad and Squad.SquadSize then
+		m *= EconomyConfig.SquadMult[math.clamp(Squad:SquadSize(oPlayer), 1, 4)] or 1
+	end
+	return m
+end
+
+local function addXP(oPlayer: Player, nXP: number, sSource: string)
+	if nXP <= 0 then return end
+	local before = rank(oPlayer)
+	local ok, Mon = pcall(require, ServerStorage.ServerModules:FindFirstChild("MonetizationServer") :: any)
+	if ok and Mon and Mon.GetPasses and Mon:GetPasses(oPlayer).VIP then nXP = math.floor(nXP * 1.1) end
+	mXP:Add(oPlayer, nXP)
+	local after = rank(oPlayer)
+	if after > before then
+		oEvent:FireClient(oPlayer, { a = "RankUp", rank = after })
+		analytics():Progression(oPlayer, "AceRank", after)
+	end
+end
+
+local function addCash(oPlayer: Player, nCash: number, sSku: string, sTx: string)
+	if nCash <= 0 then return end
+	mCurrency:Add(oPlayer, CurrencyConfig.eCurrency.Cash, nCash)
+	analytics():Economy(oPlayer, "Source", "Cash", nCash, cash(oPlayer), sTx, sSku)
+end
+
+--[[ Grant a reward from EconomyConfig.Rewards.
+     opts.Mult: extra multiplier (Nerve, Revenge, bounty...)
+     opts.Bank: true = straight to Cash (missions/onboarding), else Sortie Cash
+     opts.Label: toast text override
+     opts.Cash: absolute cash override (bounties) ]]
+function Economy.Reward(self, oPlayer: Player, sKey: string, opts: { Mult: number?, Bank: boolean?, Label: string?, Cash: number? }?)
+	local r = EconomyConfig.Rewards[sKey]
+	local o = opts or {}
+	local nCash = math.floor(((o.Cash or (r and r.Cash) or 0)) * (o.Mult or 1) * cashMult(oPlayer))
+	local nXP = math.floor(((r and r.XP) or 0) * (o.Mult or 1))
+	if o.Bank then
+		addCash(oPlayer, nCash, sKey, "Gameplay")
+	elseif nCash > 0 then
+		tSortie[oPlayer] = (tSortie[oPlayer] or 0) + nCash
+		oEvent:FireClient(oPlayer, { a = "Sortie", v = tSortie[oPlayer] })
+	end
+	addXP(oPlayer, nXP, sKey)
+	oEvent:FireClient(oPlayer, { a = "Toast", text = o.Label or sKey, cash = nCash, xp = nXP, kind = sKey })
+end
+
+function Economy.Bank(self, oPlayer: Player)
+	local v = tSortie[oPlayer] or 0
+	if v <= 0 then return end
+	local banked = math.floor(v * EconomyConfig.BankBonus)
+	tSortie[oPlayer] = 0
+	addCash(oPlayer, banked, "BankIt", "Gameplay")
+	oEvent:FireClient(oPlayer, { a = "Banked", v = banked })
+	oEvent:FireClient(oPlayer, { a = "Sortie", v = 0 })
+	analytics():Log(oPlayer, "bank", { amount = banked })
+	analytics():LogOnce(oPlayer, "session_first_bank")
+	self.OnBanked:Fire(oPlayer, banked)
+end
+
+function Economy.LoseOnDeath(self, oPlayer: Player, bKeepAll: boolean?)
+	local v = tSortie[oPlayer] or 0
+	if v <= 0 then return end
+	local kept = if bKeepAll then v else math.floor(v * EconomyConfig.KeepOnDeath)
+	tSortie[oPlayer] = 0
+	addCash(oPlayer, kept, "SortieKept", "Gameplay")
+	oEvent:FireClient(oPlayer, { a = "Sortie", v = 0 })
+	oEvent:FireClient(oPlayer, { a = "Toast", text = `Kept {kept} of {v} Sortie Cash`, cash = 0, xp = 0, kind = "Kept" })
+end
+
+function Economy.Spend(self, oPlayer: Player, nAmount: number, sSku: string): boolean
+	if nAmount <= 0 then return true end
+	local ok = mCurrency:Remove(oPlayer, CurrencyConfig.eCurrency.Cash, nAmount)
+	if ok then analytics():Economy(oPlayer, "Sink", "Cash", nAmount, cash(oPlayer), "Shop", sSku) end
+	return ok
+end
+
+-- Profile helpers (replicated to the client through the "HangarReplica")
+local HANGAR_TOKEN = "HangarReplica"
+local HANGAR_KEYS = { "OwnedJets", "EquippedJet", "EquippedPaint", "Upgrades", "FTUE", "Stats" }
+
+local function setKey(oPlayer: Player, sKey: string, fn: (any) -> any)
+	mProfile:ModifyAsync(oPlayer, sKey, fn, HANGAR_TOKEN, function(oReplica: any, v: any)
+		oReplica:Set({ sKey }, v)
+	end)
+end
+Economy.SetProfileKey = function(_self, oPlayer: Player, sKey: string, fn: (any) -> any) setKey(oPlayer, sKey, fn) end
+
+local function shop(oPlayer: Player, t: any): any
+	if typeof(t) ~= "table" or not tShopLimiter:Check(oPlayer) then return { ok = false, err = "busy" } end
+	if t.a == "BuyJet" then
+		local j = JetConfig.Jets[t.jet]
+		if not j then return { ok = false, err = "unknown" } end
+		local owned = mProfile:GetAsync(oPlayer, "OwnedJets") or {}
+		if owned[j.Id] then return { ok = false, err = "owned" } end
+		if rank(oPlayer) < j.RankRequired then return { ok = false, err = "rank" } end
+		if j.CashPrice <= 0 and j.GamepassKey then return { ok = false, err = "robux" } end
+		if not Economy:Spend(oPlayer, j.CashPrice, "Jet_" .. j.Id) then return { ok = false, err = "cash" } end
+		setKey(oPlayer, "OwnedJets", function(v) v = v or {}; v[j.Id] = true; return v end)
+		analytics():Progression(oPlayer, "JetUnlock", j.Order, j.Id)
+		return { ok = true }
+	elseif t.a == "Equip" then
+		local owned = mProfile:GetAsync(oPlayer, "OwnedJets") or {}
+		if not owned[t.jet] then return { ok = false, err = "notowned" } end
+		setKey(oPlayer, "EquippedJet", function() return t.jet end)
+		return { ok = true }
+	elseif t.a == "Upgrade" then
+		local track = t.track
+		local costs = EconomyConfig.UpgradeCosts[track]
+		local owned = mProfile:GetAsync(oPlayer, "OwnedJets") or {}
+		if not costs or not owned[t.jet] then return { ok = false, err = "invalid" } end
+		local ups = mProfile:GetAsync(oPlayer, "Upgrades") or {}
+		local lvl = (ups[t.jet] and ups[t.jet][track]) or 0
+		if lvl >= EconomyConfig.MaxUpgradeLevel then return { ok = false, err = "max" } end
+		if not Economy:Spend(oPlayer, costs[lvl + 1], `Upg_{t.jet}_{track}_{lvl + 1}`) then return { ok = false, err = "cash" } end
+		setKey(oPlayer, "Upgrades", function(v)
+			v = v or {}
+			v[t.jet] = v[t.jet] or {}
+			v[t.jet][track] = lvl + 1
+			return v
+		end)
+		analytics():LogOnce(oPlayer, "session_first_upgrade")
+		analytics():Progression(oPlayer, "Upgrade_" .. track, lvl + 1, t.jet)
+		return { ok = true, level = lvl + 1 }
+	end
+	return { ok = false, err = "unknown" }
+end
+
+function Economy.StartAsync(self)
+	oShop:OnServerInvoke(shop)
+	local Flight = require(ServerStorage.ServerModules.FlightServer)
+	local Combat = require(ServerStorage.ServerModules.CombatServer)
+
+	Combat.OnKill.Event:Connect(function(killer: Player?, victim: Model, sWeapon: string, info: any)
+		local victimId = victim:GetAttribute("OwnerUserId")
+		local victimPlayer = if victimId then Players:GetPlayerByUserId(victimId) else nil
+		if victimPlayer then
+			mProfile:ModifyAsync(victimPlayer, "Stats", function(s) s.Deaths += 1; return s end, HANGAR_TOKEN, function(r, v) r:Set({ "Stats" }, v) end)
+		end
+		if not killer then return end
+		if victimPlayer then
+			local mult = 1
+			local nerve = killer:GetAttribute("NerveFull")
+			if nerve then mult *= EconomyConfig.NerveKillMult; killer:SetAttribute("NerveFull", nil) end
+			if killer:GetAttribute("RevengeOn") == victimPlayer.UserId then
+				mult *= EconomyConfig.RevengeMult
+				killer:SetAttribute("RevengeOn", nil)
+			end
+			self:Reward(killer, "Kill", { Mult = mult, Label = `SPLASH! {victimPlayer.DisplayName}` })
+			mProfile:ModifyAsync(killer, "Stats", function(s) s.Kills += 1; return s end, HANGAR_TOKEN, function(r, v) r:Set({ "Stats" }, v) end)
+			analytics():LogOnce(killer, "session_first_kill")
+			-- revenge mark for the victim
+			victimPlayer:SetAttribute("RevengeOn", killer.UserId)
+			task.delay(90, function()
+				if victimPlayer:GetAttribute("RevengeOn") == killer.UserId then victimPlayer:SetAttribute("RevengeOn", nil) end
+			end)
+		else
+			local kind = victim:GetAttribute("NpcKind")
+			local key = if kind == "Bomber" then "BomberKill" elseif kind == "Drone" then "DroneTraining" else "BomberKill"
+			self:Reward(killer, key, { Bank = true, Label = `{string.upper(kind or "TARGET")} DOWN` })
+		end
+		for _, p in ipairs(info.Assists or {}) do
+			self:Reward(p, "Assist", { Label = "ASSIST" })
+		end
+	end)
+
+	Combat.OnEvade.Event:Connect(function(oPlayer: Player, bAce: boolean)
+		if bAce then
+			self:Reward(oPlayer, "AceEvade", { Label = "ACE EVADE!" })
+			analytics():Log(oPlayer, "ace_evade")
+		end
+		analytics():Log(oPlayer, "missile_evaded", { ace = bAce })
+	end)
+
+	Flight.OnTouchAndGo.Event:Connect(function(oPlayer: Player)
+		self:Bank(oPlayer)
+	end)
+
+	Flight.OnLaunched.Event:Connect(function(oPlayer: Player, bPerfect: boolean)
+		analytics():LogOnce(oPlayer, "session_launched")
+		mProfile:ModifyAsync(oPlayer, "Stats", function(s)
+			s.Sorties += 1
+			if bPerfect then s.PerfectLaunches += 1 end
+			return s
+		end, HANGAR_TOKEN, function(r, v) r:Set({ "Stats" }, v) end)
+		if bPerfect then
+			self:Reward(oPlayer, "PerfectLaunch", { Bank = true, Label = "PERFECT LAUNCH" })
+			analytics():Log(oPlayer, "perfect_launch")
+		end
+	end)
+
+	Flight.OnJetDestroyed.Event:Connect(function(oPlayer: Player, sCause: string)
+		local ok, Mon = pcall(require, ServerStorage.ServerModules:FindFirstChild("MonetizationServer") :: any)
+		local keepAll = false
+		if ok and Mon and Mon.ConsumeBountyShield then keepAll = Mon:ConsumeBountyShield(oPlayer) end
+		self:LoseOnDeath(oPlayer, keepAll)
+		analytics():Log(oPlayer, "sortie_end", { cause = sCause })
+	end)
+end
+
+function Economy.InitProfileAsync(self, oPlayer: Player, tProfile)
+	-- schema guard + replicate hangar data to the owning client
+	local d = tProfile.Data
+	d.SchemaVersion = d.SchemaVersion or 1
+	if typeof(d.OwnedJets) ~= "table" then d.OwnedJets = { SparrowT2 = true } end
+	d.OwnedJets.SparrowT2 = true
+	if not JetConfig.Jets[d.EquippedJet] or not d.OwnedJets[d.EquippedJet] then d.EquippedJet = "SparrowT2" end
+	mProfile:CreateReplica(oPlayer, HANGAR_TOKEN, HANGAR_KEYS)
+	tSortie[oPlayer] = 0
+	analytics():LogOnce(oPlayer, "session_loaded")
+end
+
+function Economy.PlayerRemoving(self, oPlayer: Player)
+	-- unbanked Sortie Cash is kept (75%) on leave so nobody feels robbed
+	self:LoseOnDeath(oPlayer, false)
+	tSortie[oPlayer] = nil
+end
+
+return Economy
