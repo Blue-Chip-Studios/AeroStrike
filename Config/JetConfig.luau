@@ -97,7 +97,61 @@ local Jets: { [string]: Jet } = {
 		},
 		DefaultPaint = "Standard",
 	},
-	-- Rhino HX and Wraith-X follow (GDD §10).
+	RhinoHX = {
+		Id = "RhinoHX",
+		DisplayName = "Rhino HX",
+		Role = "Heavy Strike Fighter",
+		Order = 3,
+		ModelAssetId = 96342508757142,
+		RankRequired = 8,
+		CashPrice = 18000,
+		Stats = {
+			MinSpeed = 80, CruiseSpeed = 170, MaxSpeed = 278,
+			Accel = 44, TurnRate = 1.35, CornerSpeed = 175,
+			RollRate = 3.4, Health = 130, Fuel = 130,
+			FuelBurn = 0.28, BoostBurn = 2.1,
+			Missiles = 6, Flares = 8, LockTime = 1.2,
+			GTolerance = 6,
+		},
+		Special = "TwinLock",
+		Paints = {
+			Standard = (function()
+				local p = standardPaint(Color3.fromRGB(92, 100, 84), AMBER, Color3.fromRGB(128, 134, 120))
+				p.Missiles = { Color = Color3.fromRGB(220, 222, 226), Material = Enum.Material.SmoothPlastic }
+				return p
+			end)(),
+		},
+		DefaultPaint = "Standard",
+	},
+	WraithX = {
+		Id = "WraithX",
+		DisplayName = "Wraith-X",
+		Role = "Premium Stealth Ace",
+		Order = 4,
+		ModelAssetId = 131181747205851,
+		RankRequired = 15,
+		CashPrice = 60000,
+		GamepassKey = "WraithX",
+		Stats = {
+			MinSpeed = 80, CruiseSpeed = 190, MaxSpeed = 347,
+			Accel = 58, TurnRate = 1.65, CornerSpeed = 190,
+			RollRate = 4.4, Health = 100, Fuel = 120,
+			FuelBurn = 0.24, BoostBurn = 1.9,
+			Missiles = 4, Flares = 8, LockTime = 1.1,
+			GTolerance = 6.5,
+		},
+		Special = "LowObservable",
+		Paints = {
+			Standard = {
+				Body = { Color = Color3.fromRGB(34, 37, 44), Material = Enum.Material.SmoothPlastic },
+				Accents = { Color = Color3.fromRGB(255, 196, 80), Material = Enum.Material.Metal },
+				Trim = { Color = TRIM, Material = Enum.Material.Metal },
+				Canopy = { Color = Color3.fromRGB(150, 110, 30), Material = Enum.Material.Glass },
+				Glow = { Color = GLOW, Material = Enum.Material.Neon },
+			},
+		},
+		DefaultPaint = "Standard",
+	},
 }
 
 local function GetOrdered(): { Jet }

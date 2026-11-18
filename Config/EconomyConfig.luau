@@ -16,7 +16,12 @@ return {
 		AceEvade = { Cash = 40, XP = 25 },
 		PerfectLaunch = { Cash = 10, XP = 5 },
 		DroneTraining = { Cash = 0, XP = 20 },
+		BountyClaim = { Cash = 0, XP = 300 }, -- cash comes from the bounty value
+		Daily = { Cash = 0, XP = 50 },
 	},
+	DailyTrack = { 100, 150, 250, 400, 600, 900, 1500 },
+	FormationRange = 150,
+	FormationFuelPerSec = 1.2,
 	AssistThreshold = 0.25,
 	NerveKillMult = 1.5,
 	RevengeMult = 2.0,

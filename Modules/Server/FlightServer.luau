@@ -126,6 +126,7 @@ function Flight.Spawn(self, oPlayer: Player)
 	jet:SetAttribute("MaxHealth", stats.Health)
 	jet:SetAttribute("Shield", true)
 	jet:SetAttribute("Pilot", oPlayer.DisplayName)
+	if stats.Special == "LowObservable" then jet:SetAttribute("LowObservable", true) end
 
 	-- paint
 	local JetConfig = require(ReplicatedStorage.Config.JetConfig)

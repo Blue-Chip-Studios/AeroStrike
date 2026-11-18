@@ -175,8 +175,16 @@ return function(scope: any, props: { [string]: any })
 						Text = scope:Computed(function(use) return `  ◉ {fmt(use(V.nCash))}  ` end),
 						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }) },
 					}),
+					scope:New("TextButton")({
+						Name = "Plus", LayoutOrder = 3, Size = UDim2.fromOffset(40, 40), BackgroundColor3 = Theme.Amber, FontFace = Theme.Body,
+						TextSize = 26, TextColor3 = Color3.fromRGB(16, 22, 29), Text = "+", Selectable = true,
+						[Fusion.OnEvent("Activated")] = function()
+							(require(ReplicatedStorage:WaitForChild("ClientModules"):WaitForChild("ShopClient")) :: any):Open()
+						end,
+						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }) },
+					}),
 					scope:New("TextLabel")({
-						Name = "Rank", LayoutOrder = 3, Size = UDim2.fromOffset(64, 40),
+						Name = "Rank", LayoutOrder = 4, Size = UDim2.fromOffset(64, 40),
 						BackgroundColor3 = Theme.Panel, BackgroundTransparency = 0.15, FontFace = Theme.Mono, TextSize = 20,
 						TextColor3 = Theme.Gold,
 						Text = scope:Computed(function(use) return string.format("R%02d", use(V.nRank)) end),
@@ -197,6 +205,34 @@ return function(scope: any, props: { [string]: any })
 						return C.HudText(scope2, { Text = t.Text, Font = Theme.Body, TextSize = 18, Color = t.Color or Theme.Ink,
 							AnchorPoint = Vector2.zero, XAlign = Enum.TextXAlignment.Left, Size = UDim2.fromOffset(460, 24) })
 					end),
+				},
+			}),
+
+			-- STARTER ACE OFFER (one-time, after a few shoot-downs) --------------
+			scope:New("Frame")({
+				Name = "StarterOffer",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromOffset(520, 250),
+				BackgroundColor3 = Theme.Panel,
+				ZIndex = 20,
+				Visible = V.bStarterOffer,
+				[Children] = {
+					scope:New("UICorner")({ CornerRadius = UDim.new(0, 6) }),
+					scope:New("UIStroke")({ Color = Theme.Amber, Thickness = 2 }),
+					scope:New("ImageLabel")({ BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 30), Size = UDim2.fromOffset(170, 170), ZIndex = 21,
+						Image = scope:Computed(function(use) local i = use(V.tShopInfo).StarterAce return if i then i.Icon else "" end) }),
+					C.HudText(scope, { Text = "STARTER ACE BUNDLE", Font = Theme.Display, TextSize = 18, Color = Theme.Amber, AnchorPoint = Vector2.zero,
+						XAlign = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(200, 34), Size = UDim2.fromOffset(300, 24), ZIndex = 21 }),
+					C.HudText(scope, { Text = "Viper IX interceptor + 5,000 Cash + Rookie Ace paint. One time only.", Font = Theme.Body, TextSize = 17,
+						Color = Theme.Ink, AnchorPoint = Vector2.zero, XAlign = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(200, 64),
+						Size = UDim2.fromOffset(300, 70), ZIndex = 21 }),
+					C.PrimaryButton(scope, { Name = "BuyStarter", AnchorPoint = Vector2.zero, Position = UDim2.fromOffset(200, 150), Size = UDim2.fromOffset(300, 48),
+						TextSize = 20, Text = scope:Computed(function(use) local i = use(V.tShopInfo).StarterAce return "GET IT · R$ " .. tostring(if i then i.Price else 99) end),
+						OnClick = function() (require(ReplicatedStorage.ClientModules.ShopClient) :: any):Buy("StarterAce") end }),
+					scope:New("TextButton")({ BackgroundTransparency = 1, Position = UDim2.fromOffset(200, 204), Size = UDim2.fromOffset(300, 30), ZIndex = 21,
+						FontFace = Theme.Body, TextSize = 15, TextColor3 = Theme.Mute, Text = "No thanks",
+						[Fusion.OnEvent("Activated")] = function() (require(ReplicatedStorage.ClientModules.ShopClient) :: any):DismissOffer() end }),
 				},
 			}),
 

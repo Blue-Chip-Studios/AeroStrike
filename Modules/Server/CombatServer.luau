@@ -69,7 +69,7 @@ local function flight()
 end
 
 local function squadmates(a: Player, b: Player): boolean
-	local ok, Squad = pcall(require, ServerStorage.ServerModules:FindFirstChild("SquadServer") :: any)
+	local ok, Squad = pcall(require, ServerStorage.ServerModules:FindFirstChild("SocialServer") :: any)
 	if ok and Squad and Squad.AreSquadmates then return Squad:AreSquadmates(a, b) end
 	return false
 end
@@ -244,7 +244,8 @@ local function onMissile(oPlayer: Player, t: any)
 		local cone = WeaponConfig.Missile.LockCone * 1.5 -- tolerance for latency
 		if to.Magnitude > WeaponConfig.Missile.LockRange * 1.1 then continue end
 		if math.acos(math.clamp(root.CFrame.LookVector:Dot(to.Unit), -1, 1)) > cone then continue end
-		local dmg = if maxTargets > 1 then 40 else WeaponConfig.Missile.Damage
+		-- a salvo at several targets uses the lighter multi-lock warhead; a single shot is full damage
+		local dmg = if #targets > 1 then WeaponConfig.MultiLock.Damage else WeaponConfig.Missile.Damage
 		local side = if fired % 2 == 0 then 2 else -2
 		spawnMissile(oPlayer, root.CFrame * CFrame.new(side, -1.5, -4), target, dmg, s.Stats.MissileTurnMult or 1, s.Jet)
 		ammo.Missiles -= 1

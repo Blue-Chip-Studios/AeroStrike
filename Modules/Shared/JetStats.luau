@@ -49,6 +49,7 @@ function JetStats.Compute(sJetId: string, tUp: Upgrades?, tPasses: Passes?): { [
 		s.MissileTurnMult *= 1.25
 	end
 	s.Special = base.Special
+	if base.Special == "TwinLock" then s.MultiLock = math.max(s.MultiLock or 1, 2) end
 	return s
 end
 

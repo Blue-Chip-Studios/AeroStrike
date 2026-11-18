@@ -164,6 +164,20 @@ return function(scope: any, props: { [string]: any })
 						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("HangarClient")) :: any):Open() end,
 						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }), scope:New("UIStroke")({ Color = Theme.Amber, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }) },
 					}),
+					scope:New("TextButton")({
+						Name = "ShopBtn", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 206, 1, -24), Size = UDim2.fromOffset(140, 52),
+						BackgroundColor3 = Theme.Panel, BackgroundTransparency = 0.1, FontFace = Theme.Body, TextSize = 20, TextColor3 = Theme.Hud,
+						Text = "SHOP", Selectable = true,
+						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("ShopClient")) :: any):Open() end,
+						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }), scope:New("UIStroke")({ Color = Theme.Hud, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }) },
+					}),
+					scope:New("TextButton")({
+						Name = "SquadBtn", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 358, 1, -24), Size = UDim2.fromOffset(140, 52),
+						BackgroundColor3 = Theme.Panel, BackgroundTransparency = 0.1, FontFace = Theme.Body, TextSize = 20, TextColor3 = Theme.Squad,
+						Text = "SQUAD", Selectable = true,
+						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("SocialClient")) :: any):OpenSquad() end,
+						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }), scope:New("UIStroke")({ Color = Theme.Squad, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }) },
+					}),
 					-- timing bar with the perfect window highlighted
 					scope:New("Frame")({
 						Name = "LaunchBar",

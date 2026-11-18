@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local tConstantGuis = {
 	HUD = {},
 	CombatHUD = {},
+	Social = {},
 }
 
 local tValues = {
@@ -61,6 +62,17 @@ local tValues = {
 	bHangarOpen = false,
 	sHangarSelected = "SparrowT2",
 	sHangarMsg = "",
+	tPasses = {}, -- owned game passes {Key=true}
+	tShopInfo = {}, -- [key] = { Icon = "rbxassetid://..", Price = n }
+	bShopOpen = false,
+	bStarterOffer = false,
+	tInvite = false, -- false | { from, name }
+	tSquad = {}, -- { {id, name} }
+	tDaily = { day = 1, streak = 0, claimable = false },
+	bDailyOpen = false,
+	bSquadOpen = false,
+	tPlayerList = {}, -- for the squad screen
+	bFormation = false,
 	tObjectiveScreen = Vector2.new(-1000, -1000),
 
 	-- platform

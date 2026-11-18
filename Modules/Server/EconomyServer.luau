@@ -59,7 +59,7 @@ local function cashMult(oPlayer: Player): number
 		local p = Mon:GetPasses(oPlayer)
 		if p.DoubleCash then m *= 2 end
 	end
-	local ok2, Squad = pcall(require, ServerStorage.ServerModules:FindFirstChild("SquadServer") :: any)
+	local ok2, Squad = pcall(require, ServerStorage.ServerModules:FindFirstChild("SocialServer") :: any)
 	if ok2 and Squad and Squad.SquadSize then
 		m *= EconomyConfig.SquadMult[math.clamp(Squad:SquadSize(oPlayer), 1, 4)] or 1
 	end
@@ -140,7 +140,9 @@ local HANGAR_TOKEN = "HangarReplica"
 local HANGAR_KEYS = { "OwnedJets", "EquippedJet", "EquippedPaint", "Upgrades", "FTUE", "Stats" }
 
 local function setKey(oPlayer: Player, sKey: string, fn: (any) -> any)
-	mProfile:ModifyAsync(oPlayer, sKey, fn, HANGAR_TOKEN, function(oReplica: any, v: any)
+	-- only hangar keys replicate to the client; receipts etc. stay server-only
+	local bReplicated = table.find(HANGAR_KEYS, sKey) ~= nil
+	mProfile:ModifyAsync(oPlayer, sKey, fn, if bReplicated then HANGAR_TOKEN else "__none", function(oReplica: any, v: any)
 		oReplica:Set({ sKey }, v)
 	end)
 end

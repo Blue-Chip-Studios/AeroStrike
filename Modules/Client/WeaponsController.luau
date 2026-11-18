@@ -43,6 +43,7 @@ local nLockProgress = 0
 local sLockState = "None"
 local oLockCandidate: Model? = nil
 local sAnnounced = ""
+local tMulti: { [Model]: number } = {} -- multi-lock progress per target
 local nLastFlare = -100
 local tRay = RaycastParams.new()
 tRay.FilterType = Enum.RaycastFilterType.Include
@@ -163,6 +164,23 @@ local function step(dt: number)
 	end
 	Store.Values.tTargets:set(hud)
 
+	-- secondary locks for multi-lock jets/pass: every target in the cone builds its own progress
+	local maxLocks = stats.MultiLock or 1
+	if maxLocks > 1 then
+		local seen = {}
+		for _, m in ipairs(targets) do
+			local p = (m.PrimaryPart :: BasePart).Position
+			local to = p - cf.Position
+			if to.Magnitude < WeaponConfig.Missile.LockRange and math.acos(math.clamp(cf.LookVector:Dot(to.Unit), -1, 1)) < WeaponConfig.Missile.LockCone * 1.6 then
+				seen[m] = true
+				tMulti[m] = (tMulti[m] or 0) + dt
+			end
+		end
+		for m in pairs(tMulti) do if not seen[m] then tMulti[m] = nil end end
+	else
+		table.clear(tMulti)
+	end
+
 	-- lock state machine (stealth jets take longer to lock)
 	local lockTime = stats.LockTime or 1.2
 	if best and best:GetAttribute("LowObservable") then lockTime *= 1.4 end
@@ -257,7 +275,20 @@ local function fireMissile()
 		Weapons.Fired:Fire("NoLock")
 		return
 	end
-	oRequest:FireServer({ a = "Missile", t = { t.Name } })
+	local names = { t.Name }
+	local stats = Flight.Stats or {}
+	local maxLocks = stats.MultiLock or 1
+	if maxLocks > 1 then
+		-- extra targets that have held in the cone long enough
+		local extra = {}
+		for m, prog in pairs(tMulti) do
+			local need = WeaponConfig.MultiLock.LockTime * (if m:GetAttribute("LowObservable") then 1.4 else 1)
+			if m ~= t and m.Parent and prog >= need then table.insert(extra, { m = m, p = prog }) end
+		end
+		table.sort(extra, function(a, b) return a.p > b.p end)
+		for i = 1, math.min(#extra, maxLocks - 1) do table.insert(names, extra[i].m.Name) end
+	end
+	oRequest:FireServer({ a = "Missile", t = names })
 	Weapons.Fired:Fire("Missile")
 end
 
