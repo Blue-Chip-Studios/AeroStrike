@@ -37,7 +37,6 @@ local oRequest
 local nStepStarted = 0
 local tRings: { Model } = {}
 local iRing = 1
-local oFuelRing: Model? = nil
 local nBoostHeld = 0
 local nGunHits = 0
 local nGHeld = 0
@@ -76,7 +75,6 @@ end
 local function clearLane()
 	for _, r in ipairs(tRings) do r:Destroy() end
 	table.clear(tRings)
-	if oFuelRing then oFuelRing:Destroy() oFuelRing = nil end
 end
 
 local function placeRing(pos: Vector3, dir: Vector3, gold: boolean): Model?
@@ -156,24 +154,9 @@ local function step(dt: number)
 		end
 	elseif id == "afterburner" then
 		if Input.State.Boost then nBoostHeld += dt end
-		if nBoostHeld >= FTUEConfig.BoostHoldTime and not oFuelRing then
-			local cf = carrierCF()
-			-- place the gold ring ahead of the pilot, not at a fixed spot they may have passed
-			local ahead = if jet and jet.PrimaryPart then jet.PrimaryPart.Position + jet.PrimaryPart.CFrame.LookVector * 700 else (cf * CFrame.new(FTUEConfig.FuelRing)).Position
-			local dir = if jet and jet.PrimaryPart then jet.PrimaryPart.CFrame.LookVector else cf.LookVector
-			oFuelRing = placeRing(Vector3.new(ahead.X, math.max(ahead.Y, 150), ahead.Z), dir, true)
-		end
-		if oFuelRing then
-			local c = oFuelRing:GetPivot().Position
-			MissionClient.Override = c
-			if pos and (pos - c).Magnitude < FTUEConfig.RingRadius * 1.3 then
-				oFuelRing:Destroy()
-				oFuelRing = nil
-				Flight:Refuel()
-				Store.Values.sLaunchResult:set("REFUELLED")
-				task.delay(1, function() Store.Values.sLaunchResult:set("") end)
-				complete(idx)
-			end
+		if nBoostHeld >= FTUEConfig.BoostHoldTime then
+			-- refuelling is now taught by the tanker when fuel first runs low (no free refuel rings)
+			complete(idx)
 		end
 	elseif id == "guns" then
 		MissionClient.Override = trainingDronePos()

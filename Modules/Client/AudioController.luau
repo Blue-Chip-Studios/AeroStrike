@@ -125,6 +125,11 @@ local function oneShot(sKey: string, opts: { At: Vector3?, Pitch: number?, Volum
 	end)
 end
 
+-- play a one-shot from another module (e.g. TankerClient's "connected" cue)
+function Audio.Cue(self, sKey: string)
+	oneShot(sKey)
+end
+
 local function vo(sKey: string)
 	local cd = AudioConfig.VOCooldown[sKey] or 4
 	if os.clock() - (tVOLast[sKey] or -100) < cd then return end

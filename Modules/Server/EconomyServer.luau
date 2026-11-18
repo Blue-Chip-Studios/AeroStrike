@@ -118,10 +118,11 @@ function Economy.Bank(self, oPlayer: Player)
 	self.OnBanked:Fire(oPlayer, banked)
 end
 
-function Economy.LoseOnDeath(self, oPlayer: Player, bKeepAll: boolean?)
+function Economy.LoseOnDeath(self, oPlayer: Player, bKeepAll: boolean?, bEjected: boolean?)
 	local v = tSortie[oPlayer] or 0
 	if v <= 0 then return end
-	local kept = if bKeepAll then v else math.floor(v * EconomyConfig.KeepOnDeath)
+	local keep = if bEjected then EconomyConfig.KeepOnEject else EconomyConfig.KeepOnDeath
+	local kept = if bKeepAll then v else math.floor(v * keep)
 	tSortie[oPlayer] = 0
 	addCash(oPlayer, kept, "SortieKept", "Gameplay")
 	oEvent:FireClient(oPlayer, { a = "Sortie", v = 0 })
@@ -270,7 +271,7 @@ function Economy.StartAsync(self)
 		local ok, Mon = pcall(require, ServerStorage.ServerModules:FindFirstChild("MonetizationServer") :: any)
 		local keepAll = false
 		if ok and Mon and Mon.ConsumeBountyShield then keepAll = Mon:ConsumeBountyShield(oPlayer) end
-		self:LoseOnDeath(oPlayer, keepAll)
+		self:LoseOnDeath(oPlayer, keepAll, sCause == "eject")
 		analytics():Log(oPlayer, "sortie_end", { cause = sCause })
 	end)
 end

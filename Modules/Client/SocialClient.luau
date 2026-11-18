@@ -180,10 +180,6 @@ local function step(dt: number)
 				end
 			end
 		end
-		if inForm then
-			local st = Flight.State
-			st.Fuel = math.min(Flight.Stats.Fuel, st.Fuel + EconomyConfig.FormationFuelPerSec * dt)
-		end
 	end
 	Store.Values.bFormation:set(inForm)
 end

@@ -46,4 +46,5 @@ return {
 	MapCentre = Vector3.new(0, 0, 0),
 	RingAssetId = 82812705025398, -- Blender flight/fuel ring
 	MissileAssetId = 137511282209196, -- Blender IR missile (cosmetic client proxy)
+	ParachuteAssetId = 136874083901245, -- Blender ejection seat, pilot and parachute
 }

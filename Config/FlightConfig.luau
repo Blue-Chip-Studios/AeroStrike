@@ -9,7 +9,7 @@
 return {
 	-- Aim-to-fly
 	AimDistance = 600, -- studs ahead the aim point is projected
-	MaxAimAngle = math.rad(75), -- aim point can't be further than this from the nose
+	MaxAimAngle = math.rad(55), -- aim point can't be further than this from the nose (less snap-aiming)
 	BankFactor = 1.1, -- how strongly the jet banks into a turn
 	MaxBank = math.rad(80),
 
@@ -17,7 +17,17 @@ return {
 	TurnLowSpeedMult = 0.55,
 	TurnHighSpeedMult = 0.6,
 
-	-- Energy
+	-- Energy / throttle (the skill layer: simple to fly, rewarding to fly well)
+	MilPowerMult = 1.15, -- 100% throttle = CruiseSpeed x this; afterburner = MaxSpeed
+	DefaultThrottle = 0.75,
+	IdleSpeedMult = 1.08, -- idle throttle settles just above stall: climbs and hard turns at low throttle stall you
+	TurnBleed = 9, -- studs/s^2 of speed lost per G above BleedStartG (sustained 8G outpaces military thrust)
+	BleedStartG = 2.5,
+	RollInMin = 0.45, -- turn rate fraction before the jet has banked into a hard turn
+	StallMult = 1.0, -- stall below MinSpeed x this
+	StallAuthority = 0.4, -- turn rate while stalled
+	StallNoseDrop = 0.35, -- how hard the nose falls in a stall
+	FloorSpeedMult = 0.7, -- absolute minimum speed (deep stall)
 	ClimbDrag = 18, -- studs/s^2 lost per 1.0 of nose-up
 	DiveGain = 14,
 	NoFuelSpeedCap = 0.55, -- top speed fraction with empty tank (no flame-out)

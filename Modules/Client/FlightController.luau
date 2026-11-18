@@ -191,6 +191,7 @@ local function step(dt: number)
 			Flight.AimDir = (sp.finish.LookVector + Vector3.new(0, 0.18, 0)).Unit -- gentle climb-out
 			bClimbOut = true
 			nLaunchedAt = os.clock()
+			Input:ResetThrottle(FlightConfig.DefaultThrottle)
 			setPhase("Flying")
 		end
 		return
@@ -241,6 +242,7 @@ local function step(dt: number)
 		AimDir = Flight.AimDir,
 		Boost = Input.State.Boost,
 		Brake = Input.State.Brake,
+		Throttle = Input.State.Throttle,
 		Roll = Input.State.Roll,
 	}
 	local prev = st.CFrame
@@ -287,6 +289,7 @@ local function step(dt: number)
 	Store.Values.nHeading:set((math.deg(math.atan2(lv.X, -lv.Z)) + 360) % 360)
 	Store.Values.bShield:set(jet:GetAttribute("Shield") == true)
 	Store.Values.bBoost:set(Input.State.Boost)
+	Store.Values.bStall:set(st.Stalled == true)
 	-- ground proximity: warn when the current flight path meets sea or terrain within ~3 s
 	nPullUpTick += dt
 	if nPullUpTick > 0.1 then
@@ -320,6 +323,16 @@ end
 function Flight.StartAsync(self)
 	Input = require(script.Parent.InputController)
 	oRequest = Remote:GetEvent("FlightRequest")
+	Input.Pressed:Connect(function(sName: string)
+		if sName == "Eject" and Flight.Phase == "Flying" then oRequest:FireServer({ a = "Eject" }) end
+	end)
+	-- Studio-only QA: QA_Fuel = 0..1 sets the tank level (tanker / low-fuel tests)
+	if RunService:IsStudio() then
+		LocalPlayer:GetAttributeChangedSignal("QA_Fuel"):Connect(function()
+			local v = LocalPlayer:GetAttribute("QA_Fuel")
+			if typeof(v) == "number" and Flight.State and Flight.Stats then Flight.State.Fuel = Flight.Stats.Fuel * math.clamp(v, 0, 1) end
+		end)
+	end
 	oEvent = Remote:GetEvent("FlightEvent")
 	oEvent:OnClientEvent(function(t: any)
 		if typeof(t) ~= "table" then return end

@@ -316,7 +316,12 @@ function Npc.Spawn(self, sKind: string, cf: CFrame, opts: { [string]: any }?): M
 	m:SetAttribute("NpcKind", sKind)
 	m:SetAttribute("Health", cfg.Health)
 	m:SetAttribute("MaxHealth", cfg.Health)
-	m:SetAttribute("Pilot", if sKind == "Bomber" then "TALON BOMBER" elseif sKind == "Interceptor" then "RED TALON" else "DRONE")
+	m:SetAttribute("Pilot", if sKind == "Bomber" then "TALON BOMBER" elseif sKind == "Interceptor" then "RED TALON" elseif sKind == "Tanker" then "TANKER" else "DRONE")
+	if cfg.Friendly then
+		m:SetAttribute("Friendly", true)
+		-- always streamed to every client: its marker / low-fuel guidance must work from anywhere
+		m.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+	end
 	if o.Tag then m:SetAttribute("MissionTag", o.Tag) end
 	m:PivotTo(cf)
 	m.Parent = workspace.NPC

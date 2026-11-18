@@ -28,12 +28,14 @@ export type State = {
 	OverGTime: number,
 	GLocTimer: number,
 	FreeBoost: number,
+	Stalled: boolean?,
 }
 
 export type Input = {
 	AimDir: Vector3, -- unit, world space
-	Boost: boolean,
-	Brake: boolean,
+	Boost: boolean, -- afterburner
+	Brake: boolean, -- legacy (unused; throttle replaces it)
+	Throttle: number?, -- 0..1 set-and-hold throttle (military power at 1)
 	Roll: number, -- -1..1 manual roll (0 = auto bank)
 }
 
@@ -84,6 +86,18 @@ function FlightModel.Step(st: State, input: Input, s: Stats, dt: number): State
 	local overG = math.clamp((st.G - s.GTolerance) / math.max(FlightConfig.GMax - s.GTolerance, 1), 0, 1)
 	local glocMult = if st.GLocTimer > 0 then 0.35 else 1
 	local rate = s.TurnRate * FlightModel.TurnCurve(st.Speed, s) * (1 - FlightConfig.GStiffen * overG) * glocMult
+	-- roll-in: a hard turn only bites once the jet has banked into it
+	local wantBank = math.abs(math.clamp(-(cf.RightVector:Dot(aim - fwd)) * FlightConfig.BankFactor * 3, -FlightConfig.MaxBank, FlightConfig.MaxBank))
+	if wantBank > 0.35 then
+		local banked = math.clamp(math.abs(st.Bank) / wantBank, 0, 1)
+		rate *= FlightConfig.RollInMin + (1 - FlightConfig.RollInMin) * banked
+	end
+	-- stall: below MinSpeed the controls go mushy and the nose drops
+	st.Stalled = st.Speed < s.MinSpeed * FlightConfig.StallMult
+	if st.Stalled then
+		rate *= FlightConfig.StallAuthority
+		aim = (aim + Vector3.new(0, -FlightConfig.StallNoseDrop, 0)).Unit
+	end
 	local newFwd, turned = rotateToward(fwd, aim, rate * dt)
 	local omega = turned / math.max(dt, 1e-3)
 
@@ -110,9 +124,11 @@ function FlightModel.Step(st: State, input: Input, s: Stats, dt: number): State
 	-- speed
 	local hasFuel = st.Fuel > 0
 	local boosting = (input.Boost and hasFuel) or st.FreeBoost > 0
-	local target = s.CruiseSpeed
+	local throttle = math.clamp(if input.Throttle ~= nil then input.Throttle else 0.75, 0, 1)
+	local milSpeed = s.CruiseSpeed * FlightConfig.MilPowerMult
+	local idle = s.MinSpeed * FlightConfig.IdleSpeedMult
+	local target = idle + (milSpeed - idle) * throttle
 	if boosting then target = s.MaxSpeed end
-	if input.Brake then target = s.MinSpeed end
 	if not hasFuel then target = math.min(target, s.MaxSpeed * FlightConfig.NoFuelSpeedCap) end
 	local accel = s.Accel * (if boosting then 1.4 else 1)
 	if st.Speed < target then
@@ -127,10 +143,12 @@ function FlightModel.Step(st: State, input: Input, s: Stats, dt: number): State
 	else
 		st.Speed += -pitch * FlightConfig.DiveGain * dt
 	end
-	st.Speed = math.clamp(st.Speed, s.MinSpeed, s.MaxSpeed * 1.15)
+	-- hard turns bleed energy: sustained high G slows you down (manage throttle/afterburner)
+	st.Speed -= math.max(0, st.G - FlightConfig.BleedStartG) * FlightConfig.TurnBleed * dt
+	st.Speed = math.clamp(st.Speed, s.MinSpeed * FlightConfig.FloorSpeedMult, s.MaxSpeed * 1.15)
 
 	-- fuel
-	local burn = s.FuelBurn + (if input.Boost and st.FreeBoost <= 0 and hasFuel then s.BoostBurn else 0)
+	local burn = s.FuelBurn * (0.4 + 0.8 * throttle) + (if input.Boost and st.FreeBoost <= 0 and hasFuel then s.BoostBurn else 0)
 	st.Fuel = math.max(0, st.Fuel - burn * dt)
 	st.FreeBoost = math.max(0, st.FreeBoost - dt)
 

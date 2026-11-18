@@ -99,7 +99,13 @@ return function(scope: any, props: { [string]: any })
 							scope:New("UIStroke")({ Thickness = 3,
 								Color = scope:Computed(function(use) return if use(V.sLockState) == "Locked" then Theme.Threat else Theme.Hud end) }),
 							C.HudText(scope, { Font = Theme.Display, TextSize = 13, Position = UDim2.new(0.5, 0, 1, 14), Size = UDim2.fromOffset(120, 16),
-								Color = Theme.Threat, Text = scope:Computed(function(use) return if use(V.sLockState) == "Locked" then "LOCK" else "" end) }),
+								Color = scope:Computed(function(use) return if use(V.sLockState) == "Locked" then Theme.Threat else Theme.Hud end),
+								Text = scope:Computed(function(use)
+									local st = use(V.sLockState)
+									if st == "Locked" then return "LOCK" end
+									if st == "Seeking" then return string.format("SEEKING %d%%", math.floor((use(V.nLockProgress) :: number) * 100)) end
+									return ""
+								end) }),
 						},
 					}),
 					-- gun lead pip
@@ -128,9 +134,27 @@ return function(scope: any, props: { [string]: any })
 					-- threat banner
 					C.HudText(scope, { Name = "Threat", Font = Theme.Display, TextSize = 26, Color = Theme.Threat,
 						Position = UDim2.fromScale(0.5, 0.24), Size = UDim2.fromOffset(520, 40), Text = threatText }),
+					-- hit marker: white X flash on the reticle for every server-confirmed hit
+					C.HudText(scope, { Name = "HitMarker", Font = Theme.Display, TextSize = 34, Color = Color3.fromRGB(255, 255, 255), Text = "X",
+						Position = scope:Computed(function(use) local v = use(V.tAimScreen) :: Vector2 return UDim2.fromOffset(v.X, v.Y) end),
+						Size = UDim2.fromOffset(40, 40), Visible = V.bHitMarker }),
+					-- target health bar
+					scope:New("Frame")({
+						Name = "TargetHp", AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromOffset(74, 7),
+						BackgroundColor3 = Color3.fromRGB(10, 14, 18), BackgroundTransparency = 0.3, BorderSizePixel = 0,
+						Position = scope:Computed(function(use) local t = use(V.tTargetHp) return if t then UDim2.fromOffset(t.Pos.X, t.Pos.Y + 62) else UDim2.fromOffset(-500, -500) end),
+						Visible = scope:Computed(function(use) return use(V.tTargetHp) ~= false end),
+						[Children] = {
+							scope:New("Frame")({
+								BorderSizePixel = 0,
+								Size = scope:Computed(function(use) local t = use(V.tTargetHp) return UDim2.fromScale(if t then t.Frac else 0, 1) end),
+								BackgroundColor3 = scope:Computed(function(use) local t = use(V.tTargetHp) local f = if t then t.Frac else 1 return if f <= 0.35 then Theme.Threat elseif f <= 0.65 then Theme.Amber else Theme.Hud end),
+							}),
+						},
+					}),
 					-- lock coaching (heat-seeker mechanic): GET ON THEIR SIX / TERRAIN MASKING / LOST IN THE SUN ...
 					C.HudText(scope, { Name = "LockHint", Font = Theme.Display, TextSize = 16, Color = Theme.Amber,
-						Position = UDim2.fromScale(0.5, 0.58), Size = UDim2.fromOffset(420, 22), Text = V.sLockHint }),
+						Position = UDim2.fromScale(0.5, 0.345), Size = UDim2.fromOffset(420, 22), Text = V.sLockHint }), -- above the reticle, clear of the lock box
 					-- ammo panel (right of centre, above touch controls)
 					scope:New("Frame")({
 						Name = "Ammo",
@@ -247,16 +271,22 @@ return function(scope: any, props: { [string]: any })
 				Size = UDim2.fromOffset(460, 92),
 				BackgroundColor3 = Theme.Panel,
 				BackgroundTransparency = 0.05,
-				Visible = scope:Computed(function(use) return use(V.sPhase) == "Dead" and use(V.tKillCard) ~= false end),
+				Visible = scope:Computed(function(use) return use(V.sPhase) == "Dead" and use(V.tKillCard) ~= false and not use(V.bHideKillCard) end),
 				[Children] = {
 					scope:New("Frame")({ Size = UDim2.new(1, 0, 0, 3), BackgroundColor3 = Theme.Threat, BorderSizePixel = 0 }),
-					C.HudText(scope, { Text = "SHOT DOWN BY", Font = Theme.Display, TextSize = 12, Color = Theme.Threat, AnchorPoint = Vector2.zero,
+					C.HudText(scope, { Font = Theme.Display, TextSize = 12, Color = Theme.Threat, AnchorPoint = Vector2.zero,
+						Text = scope:Computed(function(use)
+							local k = use(V.tKillCard)
+							if k and k.Weapon == "Eject" then return if (k.Killer or "") ~= "" then "FORCED TO EJECT BY" else "YOU EJECTED" end
+							return "SHOT DOWN BY"
+						end),
 						XAlign = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(18, 14), Size = UDim2.fromOffset(300, 16) }),
 					C.HudText(scope, { Font = Theme.Body, TextSize = 26, Color = Theme.Ink, AnchorPoint = Vector2.zero, XAlign = Enum.TextXAlignment.Left,
 						Position = UDim2.fromOffset(18, 32), Size = UDim2.fromOffset(420, 30),
 						Text = scope:Computed(function(use) local k = use(V.tKillCard) -- no player killer: name the AI/hazard that did it (Red Talon, SAM, Tail Gunner) unless it was a crash
 							if not k then return "" end
 							if k.Killer ~= "" then return k.Killer end
+							if k.Weapon == "Eject" then return "Unbanked cash saved" end
 							if k.Weapon and k.Weapon ~= "" and k.Weapon ~= "Crash" then return string.upper(k.Weapon) end
 							return "The ground"
 						end) }),

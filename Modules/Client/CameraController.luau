@@ -41,6 +41,16 @@ local function update(dt: number)
 	local st = Flight.State
 
 	if phase == "Dead" or not jet or not jet.Parent or not jet.PrimaryPart then
+		-- you ejected: watch your own parachute drift down (with the wreck falling away behind)
+		local chute = (require(script.Parent.VfxController) :: any).OwnChuteCF :: CFrame?
+		if chute then
+			nDeathAngle += dt * 0.18
+			local p = chute.Position + Vector3.new(math.cos(nDeathAngle) * 38, 10, math.sin(nDeathAngle) * 38)
+			cam.CFrame = cam.CFrame:Lerp(CFrame.lookAt(p, chute.Position + Vector3.new(0, 6, 0)), math.clamp(dt * 3, 0, 1))
+			cam.FieldOfView = 65
+			oGrade.Saturation = 0
+			return
+		end
 		nDeathAngle += dt * 0.25
 		local p = vDeathPoint + Vector3.new(math.cos(nDeathAngle) * 90, 45, math.sin(nDeathAngle) * 90)
 		cam.CFrame = cam.CFrame:Lerp(CFrame.lookAt(p, vDeathPoint), math.clamp(dt * 2, 0, 1))

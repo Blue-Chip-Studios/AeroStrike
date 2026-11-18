@@ -22,7 +22,6 @@ return {
 	},
 	DailyTrack = { 100, 150, 250, 400, 600, 900, 1500 },
 	FormationRange = 150,
-	FormationFuelPerSec = 1.2,
 	AssistThreshold = 0.25,
 	NerveKillMult = 1.5,
 	RevengeMult = 2.0,
@@ -30,6 +29,7 @@ return {
 	-- Bank It
 	BankBonus = 1.25,
 	KeepOnDeath = 0.75,
+	KeepOnEject = 1.0, -- eject before you are shot down and you keep ALL your unbanked Sortie Cash (death keeps 75%)
 	BankRadius = 260, -- studs from carrier deck centre, below BankMaxAltitude
 	BankMaxAltitude = 120,
 

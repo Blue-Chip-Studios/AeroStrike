@@ -46,7 +46,8 @@ return function(scope: any, props: { [string]: any })
 			(function()
 				local strength = scope:Computed(function(use)
 					local g = use(V.nG) :: number
-					return math.clamp((g - 5) / 4, 0, 0.9)
+					-- G grey-out and the red "you've been hit" flash share the vignette edges
+					return math.max(math.clamp((g - 5) / 4, 0, 0.9), (use(V.nHurt) :: number) * 0.85)
 				end)
 				local edges = {}
 				for _, e in ipairs({
@@ -115,6 +116,67 @@ return function(scope: any, props: { [string]: any })
 					-- shield
 					C.HudText(scope, { Name = "Shield", Text = "SPAWN SHIELD", Font = Theme.Display, TextSize = 14, Color = Theme.Squad,
 						Position = UDim2.new(0.5, 0, 0.7, 0), Visible = V.bShield }),
+					-- throttle gauge (left of the speed column): green fill = throttle, AB segment glows on afterburner
+					scope:New("Frame")({
+						Name = "Throttle", AnchorPoint = Vector2.new(0.5, 0.5),
+						Position = scope:Computed(function(use) return UDim2.new(if use(V.bTouch) then 0.38 else 0.24, -112, 0.5, 0) end),
+						Size = UDim2.fromOffset(16, 150), BackgroundColor3 = Color3.fromRGB(10, 16, 20), BackgroundTransparency = 0.45, BorderSizePixel = 0,
+						[Children] = {
+							scope:New("UICorner")({ CornerRadius = UDim.new(0, 3) }),
+							scope:New("UIStroke")({ Color = Theme.Hud, Transparency = 0.5, Thickness = 1 }),
+							scope:New("Frame")({ -- throttle fill (bottom 80% of the bar)
+								AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), BorderSizePixel = 0,
+								BackgroundColor3 = Theme.Hud, BackgroundTransparency = 0.15,
+								Size = scope:Computed(function(use) return UDim2.fromScale(1, 0.8 * (use(V.nThrottle) :: number)) end),
+							}),
+							scope:New("Frame")({ -- afterburner detent segment (top 20%)
+								Position = UDim2.fromScale(0, 0), Size = UDim2.fromScale(1, 0.2), BorderSizePixel = 0,
+								BackgroundColor3 = Theme.Amber,
+								BackgroundTransparency = scope:Computed(function(use) return if use(V.bBoost) then 0 else 0.85 end),
+							}),
+							C.HudText(scope, { Font = Theme.Display, TextSize = 11, Position = UDim2.new(0.5, 0, 0, -10), Size = UDim2.fromOffset(60, 14),
+								Color = scope:Computed(function(use) return if use(V.bBoost) then Theme.Amber else Theme.Hud end),
+								Text = scope:Computed(function(use) return if use(V.bBoost) then "AB" else string.format("%d%%", math.floor((use(V.nThrottle) :: number) * 100 + 0.5)) end) }),
+							C.HudText(scope, { Font = Theme.Display, TextSize = 10, Position = UDim2.new(0.5, 0, 1, 10), Size = UDim2.fromOffset(60, 14),
+								Text = "THR" }),
+						},
+					}),
+					-- stall warning
+					C.HudText(scope, { Name = "Stall", Text = "STALL - LOWER THE NOSE, ADD THROTTLE", Font = Theme.Display, TextSize = 20, Color = Theme.Threat,
+						Position = UDim2.new(0.5, 0, 0.665, 0), Size = UDim2.fromOffset(460, 28), Visible = V.bStall }),
+					-- hull integrity (left column, mirrors FUEL)
+					C.HudText(scope, { Name = "HullLbl", Text = "HULL", Font = Theme.Display, TextSize = 12, Position = colL(0.605),
+						Color = scope:Computed(function(use) return if use(V.bHullCritical) then Theme.Threat else Theme.Hud end) }),
+					C.HudBar(scope, { Name = "Hull", Position = colL(0.635), Size = UDim2.fromOffset(150, 10), Fill = V.nHull,
+						Color = scope:Computed(function(use) local h = use(V.nHull) :: number return if h <= 0.35 then Theme.Threat elseif h <= 0.65 then Theme.Amber else Theme.Hud end) }),
+					C.HudText(scope, { Name = "HullCritical", Font = Theme.Display, TextSize = 20, Color = Theme.Threat,
+						Position = UDim2.new(0.5, 0, 0.745, 0), Size = UDim2.fromOffset(560, 28),
+						Visible = scope:Computed(function(use) return use(V.bHullCritical) and use(V.nPullUpBlink) end),
+						Text = scope:Computed(function(use)
+							if use(V.bTouch) then return "HULL CRITICAL - TAP EJECT" end
+							if use(V.bGamepad) then return "HULL CRITICAL - HOLD [Y] TO EJECT" end
+							return "HULL CRITICAL - HOLD [X] TO EJECT"
+						end) }),
+					-- tanker / fuel guidance
+					C.HudText(scope, { Name = "RefuelHint", Font = Theme.Display, TextSize = 18, Color = Theme.Hud,
+						Position = UDim2.new(0.5, 0, 0.705, 0), Size = UDim2.fromOffset(520, 26), Text = V.sRefuelHint }),
+					-- touch throttle slider (left edge; touches here don't steer)
+					scope:New("Frame")({
+						Name = "ThrottleSlider", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 18, 0.55, 0),
+						Size = UDim2.fromOffset(56, 230), BackgroundColor3 = Color3.fromRGB(10, 16, 20), BackgroundTransparency = 0.4,
+						Visible = V.bTouch, Active = true,
+
+						[Children] = {
+							scope:New("UICorner")({ CornerRadius = UDim.new(0, 10) }),
+							scope:New("UIStroke")({ Color = Theme.Hud, Transparency = 0.4, Thickness = 2 }),
+							scope:New("Frame")({ -- knob
+								AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(1, 8, 0, 22), BackgroundColor3 = Theme.Hud,
+								Position = scope:Computed(function(use) return UDim2.fromScale(0.5, 1 - (use(V.nThrottle) :: number)) end),
+								[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 6) }) },
+							}),
+							C.HudText(scope, { Font = Theme.Display, TextSize = 11, Position = UDim2.new(0.5, 0, 1, 12), Size = UDim2.fromOffset(80, 14), Text = "THROTTLE" }),
+						},
+					}),
 					-- ground-proximity warning (flashes)
 					C.HudText(scope, { Name = "PullUp", Text = "PULL UP", Font = Theme.Display, TextSize = 30, Color = Theme.Threat,
 						Position = UDim2.new(0.5, 0, 0.62, 0), Size = UDim2.fromOffset(320, 40),
@@ -228,7 +290,13 @@ return function(scope: any, props: { [string]: any })
 				Size = UDim2.fromScale(1, 1),
 				Visible = dead,
 				[Children] = {
-					C.HudText(scope, { Text = "SHOT DOWN", Font = Theme.Display, TextSize = 34, Color = Theme.Threat, Position = UDim2.fromScale(0.5, 0.38) }),
+					C.HudText(scope, { Font = Theme.Display, TextSize = 34, Color = Theme.Threat, Position = UDim2.fromScale(0.5, 0.38),
+						Text = scope:Computed(function(use)
+							local k = use(V.tKillCard)
+							if k and k.Weapon == "Eject" then return "EJECTED" end
+							if k and k.Weapon == "Crash" and (k.Killer or "") == "" then return "CRASHED" end
+							return "SHOT DOWN"
+						end) }),
 					C.PrimaryButton(scope, { Name = "Relaunch", Text = "RELAUNCH", Position = UDim2.fromScale(0.5, 0.62),
 						OnClick = function() Flight:Relaunch() end }),
 					scope:New("TextButton")({
@@ -256,6 +324,9 @@ return function(scope: any, props: { [string]: any })
 						OnDown = function() Input:SetTouch("Missile", true) end, OnUp = function() Input:SetTouch("Missile", false) end }),
 					C.TouchButton(scope, { Name = "Flare", Label = "FLARE", Position = UDim2.fromOffset(70, 222), Cooldown = V.nFlareCooldown,
 						OnDown = function() Input:SetTouch("Flare", true) end, OnUp = function() Input:SetTouch("Flare", false) end }),
+					-- appears only when the hull is critical (a single tap ejects)
+					C.TouchButton(scope, { Name = "Eject", Label = "EJECT", Color = Theme.Threat, SizePx = 84, Position = UDim2.fromOffset(222, -40), Visible = V.bHullCritical,
+						OnDown = function() Input:SetTouch("Eject", true) end, OnUp = function() Input:SetTouch("Eject", false) end }),
 				},
 			}),
 		},

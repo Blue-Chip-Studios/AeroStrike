@@ -226,6 +226,22 @@ function Mission.StartAsync(self)
 	Analytics = require(ServerStorage.ServerModules.AnalyticsServer)
 	Flight = require(ServerStorage.ServerModules.FlightServer)
 
+	-- the aerial refuelling tanker is always on station (respawned if it ever goes missing)
+	task.spawn(function()
+		local NpcConfig = require(ReplicatedStorage.Config.NpcConfig)
+		local cfg = NpcConfig.Kinds.Tanker
+		if not cfg or cfg.AssetId == 0 then return end
+		local tanker: Model? = nil
+		while true do
+			if not (tanker and tanker.Parent) then
+				local centre = MapConfig.Carrier.CFrame.Position + cfg.Orbit.Offset
+				tanker = Npc:Spawn("Tanker", CFrame.new(centre + Vector3.new(cfg.Orbit.Radius, 0, 0)), {
+					Orbit = { Centre = centre, Radius = cfg.Orbit.Radius }, Tag = "Tanker" })
+			end
+			task.wait(5)
+		end
+	end)
+
 	Combat.OnDamage.Event:Connect(function(attacker: Player?, victim: Model)
 		local cur = self.Current
 		if attacker and cur and cur.Units[victim] and not cur.Participants[attacker] then

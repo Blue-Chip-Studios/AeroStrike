@@ -76,6 +76,15 @@ local tValues = {
 	bFormation = false,
 	tObjectiveScreen = Vector2.new(-1000, -1000),
 	bPullUp = false, -- ground-proximity warning
+	nThrottle = 0.75, -- 0..1 set-and-hold throttle
+	bStall = false,
+	bHideKillCard = false, -- briefly hides the death card after an eject
+	bHitMarker = false, -- server-confirmed gun hit (flash)
+	nHull = 1, -- own jet health 0..1
+	bHullCritical = false,
+	nHurt = 0, -- red edge flash strength when hit
+	tTargetHp = false, -- false | { Pos: Vector2, Frac: number } health bar under the focused target
+	sRefuelHint = "", -- tanker guidance: REFUELLING 64% / TOO FAST - THROTTLE BACK / LOW FUEL ...
 	nPullUpBlink = true,
 
 	-- platform

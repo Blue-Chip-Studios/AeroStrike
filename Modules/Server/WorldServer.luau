@@ -366,6 +366,29 @@ function World.PreloadAsync(self)
 		missile.Name = "Missile"
 		missile.Parent = ct
 	end
+	-- Blender ejection seat + pilot + parachute (VfxController plays the eject sequence)
+	local chute = loadModel(MapConfig.ParachuteAssetId)
+	if chute then
+		local paint = {
+			Canopy = { Color3.fromRGB(255, 120, 30), Enum.Material.Fabric },
+			CanopyAlt = { Color3.fromRGB(236, 236, 230), Enum.Material.Fabric },
+			Lines = { Color3.fromRGB(220, 220, 214), Enum.Material.SmoothPlastic },
+			Pilot = { Color3.fromRGB(82, 92, 62), Enum.Material.Fabric },
+			Helmet = { Color3.fromRGB(232, 232, 226), Enum.Material.SmoothPlastic },
+			Visor = { Color3.fromRGB(22, 16, 10), Enum.Material.Glass },
+			Seat = { Color3.fromRGB(42, 44, 48), Enum.Material.Metal },
+		}
+		for _, d in ipairs(chute:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored, d.CanCollide, d.CanQuery, d.CanTouch = true, false, false, false
+				d.Name = ModuleUtil.StripSuffix(d.Name)
+				local p = paint[d.Name]
+				if p then d.Color = p[1]; d.Material = p[2] end
+			end
+		end
+		chute.Name = "Parachute"
+		chute.Parent = ct
+	end
 	ct.Parent = ReplicatedStorage
 
 	local npc = workspace:FindFirstChild("NPC") or Instance.new("Folder")

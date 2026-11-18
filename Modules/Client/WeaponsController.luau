@@ -48,6 +48,8 @@ local nLockProgress = 0
 local sLockState = "None"
 local oLockCandidate: Model? = nil
 local nFlaredUntil = 0 -- our lock target just popped flares
+local nLastDumbFire = 0
+local nNoLockHintUntil = 0
 local sAnnounced = ""
 local tMulti: { [Model]: number } = {} -- multi-lock progress per target (one entry per target in the cone)
 local nLastFlare = -100
@@ -223,7 +225,7 @@ local function allTargets(): { Model }
 	local npc = Workspace:FindFirstChild("NPC")
 	if npc then
 		for _, m in ipairs(npc:GetChildren()) do
-			if m:IsA("Model") and m.PrimaryPart and not m:GetAttribute("Dead") then table.insert(out, m) end
+			if m:IsA("Model") and m.PrimaryPart and not m:GetAttribute("Dead") and not m:GetAttribute("Friendly") then table.insert(out, m) end
 		end
 	end
 	return out
@@ -265,6 +267,7 @@ local function step(dt: number)
 		nLockProgress = 0
 		Store.Values.sLockState:set("None")
 		Store.Values.tTargets:set({})
+		Weapons.FocusTarget = nil
 		Store.Values.sThreat:set("None")
 		return
 	end
@@ -360,7 +363,7 @@ local function step(dt: number)
 				env, envHint = LK.Sun, "LOST IN THE SUN"
 			end
 		end
-		local rate = aspect * range * bore * gf * evade * env / kindMult
+		local rate = math.max(aspect * range * bore * gf * evade / kindMult, LK.MinRate) * env
 		if env <= 0 then
 			nLockProgress = math.max(0, nLockProgress - dt * LK.Decay * lockTime) -- masked: lock bleeds away
 		else
@@ -381,6 +384,7 @@ local function step(dt: number)
 		if nLockProgress <= 0 then oLockCandidate = nil end
 	end
 	if os.clock() < nFlaredUntil then hint = "FLARES! RE-ACQUIRE" end
+	if os.clock() < nNoLockHintUntil then hint = "NO LOCK - UNGUIDED" end
 	Store.Values.sLockHint:set(hint)
 	local newState = if not best then "None" elseif nLockProgress >= lockTime then "Locked" else "Seeking"
 	if newState ~= sLockState then
@@ -388,6 +392,7 @@ local function step(dt: number)
 		announce(newState, best)
 	end
 	Weapons.LockTarget = if newState == "Locked" then best else nil
+	Weapons.FocusTarget = best or nearestGun -- what you are shooting at / locking (DamageController health bar)
 	Store.Values.sLockState:set(newState)
 	if RunService:IsStudio() then LocalPlayer:SetAttribute("QA_Lock", newState .. ":" .. (if best then best.Name else "")) end
 	Store.Values.nLockProgress:set(if best then nLockProgress / lockTime else 0)
@@ -483,7 +488,13 @@ local function fireMissile()
 	end
 	local t = Weapons.LockTarget
 	if not t then
-		Weapons.Fired:Fire("NoLock")
+		-- no lock: the missile still fires, unguided (server flies it straight with a proximity fuse)
+		if os.clock() - nLastDumbFire < WeaponConfig.Missile.ReloadInterval then return end
+		nLastDumbFire = os.clock()
+		oRequest:FireServer({ a = "Missile", t = {} })
+		launchEffect(jet)
+		Weapons.Fired:Fire("Missile")
+		nNoLockHintUntil = os.clock() + 1.2
 		return
 	end
 	local names = { t.Name }

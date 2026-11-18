@@ -20,6 +20,7 @@ local Store = require(ReplicatedStorage.BCDKClient.LMGui.Store)
 local LocalPlayer = Players.LocalPlayer
 local Vfx = ModuleUtil.New({
 	Boom = Instance.new("BindableEvent"), -- (pos, big) for audio
+	OwnChuteCF = nil :: CFrame?, -- your parachute while you drift down (CameraController follows it)
 })
 
 local Flight, Input
@@ -371,6 +372,116 @@ local function wreck(src: Model, vel: Vector3)
 	end)
 end
 
+
+-- ===================== EJECT =====================
+-- Canopy blows off, the seat rockets the pilot clear, the seat falls away, the chute blooms
+-- open and the pilot drifts down with a gentle sway. Everyone sees it; your camera follows yours.
+local CHUTE_PARTS = { Canopy = true, CanopyAlt = true, Lines = true }
+local function ejectSequence(cf: CFrame, vel: Vector3, mine: boolean)
+	local ct = ReplicatedStorage:FindFirstChild("ClientTemplates")
+	local tmpl = ct and ct:FindFirstChild("Parachute") :: Model?
+	if not tmpl then return end
+	local m = tmpl:Clone()
+	local helmet = m:FindFirstChild("Helmet") :: BasePart?
+	if not helmet then m:Destroy() return end
+	-- harness frame: just above the helmet, upright, facing the jet's heading
+	local look = Vector3.new(cf.LookVector.X, 0, cf.LookVector.Z)
+	look = if look.Magnitude > 1e-3 then look.Unit else Vector3.zAxis
+	local harness0 = CFrame.new(helmet.Position) -- template space
+	type PartRec = { P: BasePart, Off: CFrame, Size: Vector3, Chute: boolean, Seat: boolean }
+	local parts: { PartRec } = {}
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("BasePart") then
+			table.insert(parts, { P = d, Off = harness0:ToObjectSpace(d.CFrame), Size = d.Size, Chute = CHUTE_PARTS[d.Name] == true, Seat = d.Name == "Seat" })
+			if CHUTE_PARTS[d.Name] then d.Transparency = 1 end
+		end
+	end
+	m.Parent = oFx
+	local pos = cf.Position + cf.UpVector * 4
+	local v = vel * 0.6 + cf.UpVector * 95
+	local yaw = CFrame.lookAt(Vector3.zero, look)
+	-- canopy glass blows off
+	local glass = Instance.new("Part")
+	glass.Anchored, glass.CanCollide, glass.CanQuery = true, false, false
+	glass.Size = Vector3.new(2.6, 1.2, 4)
+	glass.Color = Color3.fromRGB(30, 60, 55)
+	glass.Material = Enum.Material.Glass
+	glass.Transparency = 0.3
+	glass.CFrame = cf * CFrame.new(0, 3, -2)
+	glass.Parent = oFx
+	local gv = vel * 0.7 + cf.UpVector * 60 - cf.LookVector * 30
+	-- seat rocket: flame + smoke under the seat
+	local rocket = Instance.new("Attachment")
+	local seatRec: PartRec? = nil
+	for _, r in ipairs(parts) do if r.Seat then seatRec = r end end
+	rocket.Parent = if seatRec then seatRec.P else helmet
+	rocket.Position = Vector3.new(0, -1.5, 0)
+	local flame = Instance.new("ParticleEmitter")
+	flame.Texture = FX.FlareGlow
+	flame.Color = ColorSequence.new(Color3.fromRGB(255, 230, 170), Color3.fromRGB(255, 110, 40))
+	flame.LightEmission = 1
+	flame.Size = NumberSequence.new(2.4, 0.4)
+	flame.Lifetime = NumberRange.new(0.08, 0.14)
+	flame.Rate = 80
+	flame.Speed = NumberRange.new(0)
+	flame.Parent = rocket
+	local smoke = smokeEmitter(rocket, Color3.fromRGB(235, 235, 238), 50, 1.6, 1.6)
+	local born = os.clock()
+	local deployed, seatGone = false, false
+	local seatPos, seatV = Vector3.zero, Vector3.zero
+	local sway = math.random() * 6
+	task.spawn(function()
+		while m.Parent and os.clock() - born < 22 do
+			local dt = RunService.Heartbeat:Wait()
+			local t = os.clock() - born
+			if not deployed then
+				v += Vector3.new(0, -60 * dt, 0)
+				if t > 0.9 then
+					deployed = true
+					flame.Rate, smoke.Rate = 0, 0
+					seatGone = true
+					seatPos, seatV = pos, v * 0.5 + Vector3.new(0, -10, 0)
+				end
+			else
+				-- under canopy: horizontal speed bleeds to a light drift, sink ~14 studs/s
+				local horiz = Vector3.new(v.X, 0, v.Z) * (1 - math.clamp(dt * 1.6, 0, 1))
+				local vy = v.Y + (-14 - v.Y) * math.clamp(dt * 2.2, 0, 1)
+				v = Vector3.new(horiz.X, vy, horiz.Z)
+			end
+			pos += v * dt
+			-- chute blooms open over 0.5 s after deploy
+			local k = if deployed then math.clamp((t - 0.9) / 0.5, 0.15, 1) else 0
+			local swing = if deployed then CFrame.Angles(math.rad(7) * math.sin(t * 1.3 + sway), 0, math.rad(5) * math.sin(t * 0.9 + sway)) else CFrame.Angles(math.rad(-25), 0, 0)
+			local h = CFrame.new(pos) * yaw * swing
+			for _, r in ipairs(parts) do
+				if r.Chute then
+					if deployed then
+						r.P.Transparency = 0
+						r.P.Size = r.Size * k
+						r.P.CFrame = h * CFrame.new(r.Off.Position * k) * r.Off.Rotation
+					end
+				elseif r.Seat and seatGone then
+					seatV += Vector3.new(0, -60 * dt, 0)
+					seatPos += seatV * dt
+					r.P.CFrame = CFrame.new(seatPos) * yaw * CFrame.Angles(t * 3, 0, t * 2) * r.Off
+				else
+					r.P.CFrame = h * r.Off
+				end
+			end
+			if glass.Parent then
+				gv += Vector3.new(0, -60 * dt, 0)
+				glass.CFrame = (glass.CFrame + gv * dt) * CFrame.Angles(dt * 4, dt * 2, dt * 3)
+			end
+			if mine then Vfx.OwnChuteCF = h end
+			local groundY = math.max(IslandShape.Height(pos.X, pos.Z), 0)
+			if pos.Y < groundY + 3 then break end
+		end
+		if mine then Vfx.OwnChuteCF = nil end
+		Debris:AddItem(m, 0.1)
+		Debris:AddItem(glass, 0.1)
+	end)
+end
+
 -- your own kills: a punchy centre banner that escalates for quick multi-kills
 local tMyKills: { number } = {}
 local function killBanner()
@@ -414,6 +525,8 @@ function Vfx.StartAsync(self)
 		if typeof(t) ~= "table" then return end
 		if t.a == "Boom" then
 			explosion(t.pos, t.hit)
+		elseif t.a == "Eject" then
+			ejectSequence(t.cf, if typeof(t.vel) == "Vector3" then t.vel else Vector3.zero, t.owner == LocalPlayer.UserId)
 		elseif t.a == "Kill" then
 			explosion(t.pos, true)
 			-- the downed aircraft falls out of the sky (clone it before the server removes it)
@@ -428,7 +541,13 @@ function Vfx.StartAsync(self)
 			local line = if t.killer ~= "" then `{t.killer}  ▸  {t.victim}  [{t.weapon}]` else `{t.victim}  [{t.weapon}]`
 			toast(line, if mine then Color3.fromRGB(255, 194, 61) elseif me then Color3.fromRGB(255, 75, 62) else nil)
 			if me then
-				Store.Values.tKillCard:set({ Killer = t.killer, Weapon = t.weapon, KillerId = t.killerId })
+				local card = { Killer = t.killer, Weapon = t.weapon, KillerId = t.killerId }
+				Store.Values.tKillCard:set(card)
+				if t.weapon == "Eject" then
+					-- hold the card back so you can watch your chute open
+					Store.Values.bHideKillCard:set(true)
+					task.delay(3.5, function() Store.Values.bHideKillCard:set(false) end)
+				end
 			end
 		elseif t.a == "Flares" then
 			local jet = Workspace.Jets:FindFirstChild(tostring(t.owner))

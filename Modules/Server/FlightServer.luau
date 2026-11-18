@@ -237,6 +237,15 @@ function Flight.StartAsync(self)
 			if not s or s.Phase == "Dead" then
 				self:Spawn(oPlayer)
 			end
+		elseif t.a == "Eject" then
+			-- pilot punches out: everyone sees the seat + parachute; the jet goes down
+			local s = self.Sorties[oPlayer]
+			if s and s.Phase == "Flying" and s.Jet.PrimaryPart then
+				local root = s.Jet.PrimaryPart
+				Remote:GetEvent("CombatEvent"):FireAllClients({ a = "Eject", owner = oPlayer.UserId,
+					cf = root.CFrame, vel = root.AssemblyLinearVelocity })
+				self:DestroyJet(oPlayer, "eject")
+			end
 		elseif t.a == "Crash" then
 			-- client-reported terrain/ship impact; server trusts only if the
 			-- jet is actually low or near the carrier (can't be used to dodge kills)

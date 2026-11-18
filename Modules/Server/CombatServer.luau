@@ -38,6 +38,7 @@ type Missile = {
 	Owner: Player?,
 	OwnerModel: Model?,
 	Target: Model?,
+	Unguided: boolean?,
 	DecoyPos: Vector3?,
 	Born: number,
 	Damage: number,
@@ -89,7 +90,7 @@ local function ownerOf(m: Model): Player?
 end
 
 local function canHarm(attacker: Player, victim: Model): boolean
-	if victim:GetAttribute("Shield") then return false end
+	if victim:GetAttribute("Shield") or victim:GetAttribute("Friendly") then return false end
 	local vp = ownerOf(victim)
 	if vp == attacker then return false end
 	if vp and squadmates(attacker, vp) then return false end
@@ -115,7 +116,7 @@ function Combat.Rearm(self, oPlayer: Player)
 end
 
 function Combat.Damage(self, victim: Model, nDmg: number, attacker: Player?, sWeapon: string)
-	if victim:GetAttribute("Dead") then return end
+	if victim:GetAttribute("Dead") or victim:GetAttribute("Friendly") then return end
 	local hp = (victim:GetAttribute("Health") :: number? or 0) - nDmg
 	victim:SetAttribute("Health", math.max(0, hp))
 	if attacker then
@@ -202,7 +203,7 @@ local function onGun(oPlayer: Player, t: any)
 end
 
 -- ===================== MISSILES =====================
-local function spawnMissile(oPlayer: Player?, from: CFrame, target: Model, nDamage: number, nTurnMult: number, ownerModel: Model?)
+local function spawnMissile(oPlayer: Player?, from: CFrame, target: Model?, nDamage: number, nTurnMult: number, ownerModel: Model?)
 	local p = Instance.new("Part")
 	p.Name = "Missile"
 	p.Size = Vector3.new(0.6, 0.6, 4)
@@ -214,15 +215,15 @@ local function spawnMissile(oPlayer: Player?, from: CFrame, target: Model, nDama
 	p.Anchored = true
 	p.CFrame = from
 	p:SetAttribute("Owner", if oPlayer then oPlayer.UserId else 0)
-	p:SetAttribute("Target", target.Name)
+	p:SetAttribute("Target", if target then target.Name else "")
 	p.Parent = oMissileFolder
 	table.insert(tMissiles, {
 		Part = p, Owner = oPlayer, OwnerModel = ownerModel, Target = target, Born = os.clock(),
 		Damage = nDamage, Turn = WeaponConfig.Missile.TurnRate * nTurnMult,
 		Vel = from.LookVector * WeaponConfig.Missile.Speed * 0.75,
 	})
-	target:SetAttribute("Incoming", (target:GetAttribute("Incoming") :: number? or 0) + 1)
-	oEvent:FireAllClients({ a = "MissileFired", owner = if oPlayer then oPlayer.UserId else 0, target = target.Name })
+	if target then target:SetAttribute("Incoming", (target:GetAttribute("Incoming") :: number? or 0) + 1) end
+	oEvent:FireAllClients({ a = "MissileFired", owner = if oPlayer then oPlayer.UserId else 0, target = if target then target.Name else "" })
 end
 
 function Combat.FireMissileAt(self, oPlayer: Player?, from: CFrame, target: Model, nDamage: number?, ownerModel: Model?)
@@ -242,7 +243,15 @@ local function onMissile(oPlayer: Player, t: any)
 	-- the primary target must be the one this player's seeker announced as fully Locked
 	-- (the heat-seeker difficulty can't be skipped by a modified client)
 	local primary = findTarget(targets[1])
-	if not primary or tLockedBy[oPlayer] ~= primary or tLockState[oPlayer] ~= 2 then return end
+	if not primary or tLockedBy[oPlayer] ~= primary or tLockState[oPlayer] ~= 2 then
+		-- no confirmed lock: the missile still leaves the rail, unguided, with a proximity fuse
+		spawnMissile(oPlayer, root.CFrame * CFrame.new(2, -1.5, -4), nil, WeaponConfig.Missile.Damage, 1, s.Jet)
+		tMissiles[#tMissiles].Unguided = true
+		ammo.Missiles -= 1
+		tLastMissile[oPlayer] = now
+		s.Jet:SetAttribute("Missiles", ammo.Missiles)
+		return
+	end
 	local fired = 0
 	for i, name in ipairs(targets) do
 		if i > maxTargets or ammo.Missiles <= 0 then break end
@@ -355,6 +364,37 @@ local function stepMissiles(dt: number)
 		elseif m.Target and m.Target.Parent and not m.Target:GetAttribute("Dead") and m.Target.PrimaryPart then
 			targetPos = m.Target.PrimaryPart.Position
 		end
+		if m.Unguided and alive and age <= WeaponConfig.Missile.UnguidedLifetime then
+			local pos = m.Part.Position
+			local speed = WeaponConfig.Missile.Speed * (if age < WeaponConfig.Missile.Boost then 0.75 + 0.25 * age / WeaponConfig.Missile.Boost else 1)
+			m.Vel = m.Vel.Unit * speed
+			local newPos = pos + m.Vel * dt
+			local victim: Model? = nil
+			local fuse = WeaponConfig.Missile.Fuse * WeaponConfig.Missile.UnguidedFuseMult
+			for _, folder in ipairs({ workspace.Jets, workspace:FindFirstChild("NPC") }) do
+				if folder then
+					for _, mdl in ipairs(folder:GetChildren()) do
+						if mdl:IsA("Model") and mdl ~= m.OwnerModel and mdl.PrimaryPart and not mdl:GetAttribute("Dead")
+							and (mdl.PrimaryPart.Position - newPos).Magnitude < fuse
+							and (not m.Owner or canHarm(m.Owner, mdl)) then
+							victim = mdl
+							break
+						end
+					end
+				end
+				if victim then break end
+			end
+			tRay.FilterDescendantsInstances = { workspace.Terrain }
+			local hitT = workspace:Raycast(pos, newPos - pos, tRay)
+			if victim or hitT or newPos.Y < 0 then
+				table.remove(tMissiles, i)
+				m.Target = victim
+				detonate(m, victim)
+				continue
+			end
+			m.Part.CFrame = CFrame.lookAt(newPos, newPos + m.Vel.Unit)
+			continue
+		end
 		if not alive or age > WeaponConfig.Missile.Lifetime or not targetPos then
 			table.remove(tMissiles, i)
 			if alive then detonate(m, nil) end
@@ -428,16 +468,19 @@ function Combat.StartAsync(self)
 			tLedger[jet] = nil
 			-- crashes while being chased credit the last attacker
 			-- client-reported impacts arrive as "crash:<what was hit>", server ones as "crash"
-			if string.sub(sCause, 1, 5) == "crash" and not jet:GetAttribute("Dead") then
+			local ejected = sCause == "eject"
+			if (string.sub(sCause, 1, 5) == "crash" or ejected) and not jet:GetAttribute("Dead") then
 				local uid = jet:GetAttribute("LastAttacker")
 				local at = jet:GetAttribute("LastAttackedAt") :: number? or -math.huge
 				local recent = workspace:GetServerTimeNow() - at <= WeaponConfig.CrashCreditWindow
 				local killer = if uid and recent then Players:GetPlayerByUserId(uid) else nil
 				if killer == oPlayer then killer = nil end
 				jet:SetAttribute("Dead", true)
-				self.OnKill:Fire(killer, jet, if killer then "Crash (chased)" else "Crash", { Assists = {} })
+				local how = if ejected then (if killer then "Forced Eject" else "Ejected") elseif killer then "Crash (chased)" else "Crash"
+				self.OnKill:Fire(killer, jet, how, { Assists = {} })
 				oEvent:FireAllClients({ a = "Kill", killer = if killer then killer.DisplayName else "", killerId = if killer then killer.UserId else 0,
-					victim = oPlayer.DisplayName, victimId = oPlayer.UserId, weapon = "Crash", pos = vPos })
+					victim = oPlayer.DisplayName, victimId = oPlayer.UserId, weapon = if ejected then "Eject" else "Crash", pos = vPos,
+					model = jet.Name, vel = if jet.PrimaryPart then jet.PrimaryPart.AssemblyLinearVelocity else Vector3.zero })
 			end
 		end
 		tLockedBy[oPlayer] = nil

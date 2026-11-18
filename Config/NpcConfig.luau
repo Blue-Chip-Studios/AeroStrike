@@ -51,6 +51,26 @@ return {
 			Dogfight = { Range = 2600 },
 			NoseGun = { Range = 650, Rate = 5, Damage = 3, Cone = math.rad(8), HitChance = 0.25 }, -- ~2.6 dps at close range: dangerous, beatable
 		},
+		-- Aerial refuelling tanker: friendly, untargetable, flies a wide orbit near the carrier.
+		-- Slower than military power on purpose: docking means throttling back to match it.
+		Tanker = {
+			AssetId = 101573077056365, -- Blender tanker (Assets/Models/NPC_Tanker.fbx)
+			Friendly = true,
+			Health = 1,
+			Speed = 125,
+			TurnRate = 0.12,
+			MinAGL = 400,
+			Paint = {
+				Body = { Color = Color3.fromRGB(196, 202, 208), Material = Enum.Material.SmoothPlastic },
+				Accents = { Color = Color3.fromRGB(46, 108, 158), Material = Enum.Material.SmoothPlastic },
+				Trim = { Color = Color3.fromRGB(42, 44, 48), Material = Enum.Material.Metal },
+				Canopy = { Color = Color3.fromRGB(16, 26, 30), Material = Enum.Material.Glass },
+				Glow = { Color = Color3.fromRGB(255, 150, 70), Material = Enum.Material.Neon },
+				Drogue = { Color = Color3.fromRGB(255, 196, 40), Material = Enum.Material.Neon },
+			},
+			Refuel = { Radius = 45, SpeedMatch = 35, Rate = 18, LowFuel = 0.3 }, -- zone is centred on the Drogue basket part
+			Orbit = { Offset = Vector3.new(1800, 1000, -1200), Radius = 1300 }, -- relative to the carrier; stays well inside the arena bounds
+		},
 		Drone = {
 			AssetId = 108502697873184,
 			Health = 24,

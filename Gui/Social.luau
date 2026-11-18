@@ -60,7 +60,7 @@ return function(scope: any, props: { [string]: any })
 						return C.HudText(s2, { Text = "▲ " .. m.name, Font = Theme.Body, TextSize = 16, Color = Theme.Squad, AnchorPoint = Vector2.zero,
 							XAlign = Enum.TextXAlignment.Left, Size = UDim2.fromOffset(240, 20) })
 					end),
-					C.HudText(scope, { Text = "FORMATION · REFUELLING", Font = Theme.Display, TextSize = 11, Color = Theme.Hud, AnchorPoint = Vector2.zero,
+					C.HudText(scope, { Text = "IN FORMATION", Font = Theme.Display, TextSize = 11, Color = Theme.Hud, AnchorPoint = Vector2.zero,
 						XAlign = Enum.TextXAlignment.Left, Size = UDim2.fromOffset(240, 16), Visible = V.bFormation }),
 				},
 			}),

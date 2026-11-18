@@ -36,6 +36,7 @@ local Input = ModuleUtil.New({
 		Guns = false,
 		Roll = 0,
 		FreeLook = false,
+		Throttle = 0.75, -- 0..1 set-and-hold; afterburner (Boost) is the detent past 100%
 		Sensitivity = 1,
 		InvertY = false,
 	},
@@ -50,6 +51,14 @@ local vLastDrag = Vector2.zero
 local vStick1 = Vector2.zero
 local vStick2 = Vector2.zero
 local nRollKeys = 0
+-- throttle: W / RT ramp up (holding past 100% lights the afterburner), S / LT ramp down,
+-- Shift = instant afterburner, mouse wheel steps; touch uses the HUD slider + BOOST
+local bThrottleUp, bThrottleDown, bShiftAB, bTouchAB = false, false, false, false
+local nEjectHeldSince: number? = nil -- hold X / Y to eject (no accidents)
+local EJECT_HOLD = 0.6
+local nAtMaxHeld = 0
+local THROTTLE_RATE = 0.6 -- per second
+local DETENT_HOLD = 0.3 -- seconds held at 100% before the afterburner lights
 
 local DRAG_RANGE = 140 -- px of drag for full deflection
 
@@ -60,13 +69,23 @@ end
 function Input.SetTouch(self, sName: string, bDown: boolean)
 	local was = tTouchHeld[sName]
 	tTouchHeld[sName] = bDown
-	if sName == "Boost" then self.State.Boost = bDown
+	if sName == "Boost" then bTouchAB = bDown
 	elseif sName == "Guns" then self.State.Guns = bDown
 	elseif sName == "Brake" then self.State.Brake = bDown end
-	if bDown and not was and (sName == "Missile" or sName == "Flare" or sName == "Launch") then
+	if bDown and not was and (sName == "Missile" or sName == "Flare" or sName == "Launch" or sName == "Eject") then
 		fire(sName)
 	end
 	if bDown and sName == "Boost" then fire("Launch") end -- BOOST also launches from the deck
+end
+
+function Input.SetThrottle(self, v: number)
+	self.State.Throttle = math.clamp(v, 0, 1)
+	Store.Values.nThrottle:set(self.State.Throttle)
+end
+
+function Input.ResetThrottle(self, v: number)
+	bThrottleUp, bThrottleDown, nAtMaxHeld = false, false, 0
+	self:SetThrottle(v)
 end
 
 local function bindHold(sAction: string, field: string, ...: any)
@@ -94,8 +113,30 @@ local function screenCentre(): Vector2
 end
 
 function Input.StartAsync(self)
-	bindHold("AS_Boost", "Boost", Enum.KeyCode.W, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonR2)
-	bindHold("AS_Brake", "Brake", Enum.KeyCode.S, Enum.KeyCode.ButtonL2)
+	ContextActionService:BindAction("AS_ThrottleUp", function(_, st)
+		bThrottleUp = st == Enum.UserInputState.Begin or (st == Enum.UserInputState.Change and bThrottleUp)
+		if st == Enum.UserInputState.Begin then fire("Launch") end -- also launches from the deck
+		return Enum.ContextActionResult.Pass
+	end, false, Enum.KeyCode.W, Enum.KeyCode.ButtonR2)
+	ContextActionService:BindAction("AS_ThrottleDown", function(_, st)
+		bThrottleDown = st == Enum.UserInputState.Begin or (st == Enum.UserInputState.Change and bThrottleDown)
+		return Enum.ContextActionResult.Pass
+	end, false, Enum.KeyCode.S, Enum.KeyCode.ButtonL2)
+	ContextActionService:BindAction("AS_Eject", function(_, st)
+		if st == Enum.UserInputState.Begin then nEjectHeldSince = os.clock()
+		elseif st == Enum.UserInputState.End or st == Enum.UserInputState.Cancel then nEjectHeldSince = nil end
+		return Enum.ContextActionResult.Pass
+	end, false, Enum.KeyCode.X, Enum.KeyCode.ButtonY)
+	ContextActionService:BindAction("AS_Afterburner", function(_, st)
+		bShiftAB = st == Enum.UserInputState.Begin
+		if st == Enum.UserInputState.Begin then fire("Launch") end
+		return Enum.ContextActionResult.Pass
+	end, false, Enum.KeyCode.LeftShift)
+	UserInputService.InputChanged:Connect(function(inp, processed)
+		if not processed and inp.UserInputType == Enum.UserInputType.MouseWheel then
+			self:SetThrottle(self.State.Throttle + (if inp.Position.Z > 0 then 0.1 else -0.1))
+		end
+	end)
 	bindHold("AS_Guns", "Guns", Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR1)
 	bindPress("AS_Missile", "Missile", Enum.UserInputType.MouseButton2, Enum.KeyCode.Space, Enum.KeyCode.ButtonL1)
 	bindPress("AS_Flare", "Flare", Enum.KeyCode.F, Enum.KeyCode.ButtonB)
@@ -114,8 +155,39 @@ function Input.StartAsync(self)
 	end, false, Enum.KeyCode.C, Enum.KeyCode.ButtonR3)
 
 	-- Touch steering: a drag that starts on the left 60% of the screen.
+	-- touch throttle slider (HUD.ThrottleSlider): a touch that starts on it drags the throttle
+	local oSliderInput: InputObject? = nil
+	local function slider(): GuiObject?
+		local hud = Players.LocalPlayer:FindFirstChild("PlayerGui") and Players.LocalPlayer.PlayerGui:FindFirstChild("HUD")
+		return hud and hud:FindFirstChild("ThrottleSlider", true) :: GuiObject?
+	end
+	local function sliderSet(inp: InputObject)
+		local sl = slider()
+		if not sl then return end
+		local inset = game:GetService("GuiService"):GetGuiInset()
+		local y = inp.Position.Y + inset.Y
+		self:SetThrottle(1 - (y - sl.AbsolutePosition.Y) / math.max(sl.AbsoluteSize.Y, 1))
+	end
+	UserInputService.TouchStarted:Connect(function(inp)
+		local sl = slider()
+		if sl and sl.Visible and sl.AbsoluteSize.X > 0 then
+			local inset = game:GetService("GuiService"):GetGuiInset()
+			local pt = Vector2.new(inp.Position.X, inp.Position.Y) + inset
+			local a, b = sl.AbsolutePosition, sl.AbsolutePosition + sl.AbsoluteSize
+			if pt.X >= a.X - 12 and pt.X <= b.X + 12 and pt.Y >= a.Y - 12 and pt.Y <= b.Y + 12 then
+				oSliderInput = inp
+				sliderSet(inp)
+			end
+		end
+	end)
+	UserInputService.TouchMoved:Connect(function(inp)
+		if inp == oSliderInput then sliderSet(inp) end
+	end)
+	UserInputService.TouchEnded:Connect(function(inp)
+		if inp == oSliderInput then oSliderInput = nil end
+	end)
 	UserInputService.TouchStarted:Connect(function(inp, processed)
-		if processed or oDragInput then return end
+		if processed or oDragInput or inp == oSliderInput then return end
 		local vp = Workspace.CurrentCamera.ViewportSize
 		if inp.Position.X < vp.X * 0.6 then
 			oDragInput = inp
@@ -152,7 +224,11 @@ function Input.StartAsync(self)
 	end
 	-- Studio-only QA: player attribute QA_Device = "Touch" | "Gamepad" | "KeyboardMouse" forces a device mode
 	if RunService:IsStudio() then
-		-- QA_Guns = true holds the trigger; QA_Press = "Missile"/"Flare"/"Launch" taps a button
+		-- QA_Guns = true holds the trigger; QA_Press = "Missile"/"Flare"/"Launch" taps a button; QA_Throttle = 0..1
+		Players.LocalPlayer:GetAttributeChangedSignal("QA_Throttle"):Connect(function()
+			local v = Players.LocalPlayer:GetAttribute("QA_Throttle")
+			if typeof(v) == "number" then self:SetThrottle(v) end
+		end)
 		Players.LocalPlayer:GetAttributeChangedSignal("QA_Guns"):Connect(function()
 			self.State.Guns = Players.LocalPlayer:GetAttribute("QA_Guns") == true
 		end)
@@ -192,6 +268,19 @@ function Input.SetFlightMouseLock(self, bLock: boolean)
 end
 
 function Input.Update(self, dt: number): Vector2
+	-- throttle ramps while held; holding up at 100% pushes through the detent into afterburner
+	if bThrottleUp and not bThrottleDown then
+		if self.State.Throttle >= 1 then nAtMaxHeld += dt else self:SetThrottle(self.State.Throttle + THROTTLE_RATE * dt) end
+	else
+		nAtMaxHeld = 0
+	end
+	if bThrottleDown and not bThrottleUp then self:SetThrottle(self.State.Throttle - THROTTLE_RATE * dt) end
+	self.State.Boost = bShiftAB or bTouchAB or (bThrottleUp and nAtMaxHeld >= DETENT_HOLD)
+	if nEjectHeldSince and os.clock() - nEjectHeldSince >= EJECT_HOLD then
+		nEjectHeldSince = nil
+		fire("Eject")
+	end
+	self.State.Brake = false
 	local d = Vector2.zero
 	local inv = if self.State.InvertY then -1 else 1
 	local sens = self.State.Sensitivity
