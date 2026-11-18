@@ -30,7 +30,9 @@ local CurrencyConfig = require(ReplicatedStorage.Config.CurrencyConfig)
 local mProfile = require(ServerStorage.BCDKServer.SMProfile)
 local mCurrency = require(ServerStorage.BCDKServer.SMCurrency)
 
-local Mon = ModuleUtil.New({})
+local Mon = ModuleUtil.New({
+	OnPassesChanged = Instance.new("BindableEvent"), -- (player, passes)
+})
 local oEvent = Remote:GetEvent("MonEvent")
 local oRequest = Remote:GetEvent("MonRequest")
 local tPasses: { [Player]: { [string]: boolean } } = {}
@@ -72,6 +74,7 @@ local function refreshPasses(oPlayer: Player)
 	end
 	if t.VIP then oPlayer:SetAttribute("VIP", true) end
 	oEvent:FireClient(oPlayer, { a = "Passes", passes = t })
+	Mon.OnPassesChanged:Fire(oPlayer, t)
 end
 
 -- Apply a product's grant. Called inside the profile-recorded path only.
@@ -102,6 +105,13 @@ local function grant(oPlayer: Player, sKey: string): boolean
 	if g.BountyShield then
 		tBountyShield[oPlayer] = true
 		oPlayer:SetAttribute("BountyShield", true)
+	end
+	if g.Revive then
+		-- back in the air where you went down, with the cash you lost restored
+		if not Flight:Revive(oPlayer) then
+			mCurrency:Add(oPlayer, CurrencyConfig.eCurrency.Cash, MonetizationConfig.ReviveFallbackCash)
+			oEvent:FireClient(oPlayer, { a = "Granted", key = "ReviveFallback" })
+		end
 	end
 	return true
 end
@@ -160,6 +170,7 @@ function Mon.StartAsync(self)
 			end
 			if k == "VIP" then oPlayer:SetAttribute("VIP", true) end
 			oEvent:FireClient(oPlayer, { a = "Passes", passes = tPasses[oPlayer] })
+			Mon.OnPassesChanged:Fire(oPlayer, tPasses[oPlayer])
 			oEvent:FireClient(oPlayer, { a = "Granted", key = k })
 			Analytics:Log(oPlayer, "shop_purchase_success", { sku = k })
 		else
@@ -181,7 +192,13 @@ function Mon.StartAsync(self)
 	end)
 
 	-- starter bundle offer on the Nth shoot-down (once per session, only if not owned)
-	Flight.OnJetDestroyed.Event:Connect(function(oPlayer: Player)
+	Flight.OnJetDestroyed.Event:Connect(function(oPlayer: Player, sCause: string)
+		-- REVIVE HERE: an impulse offer on the death screen after a real sortie
+		local s = Flight:GetSortie(oPlayer)
+		if s and sCause ~= "reset" and sCause ~= "eject" and os.clock() - (s.LaunchedAt or 0) >= MonetizationConfig.ReviveMinFlight
+			and MonetizationConfig.Products.ReviveHere.Id ~= 0 then
+			oEvent:FireClient(oPlayer, { a = "OfferRevive", secs = MonetizationConfig.ReviveWindow })
+		end
 		tDeaths[oPlayer] = (tDeaths[oPlayer] or 0) + 1
 		if tDeaths[oPlayer] == MonetizationConfig.StarterOfferAfterDeaths and not tOffered[oPlayer] then
 			local once = mProfile:GetAsync(oPlayer, "OneTimeProducts") or {}

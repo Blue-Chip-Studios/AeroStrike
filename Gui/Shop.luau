@@ -15,6 +15,7 @@ local Children, OnEvent = Fusion.Children, Fusion.OnEvent
 local V = Store.Values
 
 local DESC = {
+	SeasonPremium = "3 exclusive trails · +25% season XP · 2× tier cash",
 	WraithX = "Stealth fighter · 1,250 km/h · hard to lock",
 	MultiLock = "Lock 4 targets · +25% tracking",
 	DoubleCash = "2× Cash from everything",
@@ -32,7 +33,7 @@ local DESC = {
 
 local function sorted(t: { [string]: any }): { string }
 	local keys = {}
-	for k in pairs(t) do table.insert(keys, k) end
+	for k, v in pairs(t) do if not v.Hidden and v.Id ~= 0 then table.insert(keys, k) end end -- Id 0 = not created on Roblox yet
 	table.sort(keys, function(a, b) return t[a].Order < t[b].Order end)
 	return keys
 end

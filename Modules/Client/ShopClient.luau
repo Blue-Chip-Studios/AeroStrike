@@ -19,6 +19,7 @@ local Fusion = require(ReplicatedStorage.Packages.fusion)
 local LocalPlayer = Players.LocalPlayer
 local Shop = ModuleUtil.New({})
 local LMGui, Input, Flight
+local nReviveToken = 0
 local oReq, oAnalytics
 
 local function loadInfo()
@@ -52,6 +53,11 @@ end
 function Shop.Buy(self, sKey: string)
 	local pass = MonetizationConfig.Passes[sKey]
 	local prod = MonetizationConfig.Products[sKey]
+	if (pass and pass.Id == 0) or (prod and prod.Id == 0) then
+		-- not created on Roblox yet (Tools/CreateProducts.ps1 -Only ...)
+		Store.Values.sSeasonMsg:set("Coming soon!")
+		return
+	end
 	oAnalytics:FireServer({ e = "shop_product_view", d = { sku = sKey } })
 	oReq:FireServer({ a = "Prompted", key = sKey })
 	if pass then
@@ -82,8 +88,16 @@ function Shop.StartAsync(self)
 			Store.Values.sLaunchResult:set(string.upper(name) .. " UNLOCKED!")
 			task.delay(2, function() Store.Values.sLaunchResult:set("") end)
 			if t.key == "StarterAce" then Store.Values.bStarterOffer:set(false) end
+			if t.key == "ReviveHere" or t.key == "ReviveFallback" then Store.Values.bReviveOffer:set(false) end
 		elseif t.a == "OfferStarter" then
 			Store.Values.bStarterOffer:set(true)
+		elseif t.a == "OfferRevive" then
+			Store.Values.bReviveOffer:set(true)
+			local token = os.clock()
+			nReviveToken = token
+			task.delay(t.secs or 12, function()
+				if nReviveToken == token then Store.Values.bReviveOffer:set(false) end
+			end)
 		end
 	end)
 end

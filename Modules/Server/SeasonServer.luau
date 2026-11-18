@@ -40,8 +40,24 @@ local function grantTrail(p: Player, id: string)
 	end
 end
 
+local function premium(p: Player): boolean
+	local ok, Mon = pcall(require, ServerStorage.ServerModules:FindFirstChild("MonetizationServer") :: any)
+	return ok and Mon and Mon.GetPasses and Mon:GetPasses(p).SeasonPremium == true
+end
+
+local function grantPremium(p: Player)
+	if not premium(p) then return end
+	local owned = mProfile:GetAsync(p, "Trails") or {}
+	local new = false
+	for _, id in ipairs(SeasonConfig.Premium.Trails) do
+		if not owned[id] then grantTrail(p, id); new = true end
+	end
+	if new then msg(p, "Season Premium active: Chrome, Afterglow and Phantom trails unlocked!", true) end
+end
+
 local function addSeasonXP(p: Player, n: number)
 	local S = SeasonConfig.Season
+	if premium(p) then n = math.floor(n * SeasonConfig.Premium.XPMult) end
 	local s = mProfile:GetAsync(p, "Season")
 	if not s then return end
 	if s.Id ~= S.Id then s = { Id = S.Id, XP = 0, Tier = 0 } end
@@ -52,7 +68,8 @@ local function addSeasonXP(p: Player, n: number)
 	for t = fromTier + 1, tier do
 		local r = S.Tiers[t]
 		if r.Cash then
-			Economy:Reward(p, "SeasonTier", { Bank = true, Cash = r.Cash, Label = `SEASON TIER {t}!` })
+			local cash = if premium(p) then r.Cash * SeasonConfig.Premium.TierCashMult else r.Cash
+			Economy:Reward(p, "SeasonTier", { Bank = true, Cash = cash, Label = `SEASON TIER {t}!` })
 		elseif r.Trail then
 			grantTrail(p, r.Trail)
 			Economy:Reward(p, "SeasonTier", { Bank = true, Label = `SEASON TIER {t}: {string.upper(SeasonConfig.Trails[r.Trail].Name)} TRAIL` })
@@ -128,6 +145,10 @@ function Season.StartAsync(self)
 	Economy = require(ServerStorage.ServerModules.EconomyServer)
 	Analytics = require(ServerStorage.ServerModules.AnalyticsServer)
 	Economy.OnXP.Event:Connect(function(p: Player, n: number) addSeasonXP(p, n) end)
+	local okM, Mon = pcall(require, ServerStorage.ServerModules:FindFirstChild("MonetizationServer") :: any)
+	if okM and Mon and Mon.OnPassesChanged then
+		Mon.OnPassesChanged.Event:Connect(function(p: Player) task.delay(1, function() if p.Parent then grantPremium(p) end end) end)
+	end
 	oRequest:OnServerEvent(function(p: Player, t: any)
 		if typeof(t) ~= "table" or not oLimiter:Check(p) then return end
 		if t.a == "Equip" and typeof(t.trail) == "string" then

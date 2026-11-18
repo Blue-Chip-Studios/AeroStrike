@@ -539,6 +539,31 @@ function Flight.StartAsync(self)
 			bResupplyAsked = false
 		elseif t.a == "Recovered" then
 			onRecovered(t)
+		elseif t.a == "AirStart" then
+			-- REVIVE HERE: the new jet starts in the air where you went down
+			task.spawn(function()
+				for _ = 1, 60 do
+					if Flight.Phase == "Deck" and Flight.Jet and Flight.Jet.Parent and Flight.State then break end
+					task.wait(0.1)
+				end
+				local st = Flight.State
+				if not st or not Flight.Stats then return end
+				st.CFrame = t.cf
+				st.Speed = t.speed
+				st.Fuel = Flight.Stats.Fuel
+				Flight.AimDir = t.cf.LookVector
+				Flight.GearDown = false
+				Store.Values.bGearDown:set(false)
+				bClimbOut = false
+				nLaunchedAt = -math.huge
+				Input:ResetThrottle(FlightConfig.DefaultThrottle)
+				setPhase("Flying")
+				Store.Values.sLaunchResult:set("REVIVED! BACK IN THE FIGHT")
+				task.delay(1.8, function()
+					local Fusion = require(ReplicatedStorage.Packages.fusion)
+					if Fusion.peek(Store.Values.sLaunchResult) == "REVIVED! BACK IN THE FIGHT" then Store.Values.sLaunchResult:set("") end
+				end)
+			end)
 		end
 	end)
 	Input.Pressed:Connect(function(sName)

@@ -90,6 +90,7 @@ local tValues = {
 	nNextJetFrac = 0,
 	sRankLine = "", -- ACE RANK 3 · 340 XP TO RANK 4
 	bSeasonOpen = false,
+	bReviveOffer = false, -- REVIVE HERE button on the death screen
 	sSeasonMsg = "",
 	nBossHp = -1, -- 0..1 while the Fortress is up, -1 otherwise
 	sGroundHint = "", -- landing / taxi / gear prompts

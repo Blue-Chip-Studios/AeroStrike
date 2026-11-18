@@ -9,6 +9,7 @@
 
 return {
 	Passes = {
+		SeasonPremium = { Id = 0, Name = "Season 1 Premium", Price = 399, Order = 0 }, -- cosmetics + faster season track (no combat power)
 		WraithX = { Id = 2092347121, Name = "Wraith-X Stealth Ace", Price = 799, Order = 1 },
 		MultiLock = { Id = 2093211054, Name = "Multi-Lock Missiles", Price = 499, Order = 2 },
 		DoubleCash = { Id = 2092701119, Name = "2x Cash", Price = 399, Order = 3 },
@@ -18,6 +19,7 @@ return {
 		FlarePod = { Id = 2094537074, Name = "Extra Flare Pod", Price = 199, Order = 7 },
 	},
 	Products = {
+		ReviveHere = { Id = 0, Name = "Revive Here", Price = 25, Order = 0, Hidden = true, Grant = { Revive = true } }, -- death screen impulse buy
 		StarterAce = { Id = 3733032938, Name = "Starter Ace Bundle", Price = 99, OneTime = true, Order = 1,
 			Grant = { Jet = "ViperIX", Cash = 5000 } },
 		CashS = { Id = 3733032949, Name = "Cash Crate S", Price = 75, Order = 2, Grant = { Cash = 5000 } },
@@ -27,4 +29,7 @@ return {
 		BountyShield = { Id = 3733032978, Name = "Bounty Shield", Price = 49, Order = 6, Grant = { BountyShield = true } },
 	},
 	StarterOfferAfterDeaths = 3, -- offer the starter bundle after the 3rd shoot-down (once per session)
+	ReviveWindow = 12, -- seconds after a shoot-down the REVIVE HERE offer stays up
+	ReviveMinFlight = 20, -- only offered if the sortie lasted this long (not for catapult mishaps)
+	ReviveFallbackCash = 2500, -- if the window closed before the receipt arrived
 }

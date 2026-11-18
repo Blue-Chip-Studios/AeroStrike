@@ -28,6 +28,8 @@ const icons={
  CashM:{c:'#ffc23d',l:'25,000 CASH',s:'CRATE M',g:'<rect x="14" y="44" width="72" height="40" fill="#5a4a2e"/><circle cx="36" cy="36" r="15" fill="#ffc23d"/><circle cx="62" cy="32" r="17" fill="#ffc23d"/>'},
  CashL:{c:'#ffc23d',l:'100,000 CASH',s:'CRATE L',g:'<rect x="8" y="46" width="84" height="42" fill="#5a4a2e"/><circle cx="28" cy="38" r="15" fill="#ffc23d"/><circle cx="50" cy="30" r="18" fill="#ffd86b"/><circle cx="72" cy="38" r="15" fill="#ffc23d"/>'},
  Rearm:{c:'#5cff8f',l:'INSTANT REARM',s:'MISSILES · FLARES · FUEL',g:'<path d="M50 14 A36 36 0 1 1 18 36" fill="none" stroke="#5cff8f" stroke-width="8"/><path d="M8 26 L22 46 L32 28 Z" fill="#5cff8f"/>'+MISSILE(50,54,0)},
+ SeasonPremium:{c:'#ff50c8',l:'SEASON PREMIUM',s:'3 TRAILS · +25% XP',g:JET.replace('CURRENT','#e8eef4')+'<path d="M38 88 C30 96 20 98 8 98" stroke="#ff50c8" stroke-width="6" fill="none"/><path d="M62 88 C70 96 80 98 92 98" stroke="#50dcff" stroke-width="6" fill="none"/>'},
+ ReviveHere:{c:'#5cff8f',l:'REVIVE HERE',s:'KEEP YOUR CASH',g:'<path d="M50 14 A36 36 0 1 1 18 36" fill="none" stroke="#5cff8f" stroke-width="8"/><path d="M8 26 L22 46 L32 28 Z" fill="#5cff8f"/>'+JET.replace('CURRENT','#e8eef4').replace('<path','<path transform="translate(30 30) scale(.4)"')},
  BountyShield:{c:'#4fa9ff',l:'BOUNTY SHIELD',s:'KEEP 100% CASH',g:'<path d="M50 8 L84 20 L80 56 C76 76 62 88 50 94 C38 88 24 76 20 56 L16 20 Z" fill="#4fa9ff"/><circle cx="50" cy="50" r="16" fill="#ffc23d"/>'},
 };
 const k=location.hash.slice(1); const i=icons[k]||icons.VIP;

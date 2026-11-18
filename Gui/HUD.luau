@@ -437,6 +437,14 @@ return function(scope: any, props: { [string]: any })
 						end) }),
 					C.PrimaryButton(scope, { Name = "Relaunch", Text = "RELAUNCH", Position = UDim2.fromScale(0.5, 0.62),
 						OnClick = function() Flight:Relaunch() end }),
+					-- REVIVE HERE (Robux impulse offer for a few seconds after a real sortie)
+					scope:New("TextButton")({
+						Name = "Revive", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(360, 52),
+						BackgroundColor3 = Theme.Hud, AutoButtonColor = true, Selectable = true, FontFace = Theme.Body, TextSize = 19,
+						TextColor3 = Color3.fromRGB(11, 26, 16), Text = "REVIVE HERE · KEEP YOUR CASH   R$ 25", Visible = V.bReviveOffer,
+						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("ShopClient")) :: any):Buy("ReviveHere") end,
+						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }) },
+					}),
 					scope:New("TextButton")({
 						Name = "HangarBtn", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.62, 40), Size = UDim2.fromOffset(200, 44),
 						BackgroundTransparency = 1, FontFace = Theme.Body, TextSize = 19, TextColor3 = Theme.Amber, Text = "UPGRADE IN HANGAR ›", Selectable = true,

@@ -42,6 +42,8 @@ export type Sortie = {
 	LastBank: number,
 	Passes: { [string]: boolean },
 	Resupplying: boolean?,
+	DeathCF: CFrame?,
+	DeadAt: number?,
 	LastBoom: number?,
 	Boomed: boolean?, -- first sonic boom this sortie already rewarded
 }
@@ -98,6 +100,8 @@ function Flight.DestroyJet(self, oPlayer: Player, sCause: string)
 	if not s or s.Phase == "Dead" then return end
 	s.Phase = "Dead"
 	local jet = s.Jet
+	s.DeathCF = jet:GetPivot()
+	s.DeadAt = os.clock()
 	if game:GetService("RunService"):IsStudio() then
 		local p = jet:GetPivot().Position
 		print(`[Flight] {oPlayer.Name} jet destroyed: {sCause} at ({math.floor(p.X)}, {math.floor(p.Y)}, {math.floor(p.Z)})`)
@@ -199,6 +203,39 @@ local function landingSite(pos: Vector3): string?
 	local a = IslandShape.Airfield
 	if IslandShape.AirfieldDist(pos.X, pos.Z) <= 0 and pos.Y > a.Elev - 2 and pos.Y < a.Elev + 16 then return "Airfield" end
 	return nil
+end
+
+-- REVIVE HERE (Robux): a fresh jet where you went down (lifted to a safe height), full ammo,
+-- 4 s of shield, and the Sortie Cash you lost restored. Only within the revive window.
+function Flight.Revive(self, oPlayer: Player): boolean
+	local MonetizationConfig = require(ReplicatedStorage.Config.MonetizationConfig)
+	local old = self.Sorties[oPlayer]
+	if not old or old.Phase ~= "Dead" or not old.DeathCF or os.clock() - (old.DeadAt or 0) > MonetizationConfig.ReviveWindow + 8 then return false end
+	local cf0 = old.DeathCF
+	local ground = math.max(IslandShape.Height(cf0.X, cf0.Z), 0)
+	local pos = Vector3.new(cf0.X, math.max(cf0.Y, ground + 250), cf0.Z)
+	local look = Vector3.new(cf0.LookVector.X, 0, cf0.LookVector.Z)
+	look = if look.Magnitude > 1e-3 then look.Unit else Vector3.zAxis
+	local cf = CFrame.lookAt(pos, pos + look)
+	self:Spawn(oPlayer)
+	local s = self.Sorties[oPlayer]
+	if not s or not s.Jet.PrimaryPart then return false end
+	local root = s.Jet.PrimaryPart :: BasePart
+	s.Jet:PivotTo(cf)
+	s.Jet:SetAttribute("GearDown", false)
+	s.Phase = "Flying"
+	s.LaunchedAt = os.clock()
+	s.LastPos = cf.Position
+	s.LastCheck = os.clock()
+	root.Anchored = false
+	root:SetNetworkOwner(oPlayer)
+	local speed = s.Stats.CruiseSpeed
+	oEvent:FireClient(oPlayer, { a = "AirStart", cf = cf, speed = speed })
+	self.OnLaunched:Fire(oPlayer, false) -- rearm etc.
+	task.delay(4, function() if s.Jet.Parent and not s.Jet:GetAttribute("Training") then s.Jet:SetAttribute("Shield", false) end end)
+	local ok, Economy = pcall(require, ServerStorage.ServerModules.EconomyServer)
+	if ok and Economy.RestoreLoss then Economy:RestoreLoss(oPlayer) end
+	return true
 end
 
 -- after a carrier trap: taxi'd onto a free catapult, same jet, ready to launch again

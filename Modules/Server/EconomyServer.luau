@@ -121,11 +121,23 @@ function Economy.Bank(self, oPlayer: Player)
 	self.OnBanked:Fire(oPlayer, banked)
 end
 
+-- REVIVE HERE: give back what the last shoot-down cost you (as banked cash)
+local tLost: { [Player]: { Amount: number, T: number } } = {}
+function Economy.RestoreLoss(self, oPlayer: Player)
+	local l = tLost[oPlayer]
+	tLost[oPlayer] = nil
+	if l and l.Amount > 0 and os.clock() - l.T < 60 then
+		addCash(oPlayer, l.Amount, "Revive", "IAP")
+		oEvent:FireClient(oPlayer, { a = "Toast", text = `REVIVED: +{l.Amount} lost cash restored`, cash = 0, xp = 0, kind = "Revive" })
+	end
+end
+
 function Economy.LoseOnDeath(self, oPlayer: Player, bKeepAll: boolean?, bEjected: boolean?)
 	local v = tSortie[oPlayer] or 0
 	if v <= 0 then return end
 	local keep = if bEjected then EconomyConfig.KeepOnEject else EconomyConfig.KeepOnDeath
 	local kept = if bKeepAll then v else math.floor(v * keep)
+	tLost[oPlayer] = { Amount = v - kept, T = os.clock() }
 	tSortie[oPlayer] = 0
 	addCash(oPlayer, kept, "SortieKept", "Gameplay")
 	oEvent:FireClient(oPlayer, { a = "Sortie", v = 0 })

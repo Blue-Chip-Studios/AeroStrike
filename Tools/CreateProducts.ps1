@@ -1,7 +1,8 @@
 # Creates AeroStrike's game passes and developer products via Open Cloud.
 # Reads ROBLOX_API_KEY from .env inside this script only (never printed).
 # Output: Tools/products.json  (key -> { kind, id })
-param([string]$Root = (Split-Path $PSScriptRoot -Parent))
+# -Only SeasonPremium,ReviveHere   creates just those keys and merges them into products.json
+param([string]$Root = (Split-Path $PSScriptRoot -Parent), [string[]]$Only = @())
 $universe = 10777495043
 $envLine = Get-Content (Join-Path $Root '.env') | Where-Object { $_ -match '^\s*ROBLOX_API_KEY\s*=' } | Select-Object -First 1
 $key = ($envLine -split '=', 2)[1].Trim()
@@ -19,9 +20,16 @@ $items = @(
   @{ k='CashM';       kind='product'; name='Cash Crate M';         price=299; desc='25,000 Cash.' },
   @{ k='CashL';       kind='product'; name='Cash Crate L';         price=899; desc='100,000 Cash.' },
   @{ k='Rearm';       kind='product'; name='Instant Rearm';        price=25;  desc='Refill missiles, flares and fuel mid-air.' },
-  @{ k='BountyShield';kind='product'; name='Bounty Shield';        price=49;  desc='Keep 100% of your Sortie Cash the next time you are shot down.' }
+  @{ k='BountyShield';kind='product'; name='Bounty Shield';        price=49;  desc='Keep 100% of your Sortie Cash the next time you are shot down.' },
+  @{ k='SeasonPremium';kind='pass';   name='Season 1 Premium';     price=399; desc='Unlock the exclusive Chrome, Afterglow and Phantom smoke trails, +25% season track XP and double cash from every season tier. Cosmetic and progression only.' },
+  @{ k='ReviveHere';  kind='product'; name='Revive Here';          price=25;  desc='Shot down? Jump straight back into the fight where you went down, with full ammo and the Sortie Cash you lost restored.' }
 )
+if ($Only.Count -gt 0) { $items = $items | Where-Object { $Only -contains $_.k } }
+$jsonPath = Join-Path $Root 'Tools\products.json'
 $out = [ordered]@{}
+if ($Only.Count -gt 0 -and (Test-Path $jsonPath)) {
+  (Get-Content $jsonPath -Raw | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $out[$_.Name] = $_.Value }
+}
 foreach ($it in $items) {
   $url = if ($it.kind -eq 'pass') { "https://apis.roblox.com/game-passes/v1/universes/$universe/game-passes" } else { "https://apis.roblox.com/developer-products/v2/universes/$universe/developer-products" }
   $img = Join-Path $icons ($it.k + '.png')
@@ -35,5 +43,5 @@ foreach ($it in $items) {
   else { "FAIL $($it.k): $($resp.Substring(0, [Math]::Min(300, $resp.Length)))" }
   Start-Sleep -Milliseconds 400
 }
-$out | ConvertTo-Json -Depth 3 | Out-File -Encoding utf8 (Join-Path $Root 'Tools\products.json')
+$out | ConvertTo-Json -Depth 3 | Out-File -Encoding utf8 $jsonPath
 Remove-Variable key

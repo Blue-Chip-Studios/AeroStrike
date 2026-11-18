@@ -57,7 +57,7 @@ return function(scope: any, props: { [string]: any })
 
 	-- trail buttons (owned ones; "NO TRAIL" first)
 	local trailBtns = {}
-	local order = { "", "BlueChip", "Crimson", "Sky", "Emerald", "Solar", "Violet", "Arctic", "Inferno", "Spectrum" }
+	local order = { "", "BlueChip", "Chrome", "Afterglow", "Phantom", "Crimson", "Sky", "Emerald", "Solar", "Violet", "Arctic", "Inferno", "Spectrum" }
 	for i, id in ipairs(order) do
 		local def = SeasonConfig.Trails[id]
 		table.insert(trailBtns, scope:New("TextButton")({
@@ -107,6 +107,21 @@ return function(scope: any, props: { [string]: any })
 									local into = s.XP - s.Tier * S.XPPerTier
 									return string.format("TIER %d / %d   ·   %d / %d XP TO TIER %d", s.Tier, #S.Tiers, into, S.XPPerTier, s.Tier + 1)
 								end) }),
+							-- Season Premium strip
+							scope:New("Frame")({ LayoutOrder = 0, BackgroundColor3 = Theme.Panel, Size = UDim2.new(1, 0, 0, 52),
+								[Children] = {
+									scope:New("UICorner")({ CornerRadius = UDim.new(0, 6) }),
+									scope:New("UIStroke")({ Color = Color3.fromRGB(255, 80, 200), Thickness = 1.5 }),
+									scope:New("TextLabel")({ BackgroundTransparency = 1, Position = UDim2.fromOffset(14, 0), Size = UDim2.new(1, -230, 1, 0), FontFace = Theme.Body, TextSize = 15,
+										TextColor3 = Theme.Ink, TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true,
+										Text = scope:Computed(function(use)
+											if (use(V.tPasses) :: any).SeasonPremium then return "SEASON PREMIUM ACTIVE  ·  +25% season XP  ·  double tier cash  ·  Chrome, Afterglow & Phantom trails" end
+											return "SEASON PREMIUM: 3 exclusive trails (Chrome, Afterglow, Phantom) · +25% season XP · double tier cash"
+										end) }),
+									C.PrimaryButton(scope, { Name = "Premium", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(200, 36), TextSize = 16,
+										Text = scope:Computed(function(use) return if (use(V.tPasses) :: any).SeasonPremium then "OWNED" else "GET PREMIUM  R$ 399" end),
+										OnClick = function() (require(ReplicatedStorage.ClientModules.ShopClient) :: any):Buy("SeasonPremium") end }),
+								} }),
 							C.HudBar(scope, { LayoutOrder = 2, AnchorPoint = Vector2.zero, Size = UDim2.new(1, 0, 0, 8), FillColor = Theme.Amber,
 								Fill = scope:Computed(function(use) local s = use(season) :: any return if s.Tier >= #S.Tiers then 1 else (s.XP - s.Tier * S.XPPerTier) / S.XPPerTier end) }),
 							scope:New("Frame")({ LayoutOrder = 3, BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0),

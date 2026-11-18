@@ -67,6 +67,10 @@ function Debug.StartAsync(self)
 				end
 			end
 			return table.concat(out, "; ")
+		elseif cmd == "revive" then
+			-- REVIVE HERE without the purchase (QA)
+			local F = require(ServerStorage.ServerModules.FlightServer)
+			return tostring(F:Revive(game:GetService("Players"):GetPlayers()[1]))
 		elseif cmd == "damageNpc" then
 			-- damage a named NPC as the first player (boss / bot QA)
 			local m = workspace.NPC:FindFirstChild(tostring(a))
