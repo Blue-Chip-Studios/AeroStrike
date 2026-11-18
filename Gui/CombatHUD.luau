@@ -123,7 +123,8 @@ return function(scope: any, props: { [string]: any })
 						[Children] = { scope:New("UIStroke")({ Color = Color3.fromRGB(255, 150, 60), Thickness = 3 }) },
 					}),
 					C.HudText(scope, { Name = "ObjectiveText", Font = Theme.Display, TextSize = 14, Color = Color3.fromRGB(255, 150, 60),
-						Position = UDim2.fromScale(0.5, 0.11), Size = UDim2.fromOffset(600, 20), Text = V.sObjective }),
+						Position = UDim2.fromScale(0.5, 0.11), Size = UDim2.fromOffset(600, 20), Text = V.sObjective,
+						Visible = scope:Computed(function(use) return not use(V.bFTUEActive) end) }),
 					-- threat banner
 					C.HudText(scope, { Name = "Threat", Font = Theme.Display, TextSize = 26, Color = Theme.Threat,
 						Position = UDim2.fromScale(0.5, 0.24), Size = UDim2.fromOffset(700, 40), Text = threatText }),

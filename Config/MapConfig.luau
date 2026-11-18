@@ -5,7 +5,9 @@
     from the Blender export (Blender +X -> Roblox -X, Blender Y -> Roblox Z).
 ]]
 
-local CARRIER_CF = CFrame.new(-3200, 0, 0) * CFrame.Angles(0, math.rad(-90), 0) -- bow points +X (toward the island)
+-- Bow points north (-Z), parallel to the island's west coast: launches go out
+-- over open sea (safe training lane) with the island right off the starboard side.
+local CARRIER_CF = CFrame.new(-3300, 0, 600)
 
 local DECK_Y = 26.2
 
@@ -42,4 +44,5 @@ return {
 		BankRadius = 260,
 	},
 	MapCentre = Vector3.new(0, 0, 0),
+	RingAssetId = 82812705025398, -- Blender flight/fuel ring
 }

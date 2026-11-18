@@ -55,6 +55,12 @@ local tValues = {
 	-- objective / FTUE prompt
 	sObjective = "",
 	sPrompt = "",
+	bFTUESkippable = false,
+	bFTUEActive = false,
+	tHangar = {}, -- replicated hangar profile data (OwnedJets, EquippedJet, Upgrades, ...)
+	bHangarOpen = false,
+	sHangarSelected = "SparrowT2",
+	sHangarMsg = "",
 	tObjectiveScreen = Vector2.new(-1000, -1000),
 
 	-- platform

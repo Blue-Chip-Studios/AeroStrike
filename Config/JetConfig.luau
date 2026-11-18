@@ -75,8 +75,29 @@ local Jets: { [string]: Jet } = {
 		},
 		DefaultPaint = "Standard",
 	},
-	-- Further jets (Viper IX, Rhino HX, Wraith-X) are added as their Blender
-	-- models are produced; stats are in the GDD §10.
+	ViperIX = {
+		Id = "ViperIX",
+		DisplayName = "Viper IX",
+		Role = "Agile Interceptor",
+		Order = 2,
+		ModelAssetId = 90543401942532,
+		RankRequired = 3,
+		CashPrice = 6000,
+		Stats = {
+			MinSpeed = 75, CruiseSpeed = 175, MaxSpeed = 292,
+			Accel = 52, TurnRate = 1.8, CornerSpeed = 180,
+			RollRate = 4.6, Health = 100, Fuel = 110,
+			FuelBurn = 0.25, BoostBurn = 2.0,
+			Missiles = 2, Flares = 6, LockTime = 1.1,
+			GTolerance = 6.5,
+		},
+		Paints = {
+			Standard = standardPaint(Color3.fromRGB(78, 92, 106), AMBER, STEEL),
+			Nightfall = standardPaint(Color3.fromRGB(32, 36, 44), Color3.fromRGB(92, 255, 143), Color3.fromRGB(60, 66, 74)),
+		},
+		DefaultPaint = "Standard",
+	},
+	-- Rhino HX and Wraith-X follow (GDD §10).
 }
 
 local function GetOrdered(): { Jet }

@@ -171,7 +171,7 @@ local function launch(self, oPlayer: Player, bPerfectClaim: boolean)
 	oEvent:FireClient(oPlayer, { a = "Launched", speed = speed, freeBoost = if bPerfect then FlightConfig.PerfectLaunchFreeBoost else 0, perfect = bPerfect })
 	self.OnLaunched:Fire(oPlayer, bPerfect)
 	task.delay(FlightConfig.SpawnShield, function()
-		if s.Jet.Parent then s.Jet:SetAttribute("Shield", false) end
+		if s.Jet.Parent and not s.Jet:GetAttribute("Training") then s.Jet:SetAttribute("Shield", false) end
 	end)
 end
 
@@ -216,7 +216,7 @@ local function validate(self)
 		-- Bank It: low pass over the deck
 		local lp = carrierCF:PointToObjectSpace(pos)
 		if math.abs(lp.X) < 40 and math.abs(lp.Z) < 160 and lp.Y > MapConfig.Carrier.DeckY - 2
-			and lp.Y < MapConfig.Carrier.DeckY + EconomyConfig.BankMaxAltitude * 0.25 and now - s.LastBank > 8 then
+			and lp.Y < MapConfig.Carrier.DeckY + EconomyConfig.BankMaxAltitude * 0.6 and now - s.LastBank > 8 then
 			s.LastBank = now
 			self.OnTouchAndGo:Fire(oPlayer)
 			oEvent:FireClient(oPlayer, { a = "TouchAndGo" })

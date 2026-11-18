@@ -229,12 +229,12 @@ local function applyLighting()
 		return i
 	end
 	local atm = ensure("Atmosphere", "AS_Atmosphere") :: Atmosphere
-	atm.Density = 0.3
-	atm.Offset = 0.15
-	atm.Color = Color3.fromRGB(190, 210, 230)
-	atm.Decay = Color3.fromRGB(110, 130, 160)
-	atm.Glare = 0.4
-	atm.Haze = 1.2
+	atm.Density = 0.22
+	atm.Offset = 0.05
+	atm.Color = Color3.fromRGB(196, 214, 232)
+	atm.Decay = Color3.fromRGB(120, 140, 170)
+	atm.Glare = 0.35
+	atm.Haze = 0.45
 	local bloom = ensure("BloomEffect", "AS_Bloom") :: BloomEffect
 	bloom.Intensity = 0.6
 	bloom.Size = 30
@@ -292,6 +292,28 @@ function World.PreloadAsync(self)
 			warn(`[World] npc {sKind} failed to load`)
 		end
 	end
+	-- client-side templates (local-only gameplay markers, e.g. FTUE/fuel rings)
+	local ct = ReplicatedStorage:FindFirstChild("ClientTemplates") or Instance.new("Folder")
+	ct.Name = "ClientTemplates"
+	local ring = loadModel(MapConfig.RingAssetId)
+	if ring then
+		for _, d in ipairs(ring:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored = true
+				d.CanCollide = false
+				d.CanQuery = false
+				d.CanTouch = false
+				d.CastShadow = false
+				d.Name = ModuleUtil.StripSuffix(d.Name)
+				if d.Name == "Glow" then d.Material = Enum.Material.Neon; d.Color = Color3.fromRGB(92, 255, 143) end
+				if d.Name == "Frame" then d.Material = Enum.Material.Metal; d.Color = Color3.fromRGB(30, 36, 42) end
+			end
+		end
+		ring.Name = "Ring"
+		ring.Parent = ct
+	end
+	ct.Parent = ReplicatedStorage
+
 	local npc = workspace:FindFirstChild("NPC") or Instance.new("Folder")
 	npc.Name = "NPC"
 	npc.Parent = workspace

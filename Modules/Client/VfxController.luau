@@ -200,8 +200,6 @@ function Vfx.StartAsync(self)
 		elseif t.a == "Evade" then
 			Store.Values.sLaunchResult:set(if t.ace then "ACE EVADE!" else "MISSILE DEFEATED")
 			task.delay(1.4, function() Store.Values.sLaunchResult:set("") end)
-		elseif t.a == "Hit" then
-			Store.Values.sPrompt:set("")
 		elseif t.a == "NpcFire" then
 			-- tail-gunner tracer
 			local dir = (t.to - t.from)

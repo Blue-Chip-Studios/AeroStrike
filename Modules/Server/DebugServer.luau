@@ -30,6 +30,25 @@ function Debug.StartAsync(self)
 			local m = Npc:Spawn(a or "Drone", CFrame.lookAt(start, start + cf.LookVector), {
 				Route = { start + cf.LookVector * 4000, start + cf.LookVector * 8000 }, Tag = "Debug" })
 			return m and m.Name
+		elseif cmd == "missileAtMe" and jet and jet.PrimaryPart then
+			-- QA of the threat/tension audio: a SAM from behind and below
+			local cf = jet.PrimaryPart.CFrame
+			local from = CFrame.lookAt(cf.Position - cf.LookVector * (a or 1400) + Vector3.new(0, -200, 0), cf.Position)
+			jet:SetAttribute("Shield", false)
+			Combat:FireMissileAt(nil, from, jet, 20)
+			return "fired"
+		elseif cmd == "ftueStep" then
+			-- jump the first player's FTUE so step n is next (QA only)
+			local p = game:GetService("Players"):GetPlayers()[1]
+			local Economy = require(ServerStorage.ServerModules.EconomyServer)
+			Economy:SetProfileKey(p, "FTUE", function(f) f.Step = (a or 1) - 1; f.Done = false; f.Skipped = false; return f end)
+			require(ReplicatedStorage.BCDKShared.Remote):GetEvent("FTUEEvent"):FireClient(p, { a = "State", step = (a or 1) - 1, done = false })
+			return "ok"
+		elseif cmd == "giveCash" then
+			local p = game:GetService("Players"):GetPlayers()[1]
+			require(ServerStorage.BCDKServer.SMCurrency):Add(p, 1, a or 10000)
+			require(ServerStorage.BCDKServer.SMXP):Add(p, b or 0)
+			return "ok"
 		elseif cmd == "damageSelf" and jet then
 			Combat:Damage(jet, a or 200, nil, "Debug")
 			return "ok"

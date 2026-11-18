@@ -114,9 +114,38 @@ return function(scope: any, props: { [string]: any })
 					-- launch result toast
 					C.HudText(scope, { Name = "LaunchResult", Font = Theme.Display, TextSize = 34, Color = Theme.Amber,
 						Position = UDim2.new(0.5, 0, 0.3, 0), Size = UDim2.fromOffset(700, 50), Text = V.sLaunchResult }),
-					-- objective / prompt
-					C.HudText(scope, { Name = "Prompt", Font = Theme.Body, TextSize = 24, Color = Theme.Ink,
-						Position = UDim2.new(0.5, 0, 0.18, 0), Size = UDim2.fromOffset(800, 40), Text = V.sPrompt }),
+					-- objective / prompt (FTUE coaching line on a soft backing so it reads on any sky)
+					scope:New("Frame")({
+						Name = "PromptBack",
+						AnchorPoint = Vector2.new(0.5, 0.5),
+						Position = UDim2.new(0.5, 0, 0.18, 0),
+						Size = UDim2.fromOffset(820, 44),
+						BackgroundColor3 = Theme.Night,
+						BackgroundTransparency = 0.45,
+						Visible = scope:Computed(function(use) return use(V.sPrompt) ~= "" end),
+						[Children] = {
+							scope:New("UICorner")({ CornerRadius = UDim.new(0, 6) }),
+							C.HudText(scope, { Name = "Prompt", Font = Theme.Body, TextSize = 24, Color = Theme.Ink,
+								Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), Text = V.sPrompt }),
+						},
+					}),
+					scope:New("TextButton")({
+						Name = "SkipTutorial",
+						AnchorPoint = Vector2.new(0.5, 0),
+						Position = UDim2.new(0.5, 0, 0.18, 30),
+						Size = UDim2.fromOffset(150, 28),
+						BackgroundTransparency = 1,
+						FontFace = Theme.Body,
+						TextSize = 16,
+						TextColor3 = Theme.Ink,
+						TextTransparency = 0.15,
+						Text = "Skip tutorial ›",
+						Visible = V.bFTUESkippable,
+						[Fusion.OnEvent("Activated")] = function()
+							local FTUE = require(ClientModules:WaitForChild("FTUEClient")) :: any
+							FTUE:Skip()
+						end,
+					}),
 				},
 			}),
 
@@ -128,6 +157,13 @@ return function(scope: any, props: { [string]: any })
 				Visible = onDeck,
 				[Children] = {
 					C.HudText(scope, { Text = "CATAPULT READY", Font = Theme.Display, TextSize = 22, Color = Theme.Ink, Position = UDim2.fromScale(0.5, 0.62) }),
+					scope:New("TextButton")({
+						Name = "HangarBtn", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 24, 1, -24), Size = UDim2.fromOffset(170, 52),
+						BackgroundColor3 = Theme.Panel, BackgroundTransparency = 0.1, FontFace = Theme.Body, TextSize = 20, TextColor3 = Theme.Ink,
+						Text = "HANGAR", Selectable = true,
+						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("HangarClient")) :: any):Open() end,
+						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }), scope:New("UIStroke")({ Color = Theme.Amber, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }) },
+					}),
 					-- timing bar with the perfect window highlighted
 					scope:New("Frame")({
 						Name = "LaunchBar",
@@ -165,6 +201,11 @@ return function(scope: any, props: { [string]: any })
 					C.HudText(scope, { Text = "SHOT DOWN", Font = Theme.Display, TextSize = 34, Color = Theme.Threat, Position = UDim2.fromScale(0.5, 0.38) }),
 					C.PrimaryButton(scope, { Name = "Relaunch", Text = "RELAUNCH", Position = UDim2.fromScale(0.5, 0.62),
 						OnClick = function() Flight:Relaunch() end }),
+					scope:New("TextButton")({
+						Name = "HangarBtn", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.62, 40), Size = UDim2.fromOffset(200, 44),
+						BackgroundTransparency = 1, FontFace = Theme.Body, TextSize = 19, TextColor3 = Theme.Amber, Text = "UPGRADE IN HANGAR ›", Selectable = true,
+						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("HangarClient")) :: any):Open() end,
+					}),
 				},
 			}),
 

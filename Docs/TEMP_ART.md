@@ -11,4 +11,4 @@ Anything here is a stand-in that must be replaced before launch.
 | Touch buttons and panels use rounded frames, not the chamfer 9-slice | `Gui/Components.luau` | Chamfer 9-slice images from the design system |
 | Ocean edge visible past ±6 km | Terrain | Extend the water ring and fog the horizon |
 | No island yet (open ocean only) | Map | Kestrel Archipelago: Blender rock/arch/pine kit + terrain (GDD §11) |
-| No audio | All | ElevenLabs SFX/VO set (GDD §27) |
+| Audio uses take 1 of each ElevenLabs generation | `Config/AudioConfig.luau`, flow "AeroStrike SFX v1" | Audition all 4 takes per sound in the ElevenLabs flow and swap ids for the best; consider true seamless loops for engine/drone |

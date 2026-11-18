@@ -96,6 +96,8 @@ local function update(dt: number)
 	local tol = if Flight.Stats then Flight.Stats.GTolerance else 6
 	local shake = math.clamp((g - tol) / 3, 0, 1) * 0.35
 	if phase == "Catapult" then shake = 0.25 end
+	shake += (require(script.Parent.AudioController) :: any).Intensity * 0.12 -- threat tremble
+	if Input.State.Boost then shake += 0.05 end
 	if shake > 0 then
 		nShakeT += dt * 40
 		out *= CFrame.Angles(math.noise(nShakeT, 1) * shake * 0.05, math.noise(nShakeT, 2) * shake * 0.05, 0)

@@ -176,7 +176,6 @@ local function step(dt: number)
 	if newState ~= sLockState then
 		sLockState = newState
 		announce(newState, best)
-		if newState == "Locked" then Store.Values.sPrompt:set("") end
 	end
 	Weapons.LockTarget = if newState == "Locked" then best else nil
 	Store.Values.sLockState:set(newState)

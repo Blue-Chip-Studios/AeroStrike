@@ -91,6 +91,7 @@ end
 
 local function requestLaunch()
 	if Flight.Phase ~= "Deck" then return end
+	if require(ReplicatedStorage.Packages.fusion).peek(Store.Values.bHangarOpen) then return end
 	local frac = ((os.clock() - nBarStart) % FlightConfig.LaunchCountdown) / FlightConfig.LaunchCountdown
 	local w = FlightConfig.PerfectWindow
 	local bPerfect = frac >= w[1] and frac <= w[2]
@@ -155,8 +156,13 @@ local function step(dt: number)
 	if Flight.Phase == "Deck" then
 		local frac = ((os.clock() - nBarStart) % FlightConfig.LaunchCountdown) / FlightConfig.LaunchCountdown
 		Store.Values.nLaunchBar:set(frac)
-		-- auto-launch after a few cycles so AFK/new players still go
-		if os.clock() - nBarStart > FlightConfig.LaunchCountdown * 3 then requestLaunch() end
+		-- auto-launch after a few cycles so AFK/new players still go (paused in the hangar)
+		local Fusion = require(ReplicatedStorage.Packages.fusion)
+		if Fusion.peek(Store.Values.bHangarOpen) then
+			nBarStart = os.clock()
+		elseif os.clock() - nBarStart > FlightConfig.LaunchCountdown * 3 then
+			requestLaunch()
+		end
 		return
 	end
 

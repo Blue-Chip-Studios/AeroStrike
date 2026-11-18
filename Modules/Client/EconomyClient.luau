@@ -48,11 +48,19 @@ function Economy.StartAsync(self)
 	setXP(LMXP.Current)
 	LMXP.Changed:Connect(setXP)
 
+	local function deepCopy(t: any): any
+		if typeof(t) ~= "table" then return t end
+		local c = {}
+		for k, v in pairs(t) do c[k] = deepCopy(v) end
+		return c
+	end
 	ReplicaClient.OnNew("HangarReplica", function(oReplica: any)
 		self.Hangar = oReplica.Data
+		Store.Values.tHangar:set(deepCopy(oReplica.Data))
 		HangarChanged:Fire()
 		oReplica:OnChange(function()
 			self.Hangar = oReplica.Data
+			Store.Values.tHangar:set(deepCopy(oReplica.Data))
 			HangarChanged:Fire()
 		end)
 	end)

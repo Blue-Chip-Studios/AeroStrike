@@ -118,6 +118,7 @@ end
 function C.PrimaryButton(scope: any, p: { [string]: any })
 	return scope:New("TextButton")({
 		Name = p.Name or "Primary",
+		LayoutOrder = p.LayoutOrder or 10,
 		AnchorPoint = p.AnchorPoint or Vector2.new(0.5, 0.5),
 		Position = p.Position,
 		Size = p.Size or UDim2.fromOffset(260, 60),

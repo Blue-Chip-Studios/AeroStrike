@@ -92,6 +92,11 @@ local function canHarm(attacker: Player, victim: Model): boolean
 	local vp = ownerOf(victim)
 	if vp == attacker then return false end
 	if vp and squadmates(attacker, vp) then return false end
+	-- shielded pilots (spawn / training) can't hurt other players: no invulnerable attackers
+	if vp then
+		local aj = workspace.Jets:FindFirstChild(tostring(attacker.UserId))
+		if aj and aj:GetAttribute("Shield") then return false end
+	end
 	return true
 end
 

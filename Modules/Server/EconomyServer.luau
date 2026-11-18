@@ -187,7 +187,16 @@ local function shop(oPlayer: Player, t: any): any
 end
 
 function Economy.StartAsync(self)
-	oShop:OnServerInvoke(shop)
+	oShop:OnServerInvoke(function(oPlayer: Player, t: any)
+		local r = shop(oPlayer, t)
+		-- equip/upgrade on the deck takes effect immediately (fresh jet on the catapult)
+		if r.ok and typeof(t) == "table" and (t.a == "Equip" or t.a == "Upgrade") then
+			local Flight = require(ServerStorage.ServerModules.FlightServer)
+			local s = Flight:GetSortie(oPlayer)
+			if s and s.Phase == "Deck" then task.defer(function() Flight:Spawn(oPlayer) end) end
+		end
+		return r
+	end)
 	local Flight = require(ServerStorage.ServerModules.FlightServer)
 	local Combat = require(ServerStorage.ServerModules.CombatServer)
 
