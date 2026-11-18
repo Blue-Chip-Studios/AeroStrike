@@ -215,7 +215,8 @@ local function allTargets(): { Model }
 	local out = {}
 	local own = tostring(LocalPlayer.UserId)
 	for _, m in ipairs(Workspace.Jets:GetChildren()) do
-		if m.Name ~= own and m:IsA("Model") and m.PrimaryPart and not m:GetAttribute("Dead") then
+		-- shielded jets (spawn / tutorial) can't be hurt: don't lock them or spark hits on them
+		if m.Name ~= own and m:IsA("Model") and m.PrimaryPart and not m:GetAttribute("Dead") and not m:GetAttribute("Shield") then
 			local squad = LocalPlayer:GetAttribute("SquadId")
 			if not squad or m:GetAttribute("SquadId") ~= squad then
 				table.insert(out, m)

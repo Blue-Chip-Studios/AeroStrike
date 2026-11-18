@@ -97,7 +97,13 @@ local function canHarm(attacker: Player, victim: Model): boolean
 	-- shielded pilots (spawn / training) can't hurt other players: no invulnerable attackers
 	if vp then
 		local aj = workspace.Jets:FindFirstChild(tostring(attacker.UserId))
-		if aj and aj:GetAttribute("Shield") then return false end
+		if aj and aj:GetAttribute("Shield") then
+			-- a tutorial pilot who opens fire on a player chooses to go live (otherwise their
+			-- shots silently do nothing for up to TrainingShieldMax seconds)
+			if not aj:GetAttribute("Training") then return false end
+			aj:SetAttribute("Training", nil)
+			aj:SetAttribute("Shield", false)
+		end
 	end
 	return true
 end

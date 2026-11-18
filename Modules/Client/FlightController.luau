@@ -58,6 +58,7 @@ tGroundRay.FilterType = Enum.RaycastFilterType.Exclude
 local bClimbOut = false
 local nLaunchedAt = -math.huge
 local LAUNCH_SAFE_TIME, LAUNCH_SAFE_ALT = 4, 100
+local CEILING_BAND = 400 -- studs below FlightConfig.CeilingY where the nose starts being pushed level
 local nPullUpTick = 0
 local pullUpRay = RaycastParams.new()
 pullUpRay.FilterType = Enum.RaycastFilterType.Include
@@ -362,6 +363,20 @@ local function step(dt: number)
 			end
 		end
 	end
+	-- soft ceiling: over the last CEILING_BAND studs the nose is pushed level, above it, down
+	do
+		local over = st.CFrame.Position.Y - (FlightConfig.CeilingY - CEILING_BAND)
+		if over > 0 then
+			local a = Flight.AimDir
+			local maxY = math.sin(math.rad(math.clamp(60 - over / CEILING_BAND * 70, -15, 60)))
+			if a.Y > maxY then
+				local flat = Vector3.new(a.X, 0, a.Z)
+				if flat.Magnitude < 1e-3 then flat = st.CFrame.LookVector * Vector3.new(1, 0, 1) end
+				if flat.Magnitude < 1e-3 then flat = Vector3.zAxis end
+				Flight.AimDir = (flat.Unit * math.sqrt(1 - maxY * maxY) + Vector3.yAxis * maxY).Unit
+			end
+		end
+	end
 	local input: FlightModel.Input = {
 		AimDir = Flight.AimDir,
 		Boost = Input.State.Boost,
@@ -427,12 +442,13 @@ local function step(dt: number)
 	end
 
 	-- soft ceiling and bounds: steer back rather than kill
+	-- (the physics body follows the movers' velocity, so the hard stop has to be on velocity too)
 	local p = st.CFrame.Position
+	local vel = st.CFrame.LookVector * st.Speed
 	if p.Y > FlightConfig.CeilingY then
 		st.CFrame = CFrame.new(p.X, FlightConfig.CeilingY, p.Z) * st.CFrame.Rotation
+		if vel.Y > 0 then vel = Vector3.new(vel.X, -20, vel.Z) end
 	end
-
-	local vel = st.CFrame.LookVector * st.Speed
 	writeMovers(st.CFrame, vel)
 
 	-- telemetry
