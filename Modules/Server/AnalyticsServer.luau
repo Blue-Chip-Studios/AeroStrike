@@ -86,7 +86,8 @@ end
 
 function Analytics.Progression(self, oPlayer: Player, sPath: string, nLevel: number, sName: string?)
 	safe(function()
-		AnalyticsService:LogProgressionEvent(oPlayer, sPath, Enum.AnalyticsProgressionType.Complete, nLevel, sName)
+		-- levelName must be non-empty or AnalyticsService rejects the event
+		AnalyticsService:LogProgressionEvent(oPlayer, sPath, Enum.AnalyticsProgressionType.Complete, nLevel, sName or `{sPath} {nLevel}`)
 	end)
 end
 

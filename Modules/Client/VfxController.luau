@@ -200,6 +200,21 @@ function Vfx.StartAsync(self)
 		elseif t.a == "Evade" then
 			Store.Values.sLaunchResult:set(if t.ace then "ACE EVADE!" else "MISSILE DEFEATED")
 			task.delay(1.4, function() Store.Values.sLaunchResult:set("") end)
+		elseif t.a == "Flak" then
+			-- dark flak burst
+			local a = Instance.new("Part")
+			a.Anchored, a.CanCollide, a.CanQuery, a.Transparency, a.Size, a.Position = true, false, false, 1, Vector3.one, t.pos
+			a.Parent = oFx
+			local pe = smokeEmitter(a, Color3.fromRGB(28, 26, 26), 0, 1.8, 7)
+			pe.Speed = NumberRange.new(4, 14)
+			pe.SpreadAngle = Vector2.new(180, 180)
+			pe:Emit(14)
+			local fire = Instance.new("PointLight")
+			fire.Color, fire.Range, fire.Brightness = Color3.fromRGB(255, 140, 60), 30, 5
+			fire.Parent = a
+			task.delay(0.12, function() fire:Destroy() end)
+			Debris:AddItem(a, 3)
+			Vfx.Boom:Fire(t.pos, false)
 		elseif t.a == "NpcFire" then
 			-- tail-gunner tracer
 			local dir = (t.to - t.from)

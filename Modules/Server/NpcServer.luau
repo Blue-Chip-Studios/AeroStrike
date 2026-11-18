@@ -89,6 +89,49 @@ local function tailGun(n: Npc, now: number)
 	if hit then Combat:Damage(best, g.Damage, nil, "Tail Gunner") end
 end
 
+-- Destroyer flak: bursts around the nearest jet in range (puffs on clients; chance to hit)
+local function flak(n: Npc, now: number)
+	local f = n.Cfg.Flak
+	if not f or now - n.LastShot < 1 / f.Rate then return end
+	local root = n.Model.PrimaryPart :: BasePart
+	local best: Model? = nil
+	local bestD = f.Range
+	for _, jet in ipairs(workspace.Jets:GetChildren()) do
+		if jet:IsA("Model") and jet.PrimaryPart and not jet:GetAttribute("Dead") and not jet:GetAttribute("Shield") then
+			local d = (jet.PrimaryPart.Position - root.Position).Magnitude
+			if d < bestD then best, bestD = jet, d end
+		end
+	end
+	if not best then return end
+	n.LastShot = now
+	local tp = (best.PrimaryPart :: BasePart).Position
+	local hit = math.random() < f.HitChance * (1 - bestD / f.Range * 0.5)
+	local miss = if hit then Vector3.zero else Vector3.new(math.random(-40, 40), math.random(-25, 25), math.random(-40, 40))
+	oCombatEvent:FireAllClients({ a = "Flak", pos = tp + miss })
+	if hit then Combat:Damage(best, f.Damage, nil, "Flak") end
+end
+
+-- SAM site: real (dodgeable) missile at a jet in range with line of sight
+local tSamRay = RaycastParams.new()
+tSamRay.FilterType = Enum.RaycastFilterType.Include
+local function sam(n: Npc, now: number)
+	local s = n.Cfg.Sam
+	if not s or now - n.LastShot < s.Cooldown then return end
+	local root = n.Model.PrimaryPart :: BasePart
+	local from = root.Position + Vector3.new(0, 10, 0)
+	tSamRay.FilterDescendantsInstances = { workspace.Terrain }
+	for _, jet in ipairs(workspace.Jets:GetChildren()) do
+		if jet:IsA("Model") and jet.PrimaryPart and not jet:GetAttribute("Dead") and not jet:GetAttribute("Shield") then
+			local to = jet.PrimaryPart.Position - from
+			if to.Magnitude < s.Range and not workspace:Raycast(from, to, tSamRay) then
+				n.LastShot = now
+				Combat:FireMissileAt(nil, CFrame.lookAt(from, jet.PrimaryPart.Position), jet, s.Damage, n.Model)
+				return
+			end
+		end
+	end
+end
+
 local function flares(n: Npc, now: number)
 	if not n.Cfg.FlareChance or now - n.LastFlare < 4 then return end
 	if (n.Model:GetAttribute("Incoming") or 0) <= 0 then return end
@@ -120,8 +163,12 @@ function Npc.Spawn(self, sKind: string, cf: CFrame, opts: { [string]: any }?): M
 	m:PivotTo(cf)
 	m.Parent = workspace.NPC
 	local root = m.PrimaryPart :: BasePart
-	root.Anchored = false
-	root:SetNetworkOwner(nil)
+	if cfg.Static then
+		root.Anchored = true
+	else
+		root.Anchored = false
+		root:SetNetworkOwner(nil)
+	end
 	self.Active[m] = {
 		Model = m, Kind = sKind, Cfg = cfg, Route = o.Route or {}, Wp = 1, Loop = o.Loop == true,
 		Orbit = o.Orbit, Angle = math.random() * math.pi * 2, Tag = o.Tag or "", LastShot = 0, LastFlare = 0,
@@ -134,6 +181,28 @@ function Npc.Remove(self, m: Model, bKilled: boolean)
 	if not n then return end
 	self.Active[m] = nil
 	self.OnRemoved:Fire(m, n.Tag, bKilled)
+	if bKilled and n.Cfg.Ship and m.PrimaryPart then
+		-- a sunk destroyer lists to one side and slides under over ~6s (a payoff
+		-- moment everyone in the strike can see) instead of vanishing
+		local root = m.PrimaryPart
+		root.Anchored = true
+		for _, d in ipairs(m:GetDescendants()) do
+			if d:IsA("BasePart") then d.CanCollide = false; d.CanQuery = false end
+		end
+		local start = m:GetPivot()
+		local roll = if math.random() < 0.5 then -1 else 1
+		task.spawn(function()
+			local t0 = os.clock()
+			while m.Parent and os.clock() - t0 < 6 do
+				local a = math.clamp((os.clock() - t0) / 6, 0, 1)
+				local e = a * a
+				m:PivotTo(start * CFrame.new(0, -60 * e, 0) * CFrame.Angles(math.rad(-12 * a), 0, math.rad(28 * roll * a)))
+				task.wait()
+			end
+			if m.Parent then m:Destroy() end
+		end)
+		return
+	end
 	task.delay(0.05, function() if m.Parent then m:Destroy() end end)
 end
 
@@ -160,6 +229,10 @@ function Npc.StartAsync(self)
 					continue
 				end
 				local pos = m.PrimaryPart.Position
+				if n.Cfg.Static then
+					sam(n, now)
+					continue
+				end
 				local target: Vector3
 				if n.Orbit then
 					n.Angle += dt * n.Cfg.Speed / n.Orbit.Radius
@@ -178,8 +251,10 @@ function Npc.StartAsync(self)
 					end
 					target = n.Route[n.Wp] or wp
 				end
+				if n.Cfg.Ship then target = Vector3.new(target.X, 0, target.Z) end -- ships stay on the sea
 				steer(n, target, dt)
 				tailGun(n, now)
+				flak(n, now)
 				flares(n, now)
 			end
 		end

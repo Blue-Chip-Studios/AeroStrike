@@ -35,21 +35,70 @@ local function edgeClamp(cam: Camera, world: Vector3): Vector2
 	return c + dir * math.min(tx, ty)
 end
 
+-- Canyon Run gates: client-local rings (Blender ring model), aligned with the canyon
+local tGateRings: { Model } = {}
+local tGates: { Vector3 } = {}
+local nGateNext = 1
+local function clearGates()
+	for _, r in ipairs(tGateRings) do r:Destroy() end
+	table.clear(tGateRings)
+	table.clear(tGates)
+end
+local function buildGates(gates: { Vector3 })
+	clearGates()
+	local ct = ReplicatedStorage:FindFirstChild("ClientTemplates")
+	local tmpl = ct and ct:FindFirstChild("Ring") :: Model?
+	for i, g in ipairs(gates) do
+		tGates[i] = g
+		if tmpl then
+			local nxt = gates[i + 1] or (g + (g - gates[i - 1]))
+			local r = tmpl:Clone()
+			r:ScaleTo(1.6)
+			r:PivotTo(CFrame.lookAt(g, Vector3.new(nxt.X, g.Y, nxt.Z)))
+			for _, d in ipairs(r:GetDescendants()) do
+				if d:IsA("BasePart") and d.Name == "Glow" then d.Color = Color3.fromRGB(255, 150, 60) end
+			end
+			r.Parent = Workspace
+			tGateRings[i] = r
+		end
+	end
+	nGateNext = 1
+end
+
 function MissionClient.StartAsync(self)
 	Remote:GetEvent("MissionEvent"):OnClientEvent(function(t: any)
 		if typeof(t) ~= "table" then return end
+		if t.a == "Gate" then
+			nGateNext = t.next
+			local passed = tGateRings[t.next - 1]
+			if passed then passed:Destroy() end
+			self.Objective = tGates[t.next]
+			Store.Values.sLaunchResult:set(string.format("GATE %d/%d  ·  %.1fs", t.next - 1, t.total, t.time or 0))
+			task.delay(0.8, function() Store.Values.sLaunchResult:set("") end)
+			return
+		elseif t.a == "CanyonDone" then
+			Store.Values.sLaunchResult:set(string.format("%s  %.1fs", if t.gold then "GOLD TIME!" else "CANYON CLEARED", t.time))
+			task.delay(2.5, function() Store.Values.sLaunchResult:set("") end)
+			-- rebuild the gates so the pilot can go again
+			local copy = table.clone(tGates)
+			buildGates(copy)
+			self.Objective = tGates[1]
+			return
+		end
 		if t.a == "Start" then
+			if t.gates then buildGates(t.gates) else clearGates() end
 			self.Objective = t.pos
 			Store.Values.sObjective:set(`{t.name}  ·  {t.left} LEFT`)
 			Store.Values.sLaunchResult:set(t.name .. " INBOUND")
 			task.delay(2.2, function() Store.Values.sLaunchResult:set("") end)
 		elseif t.a == "Update" then
-			if t.pos then self.Objective = t.pos end
+			if t.pos and #tGates == 0 then self.Objective = t.pos end
 			local cur = Store.Values.sObjective
 			local Fusion = require(ReplicatedStorage.Packages.fusion)
 			local name = string.match(Fusion.peek(cur) or "", "^(.-)  ·") or "MISSION"
 			Store.Values.sObjective:set(`{name}  ·  {t.left} LEFT`)
 		elseif t.a == "End" then
+			clearGates()
 			self.Objective = nil
 			Store.Values.sObjective:set("")
 			if t.success then

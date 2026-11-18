@@ -195,6 +195,15 @@ local function step(dt: number)
 	st.CFrame = CFrame.new(root.Position) * st.CFrame.Rotation
 	local aimDelta = Input:Update(dt)
 	if not Input.State.FreeLook then updateAimDir(aimDelta, st.CFrame.LookVector) end
+	-- Studio-only QA autopilot: steer straight at a point (canyon/arch fly-through tests)
+	if RunService:IsStudio() then
+		local tp = LocalPlayer:GetAttribute("TestAimPoint")
+		if typeof(tp) == "Vector3" then
+			local d = tp - st.CFrame.Position
+			if d.Magnitude > 1 then Flight.AimDir = d.Unit end
+			bClimbOut = false
+		end
+	end
 	-- climb-out assist: after launch, level off at ~280 studs unless the pilot steers
 	if bClimbOut then
 		if aimDelta.Magnitude > 0.002 then

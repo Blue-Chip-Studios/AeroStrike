@@ -227,8 +227,14 @@ function Economy.StartAsync(self)
 			end)
 		else
 			local kind = victim:GetAttribute("NpcKind")
-			local key = if kind == "Bomber" then "BomberKill" elseif kind == "Drone" then "DroneTraining" else "BomberKill"
-			self:Reward(killer, key, { Bank = true, Label = `{string.upper(kind or "TARGET")} DOWN` })
+			if kind == "Destroyer" then
+				-- the sink reward is shared by every participant (MissionServer)
+				self:Reward(killer, "BomberKill", { Bank = true, Label = "FINAL BLOW: DESTROYER SUNK" })
+			else
+				local key = if kind == "Drone" then "DroneTraining" else "BomberKill"
+				local label = if kind == "SAMSite" then "SAM SITE DESTROYED" else `{string.upper(kind or "TARGET")} DOWN`
+				self:Reward(killer, key, { Bank = true, Label = label })
+			end
 		end
 		for _, p in ipairs(info.Assists or {}) do
 			self:Reward(p, "Assist", { Label = "ASSIST" })

@@ -6,6 +6,7 @@
       "spawnAhead"(kind, dist)  spawn an NPC flying ahead of the first jet
       "state"()                 summary of jets, NPCs, mission, economy
       "damageSelf"(n)           damage the first jet (QA of death flow)
+      "damageMission"(n)        damage current mission units as player 1
 ]]
 
 local RunService = game:GetService("RunService")
@@ -44,11 +45,28 @@ function Debug.StartAsync(self)
 			Economy:SetProfileKey(p, "FTUE", function(f) f.Step = (a or 1) - 1; f.Done = false; f.Skipped = false; return f end)
 			require(ReplicatedStorage.BCDKShared.Remote):GetEvent("FTUEEvent"):FireClient(p, { a = "State", step = (a or 1) - 1, done = false })
 			return "ok"
+		elseif cmd == "mission" then
+			Mission:ForceStart(a)
+			return "started " .. tostring(a)
 		elseif cmd == "giveCash" then
 			local p = game:GetService("Players"):GetPlayers()[1]
 			require(ServerStorage.BCDKServer.SMCurrency):Add(p, 1, a or 10000)
 			require(ServerStorage.BCDKServer.SMXP):Add(p, b or 0)
 			return "ok"
+		elseif cmd == "damageMission" then
+			-- damage every live unit of the current mission as the first player
+			local cur = Mission.Current
+			if not cur then return "no mission" end
+			local p = game:GetService("Players"):GetPlayers()[1]
+			local out = {}
+			for unit in pairs(cur.Units) do
+				if unit.Parent then
+					local pp = unit.PrimaryPart
+					table.insert(out, `{unit.Name}@{pp and math.floor(pp.Position.X) or "?"},{pp and math.floor(pp.Position.Z) or "?"} hp={unit:GetAttribute("Health")}`)
+					Combat:Damage(unit, a or 100, p, "Debug")
+				end
+			end
+			return table.concat(out, "; ")
 		elseif cmd == "damageSelf" and jet then
 			Combat:Damage(jet, a or 200, nil, "Debug")
 			return "ok"
