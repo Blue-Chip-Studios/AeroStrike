@@ -1,6 +1,6 @@
 # AeroStrike
 
-Roblox experience built with [Rojo](https://github.com/rojo-rbx/rojo) 7.5.1, [Wally](https://github.com/UpliftGames/wally) for packages and [Aftman](https://github.com/LPGhatguy/aftman) for the toolchain. Uses the [BCDK](https://github.com/Blue-Chip-Studios/BCDK) framework as a git submodule.
+Roblox experience built with [Rojo](https://github.com/rojo-rbx/rojo) 7.7.1, [Wally](https://github.com/UpliftGames/wally) for packages and [Aftman](https://github.com/LPGhatguy/aftman) for the toolchain. Uses the [BCDK](https://github.com/Blue-Chip-Studios/BCDK) framework as a git submodule.
 
 ## Getting Started
 
