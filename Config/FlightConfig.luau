@@ -41,6 +41,7 @@ return {
 	-- Safety
 	SpawnShield = 6,
 	WaterLevel = 0,
+	PullUpSeconds = 3, -- ground-proximity warning look-ahead
 	CeilingY = 3200,
 	BoundsRadius = 5200, -- from map centre; beyond = warning, then turn back
 

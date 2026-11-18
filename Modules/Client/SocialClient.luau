@@ -86,13 +86,70 @@ local function ensureTrail(m: Model, on: boolean)
 	end
 end
 
+-- Ace Bounty marker: a gold "★ ACE ◉value · distance" tag over every other Ace,
+-- visible through terrain at any range so underdogs can find and hunt them
+local tMarkers: { [Model]: BillboardGui } = {}
+local function ensureMarker(m: Model, bounty: number?)
+	local mine = m.Name == tostring(LocalPlayer.UserId)
+	local squad = LocalPlayer:GetAttribute("SquadId")
+	local friendly = squad ~= nil and m:GetAttribute("SquadId") == squad
+	local want = bounty ~= nil and not mine and not friendly and m.PrimaryPart ~= nil
+	local bb = tMarkers[m]
+	if want and not bb then
+		bb = Instance.new("BillboardGui")
+		bb.Name = "AS_AceMarker"
+		bb.AlwaysOnTop = true
+		bb.LightInfluence = 0
+		bb.Size = UDim2.fromOffset(150, 46)
+		bb.StudsOffsetWorldSpace = Vector3.new(0, 14, 0)
+		bb.MaxDistance = 1e6
+		local star = Instance.new("TextLabel")
+		star.Name = "Tag"
+		star.BackgroundTransparency = 1
+		star.Size = UDim2.new(1, 0, 0.6, 0)
+		star.FontFace = Font.fromEnum(Enum.Font.GothamBlack)
+		star.TextScaled = true
+		star.TextColor3 = Color3.fromRGB(255, 216, 107)
+		star.TextStrokeTransparency = 0.3
+		star.Parent = bb
+		local dist = Instance.new("TextLabel")
+		dist.Name = "Dist"
+		dist.BackgroundTransparency = 1
+		dist.Position = UDim2.fromScale(0, 0.6)
+		dist.Size = UDim2.new(1, 0, 0.4, 0)
+		dist.FontFace = Font.fromEnum(Enum.Font.GothamBold)
+		dist.TextScaled = true
+		dist.TextColor3 = Color3.fromRGB(255, 236, 180)
+		dist.TextStrokeTransparency = 0.4
+		dist.Parent = bb
+		bb.Adornee = m.PrimaryPart
+		bb.Parent = LocalPlayer:WaitForChild("PlayerGui")
+		tMarkers[m] = bb
+	elseif not want and bb then
+		bb:Destroy()
+		tMarkers[m] = nil
+		return
+	end
+	if bb and bounty then
+		(bb:FindFirstChild("Tag") :: TextLabel).Text = `★ ACE  ◉{bounty}`
+		local me = Flight.Jet and Flight.Jet.PrimaryPart
+		local d = if me and m.PrimaryPart then (m.PrimaryPart.Position - me.Position).Magnitude else nil
+		(bb:FindFirstChild("Dist") :: TextLabel).Text = if d then string.format("%.1f km", d * 0.28 / 1000) else ""
+	end
+end
+
 local nFormationTick = 0
 local function step(dt: number)
-	-- contrails
+	-- contrails + Ace markers
 	for _, m in ipairs(Workspace.Jets:GetChildren()) do
-		if m:IsA("Model") then ensureTrail(m, m:GetAttribute("Bounty") ~= nil or m:GetAttribute("VIP") == true) end
+		if m:IsA("Model") then
+			local bounty = m:GetAttribute("Bounty") :: number?
+			ensureTrail(m, bounty ~= nil or m:GetAttribute("VIP") == true)
+			ensureMarker(m, bounty)
+		end
 	end
 	for m in pairs(tTrails) do if not m.Parent then tTrails[m] = nil end end
+	for m, bb in pairs(tMarkers) do if not m.Parent then bb:Destroy(); tMarkers[m] = nil end end
 
 	-- Formation bonus: a squadmate within range slowly refuels you
 	nFormationTick += dt

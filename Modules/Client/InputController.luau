@@ -202,6 +202,8 @@ function Input.Update(self, dt: number): Vector2
 		d = Vector2.new(s.X, s.Y * inv) * STICK_RAD_PER_S * dt
 	else
 		local md = UserInputService:GetMouseDelta()
+		-- a one-frame jump this big is a window-focus / alt-tab artefact, not a flick
+		if md.Magnitude > 250 then md = Vector2.zero end
 		d = Vector2.new(md.X, -md.Y * inv) * MOUSE_RAD_PER_PX
 	end
 	-- Studio-only QA override: TestAim = angular rate (rad/s) for automated playtests

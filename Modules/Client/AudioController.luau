@@ -217,6 +217,7 @@ local function step(dt: number)
 	drive("MissileWarning", if inbound then (0.6 + 0.2 * closeness) * (1 - fastMix) else 0, dt, 1, oThreat, 25)
 	drive("MissileWarningFast", if inbound then (0.7 + 0.3 * closeness) * fastMix else 0, dt, 1, oThreat, 25)
 	drive("LockedWarning", if threat == "Locked" then 0.45 else 0, dt, 1, oThreat, 20)
+	drive("PullUp", if flying and peek(Store.Values.bPullUp) then 0.55 else 0, dt, 1, oThreat, 25)
 	drive("TensionDrone", nIntensity * 0.55, dt, 0.95 + 0.15 * nIntensity, oThreat, 3)
 	drive("Heartbeat", math.max(0, nIntensity - 0.25) * 1.1, dt, 0.9 + 0.5 * closeness, oThreat, 4)
 

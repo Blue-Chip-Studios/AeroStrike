@@ -74,6 +74,8 @@ local tValues = {
 	tPlayerList = {}, -- for the squad screen
 	bFormation = false,
 	tObjectiveScreen = Vector2.new(-1000, -1000),
+	bPullUp = false, -- ground-proximity warning
+	nPullUpBlink = true,
 
 	-- platform
 	bTouch = false,

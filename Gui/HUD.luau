@@ -115,6 +115,10 @@ return function(scope: any, props: { [string]: any })
 					-- shield
 					C.HudText(scope, { Name = "Shield", Text = "SPAWN SHIELD", Font = Theme.Display, TextSize = 14, Color = Theme.Squad,
 						Position = UDim2.new(0.5, 0, 0.7, 0), Visible = V.bShield }),
+					-- ground-proximity warning (flashes)
+					C.HudText(scope, { Name = "PullUp", Text = "PULL UP", Font = Theme.Display, TextSize = 30, Color = Theme.Threat,
+						Position = UDim2.new(0.5, 0, 0.62, 0), Size = UDim2.fromOffset(320, 40),
+						Visible = scope:Computed(function(use) return use(V.bPullUp) and use(V.nPullUpBlink) end) }),
 					-- launch result toast
 					C.HudText(scope, { Name = "LaunchResult", Font = Theme.Display, TextSize = 34, Color = Theme.Amber,
 						Position = UDim2.new(0.5, 0, 0.3, 0), Size = UDim2.fromOffset(700, 50), Text = V.sLaunchResult }),

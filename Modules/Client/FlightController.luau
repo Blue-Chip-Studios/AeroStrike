@@ -47,6 +47,11 @@ local nLaunchSpeed = 0
 local nFreeBoost = 0
 local nTouchAndGoCooldown = 0
 local bClimbOut = false
+local nLaunchedAt = -math.huge
+local LAUNCH_SAFE_TIME, LAUNCH_SAFE_ALT = 4, 100
+local nPullUpTick = 0
+local pullUpRay = RaycastParams.new()
+pullUpRay.FilterType = Enum.RaycastFilterType.Include
 local tRayParams = RaycastParams.new()
 tRayParams.FilterType = Enum.RaycastFilterType.Exclude
 tRayParams.IgnoreWater = false
@@ -54,6 +59,7 @@ tRayParams.IgnoreWater = false
 local function setPhase(p: string)
 	Flight.Phase = p
 	Store.Values.sPhase:set(p)
+	if p ~= "Flying" then Store.Values.bPullUp:set(false) end
 	if Input then Input:SetFlightMouseLock(p == "Flying" or p == "Catapult") end
 	Changed:Fire(p)
 end
@@ -184,6 +190,7 @@ local function step(dt: number)
 			st.CFrame = CFrame.lookAt(root.Position, root.Position + sp.finish.LookVector + Vector3.new(0, 0.12, 0))
 			Flight.AimDir = (sp.finish.LookVector + Vector3.new(0, 0.18, 0)).Unit -- gentle climb-out
 			bClimbOut = true
+			nLaunchedAt = os.clock()
 			setPhase("Flying")
 		end
 		return
@@ -214,6 +221,19 @@ local function step(dt: number)
 			if flat.Magnitude > 1e-3 then
 				Flight.AimDir = a:Lerp(flat.Unit, math.clamp(dt * 1.5, 0, 1)).Unit
 				if math.abs(Flight.AimDir.Y) < 0.01 then bClimbOut = false end
+			end
+		end
+	end
+	-- launch safety: just off the bow the jet is ~30 studs above the sea, so for the
+	-- first seconds (and while low) the aim can't point below a gentle climb
+	if os.clock() - nLaunchedAt < LAUNCH_SAFE_TIME and st.CFrame.Position.Y < LAUNCH_SAFE_ALT then
+		local a = Flight.AimDir
+		local minY = math.sin(math.rad(6))
+		if a.Y < minY then
+			local flat = Vector3.new(a.X, 0, a.Z)
+			if flat.Magnitude < 1e-3 then flat = st.CFrame.LookVector * Vector3.new(1, 0, 1) end
+			if flat.Magnitude > 1e-3 then
+				Flight.AimDir = (flat.Unit * math.cos(math.rad(6)) + Vector3.yAxis * minY).Unit
 			end
 		end
 	end
@@ -267,6 +287,23 @@ local function step(dt: number)
 	Store.Values.nHeading:set((math.deg(math.atan2(lv.X, -lv.Z)) + 360) % 360)
 	Store.Values.bShield:set(jet:GetAttribute("Shield") == true)
 	Store.Values.bBoost:set(Input.State.Boost)
+	-- ground proximity: warn when the current flight path meets sea or terrain within ~3 s
+	nPullUpTick += dt
+	if nPullUpTick > 0.1 then
+		nPullUpTick = 0
+		local danger = false
+		if vel.Y < -5 then
+			local ahead = vel * FlightConfig.PullUpSeconds
+			local tSea = (p.Y - FlightConfig.WaterLevel) / -vel.Y -- seconds until the sea at this sink rate
+			danger = tSea < FlightConfig.PullUpSeconds
+			if not danger then
+				pullUpRay.FilterDescendantsInstances = { workspace.Terrain }
+				danger = Workspace:Raycast(p, ahead, pullUpRay) ~= nil
+			end
+		end
+		Store.Values.bPullUp:set(danger)
+		Store.Values.nPullUpBlink:set((os.clock() * 4) % 1 < 0.6)
+	end
 	local cam = Workspace.CurrentCamera
 	local aimPt, aimOn = cam:WorldToViewportPoint(p + Flight.AimDir * FlightConfig.AimDistance)
 	Store.Values.tAimScreen:set(if aimOn then Vector2.new(aimPt.X, aimPt.Y) else Vector2.new(-1000, -1000))

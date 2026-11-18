@@ -52,3 +52,12 @@ vib = 1 + 0.01*np.sin(2*np.pi*6*t)
 ph = 2*np.pi*np.cumsum(900*vib)/SR
 y = np.sin(ph) + 0.25*np.sin(3*ph)/3 + 0.5*np.sin(ph/2)
 save("lock_tone_v2.ogg", lowpass(y, 2400))
+
+# Ground-proximity "PULL UP": urgent low double-beep (440 Hz) every 0.5 s, warm square-ish
+y = np.zeros_like(t)
+for start in np.arange(0, L, 0.5):
+    for k, off in enumerate((0.0, 0.14)):
+        s0 = start + off
+        e = np.clip((t - s0) / 0.005, 0, 1) * np.clip((s0 + 0.10 - t) / 0.015, 0, 1)
+        y += tone(440, t, 0.4) * e
+save("pull_up_v2.ogg", lowpass(y, 2400))

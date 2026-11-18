@@ -34,6 +34,7 @@ local Sounds: { [string]: SoundDef } = {
 	MissileWarning = { Id = 74658418992258, Volume = 0.8, Looped = true },
 	MissileWarningFast = { Id = 130928057701176, Volume = 0.8, Looped = true },
 	LockedWarning = { Id = 118206181133532, Volume = 0.45, Looped = true },
+	PullUp = { Id = 90731817931499, Volume = 0.55, Looped = true },
 
 	-- tension layer
 	TensionDrone = { Id = 106139770557782, Volume = 0, Looped = true, Region = { 1, 29 } },
