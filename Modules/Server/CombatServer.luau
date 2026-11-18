@@ -419,7 +419,8 @@ function Combat.StartAsync(self)
 			tAmmo[jet] = nil
 			tLedger[jet] = nil
 			-- crashes while being chased credit the last attacker
-			if sCause == "crash" and not jet:GetAttribute("Dead") then
+			-- client-reported impacts arrive as "crash:<what was hit>", server ones as "crash"
+			if string.sub(sCause, 1, 5) == "crash" and not jet:GetAttribute("Dead") then
 				local uid = jet:GetAttribute("LastAttacker")
 				local at = jet:GetAttribute("LastAttackedAt") :: number? or -math.huge
 				local recent = workspace:GetServerTimeNow() - at <= WeaponConfig.CrashCreditWindow

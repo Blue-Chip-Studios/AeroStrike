@@ -21,6 +21,21 @@ local Social = ModuleUtil.New({})
 local oReq
 local Flight, Vfx, Input
 local bDailyShownThisSession = false
+local bDailyQueued = false
+
+-- Show the daily panel only while idle on the carrier deck: never in the tutorial,
+-- never in flight, and not on the death screen (where Relaunch would carry it into a fight).
+local function queueDaily()
+	if bDailyQueued then return end
+	bDailyQueued = true
+	task.spawn(function()
+		local FlightC = require(script.Parent.FlightController) :: any
+		while peek(Store.Values.bFTUEActive) or FlightC.Phase ~= "Deck" do task.wait(0.5) end
+		bDailyQueued = false
+		local d = peek(Store.Values.tDaily)
+		if d and d.claimable then Store.Values.bDailyOpen:set(true) end
+	end)
+end
 local tTrails: { [Model]: { Trail } } = {}
 
 function Social.Invite(self, userId: number) oReq:FireServer({ a = "Invite", userId = userId }) end
@@ -201,13 +216,16 @@ function Social.StartAsync(self)
 			Store.Values.tDaily:set({ day = t.day, streak = t.streak, claimable = t.claimable })
 			if t.claimable and not bDailyShownThisSession then
 				bDailyShownThisSession = true
-				-- show on the deck, never mid-dogfight
-				task.spawn(function()
-					-- never during the tutorial, never mid-dogfight
-					while peek(Store.Values.bFTUEActive) or (Flight.Phase ~= "Deck" and Flight.Phase ~= "Dead") do task.wait(0.5) end
-					Store.Values.bDailyOpen:set(true)
-				end)
+				queueDaily()
 			end
+		end
+	end)
+	-- launching with the panel still open closes it; it comes back next time on the deck
+	Flight.Changed:Connect(function(phase: string)
+		if (phase == "Catapult" or phase == "Flying") and peek(Store.Values.bDailyOpen) then
+			Store.Values.bDailyOpen:set(false)
+			local d = peek(Store.Values.tDaily)
+			if d and d.claimable then queueDaily() end
 		end
 	end)
 	RunService.Heartbeat:Connect(step)
