@@ -124,6 +124,7 @@ function Combat.Damage(self, victim: Model, nDmg: number, attacker: Player?, sWe
 		e.T = os.clock()
 		tLedger[victim][attacker] = e
 		victim:SetAttribute("LastAttacker", attacker.UserId)
+		victim:SetAttribute("LastAttackedAt", workspace:GetServerTimeNow())
 	end
 	self.OnDamage:Fire(attacker, victim, nDmg)
 	if hp <= 0 then
@@ -420,7 +421,10 @@ function Combat.StartAsync(self)
 			-- crashes while being chased credit the last attacker
 			if sCause == "crash" and not jet:GetAttribute("Dead") then
 				local uid = jet:GetAttribute("LastAttacker")
-				local killer = if uid then Players:GetPlayerByUserId(uid) else nil
+				local at = jet:GetAttribute("LastAttackedAt") :: number? or -math.huge
+				local recent = workspace:GetServerTimeNow() - at <= WeaponConfig.CrashCreditWindow
+				local killer = if uid and recent then Players:GetPlayerByUserId(uid) else nil
+				if killer == oPlayer then killer = nil end
 				jet:SetAttribute("Dead", true)
 				self.OnKill:Fire(killer, jet, if killer then "Crash (chased)" else "Crash", { Assists = {} })
 				oEvent:FireAllClients({ a = "Kill", killer = if killer then killer.DisplayName else "", killerId = if killer then killer.UserId else 0,

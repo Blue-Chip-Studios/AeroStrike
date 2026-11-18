@@ -39,4 +39,5 @@ return {
 	},
 	LockAnnounceRate = { Count = 12, Window = 4 },
 	AssistWindow = 15, -- seconds damage counts toward an assist
+	CrashCreditWindow = 10, -- a crash counts as a kill only if an enemy hit you this recently
 }

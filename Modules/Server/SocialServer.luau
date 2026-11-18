@@ -80,6 +80,8 @@ local function leave(p: Player)
 end
 
 local function join(inviter: Player, invitee: Player)
+	-- check room first so a full squad never strips the invitee from their current one
+	if tSquadOf[inviter] and #tSquadOf[inviter] >= MAX_SQUAD then return end
 	if tSquadOf[invitee] then leave(invitee) end
 	local s = tSquadOf[inviter]
 	if not s then
@@ -192,7 +194,7 @@ function Social.StartAsync(self)
 			tStreak[vp] = 0
 			setBounty(vp, nil)
 		end
-		if killer and vp then
+		if killer and vp and killer ~= vp then
 			local s = (tStreak[killer] or 0) + 1
 			tStreak[killer] = s
 			Economy:SetProfileKey(killer, "Stats", function(st) st.BestStreak = math.max(st.BestStreak or 0, s); return st end)

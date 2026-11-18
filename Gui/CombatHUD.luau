@@ -127,12 +127,12 @@ return function(scope: any, props: { [string]: any })
 						Visible = scope:Computed(function(use) return not use(V.bFTUEActive) end) }),
 					-- threat banner
 					C.HudText(scope, { Name = "Threat", Font = Theme.Display, TextSize = 26, Color = Theme.Threat,
-						Position = UDim2.fromScale(0.5, 0.24), Size = UDim2.fromOffset(700, 40), Text = threatText }),
+						Position = UDim2.fromScale(0.5, 0.24), Size = UDim2.fromOffset(520, 40), Text = threatText }),
 					-- ammo panel (right of centre, above touch controls)
 					scope:New("Frame")({
 						Name = "Ammo",
 						AnchorPoint = Vector2.new(1, 1),
-						Position = UDim2.new(1, -24, 0.62, 0),
+						Position = UDim2.new(1, -24, 0.45, 0), -- above the thumb-button arc on every device
 						Size = UDim2.fromOffset(190, 96),
 						BackgroundTransparency = 1,
 						[Children] = {
@@ -197,13 +197,13 @@ return function(scope: any, props: { [string]: any })
 			scope:New("Frame")({
 				Name = "Feed",
 				Position = UDim2.new(0, 20, 0, 70),
-				Size = UDim2.fromOffset(460, 140),
+				Size = UDim2.fromOffset(360, 140), -- clears the threat banner even on the smallest phones
 				BackgroundTransparency = 1,
 				[Children] = {
 					scope:New("UIListLayout")({ Padding = UDim.new(0, 4) }),
 					scope:ForValues(V.tToasts, function(use, scope2, t: any)
 						return C.HudText(scope2, { Text = t.Text, Font = Theme.Body, TextSize = 18, Color = t.Color or Theme.Ink,
-							AnchorPoint = Vector2.zero, XAlign = Enum.TextXAlignment.Left, Size = UDim2.fromOffset(460, 24) })
+							AnchorPoint = Vector2.zero, XAlign = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24) })
 					end),
 				},
 			}),

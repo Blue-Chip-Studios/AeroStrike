@@ -23,6 +23,10 @@ return function(scope: any, props: { [string]: any })
 	local dead = scope:Computed(function(use) return use(V.sPhase) == "Dead" end)
 	local touch = V.bTouch
 
+	-- readout columns sit closer to the reticle on touch screens (clear of the thumb buttons)
+	local function colL(y: number) return scope:Computed(function(use) return UDim2.new(if use(V.bTouch) then 0.38 else 0.24, 0, y, 0) end) end
+	local function colR(y: number) return scope:Computed(function(use) return UDim2.new(if use(V.bTouch) then 0.62 else 0.76, 0, y, 0) end) end
+
 	local function screenPos(val: any)
 		return scope:Computed(function(use)
 			local v = use(val) :: Vector2
@@ -90,22 +94,22 @@ return function(scope: any, props: { [string]: any })
 						},
 					}),
 					-- speed (left) and altitude (right)
-					C.HudText(scope, { Name = "SpdLbl", Text = "SPD KM/H", Font = Theme.Display, TextSize = 12, Position = UDim2.new(0.24, 0, 0.42, 0) }),
-					C.HudText(scope, { Name = "Spd", TextSize = 30, Position = UDim2.new(0.24, 0, 0.47, 0),
+					C.HudText(scope, { Name = "SpdLbl", Text = "SPD KM/H", Font = Theme.Display, TextSize = 12, Position = colL(0.42) }),
+					C.HudText(scope, { Name = "Spd", TextSize = 30, Position = colL(0.47),
 						Text = scope:Computed(function(use) return tostring(use(V.nSpeedKmh)) end) }),
-					C.HudText(scope, { Name = "AltLbl", Text = "ALT", Font = Theme.Display, TextSize = 12, Position = UDim2.new(0.76, 0, 0.42, 0) }),
-					C.HudText(scope, { Name = "Alt", TextSize = 30, Position = UDim2.new(0.76, 0, 0.47, 0),
+					C.HudText(scope, { Name = "AltLbl", Text = "ALT", Font = Theme.Display, TextSize = 12, Position = colR(0.42) }),
+					C.HudText(scope, { Name = "Alt", TextSize = 30, Position = colR(0.47),
 						Text = scope:Computed(function(use) return tostring(use(V.nAltitude)) end) }),
 					-- heading
 					C.HudText(scope, { Name = "Hdg", TextSize = 16, Position = UDim2.new(0.5, 0, 0.06, 0),
 						Text = scope:Computed(function(use) return string.format("%03d", math.floor(use(V.nHeading))) end) }),
 					-- G meter
-					C.HudText(scope, { Name = "G", TextSize = 26, Position = UDim2.new(0.24, 0, 0.56, 0),
+					C.HudText(scope, { Name = "G", TextSize = 26, Position = colL(0.56),
 						Color = scope:Computed(function(use) return if use(V.nG) > 6 then Theme.Amber else Theme.Hud end),
 						Text = scope:Computed(function(use) return string.format("%.1f G", use(V.nG)) end) }),
 					-- fuel
-					C.HudText(scope, { Name = "FuelLbl", Text = "FUEL", Font = Theme.Display, TextSize = 12, Position = UDim2.new(0.76, 0, 0.555, 0) }),
-					C.HudBar(scope, { Name = "Fuel", Position = UDim2.new(0.76, 0, 0.585, 0), Size = UDim2.fromOffset(150, 10),
+					C.HudText(scope, { Name = "FuelLbl", Text = "FUEL", Font = Theme.Display, TextSize = 12, Position = colR(0.555) }),
+					C.HudBar(scope, { Name = "Fuel", Position = colR(0.585), Size = UDim2.fromOffset(150, 10),
 						Fill = V.nFuel, FillColor = Theme.Amber,
 						Color = scope:Computed(function(use) return if use(V.nFuel) < 0.2 then Theme.Threat else Theme.Hud end) }),
 					-- shield
@@ -157,26 +161,34 @@ return function(scope: any, props: { [string]: any })
 				Visible = onDeck,
 				[Children] = {
 					C.HudText(scope, { Text = "CATAPULT READY", Font = Theme.Display, TextSize = 22, Color = Theme.Ink, Position = UDim2.fromScale(0.5, 0.62) }),
+					-- one row that scales as a unit (ResponsiveUIController), so buttons never collide or drift apart
+					scope:New("Frame")({
+						Name = "DeckButtons", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 24, 1, -24),
+						Size = UDim2.fromOffset(474, 52), BackgroundTransparency = 1,
+						[Children] = {
+						scope:New("UIListLayout")({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Bottom }),
 					scope:New("TextButton")({
-						Name = "HangarBtn", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 24, 1, -24), Size = UDim2.fromOffset(170, 52),
+						Name = "HangarBtn", LayoutOrder = 1, Size = UDim2.fromOffset(170, 52),
 						BackgroundColor3 = Theme.Panel, BackgroundTransparency = 0.1, FontFace = Theme.Body, TextSize = 20, TextColor3 = Theme.Ink,
 						Text = "HANGAR", Selectable = true,
 						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("HangarClient")) :: any):Open() end,
 						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }), scope:New("UIStroke")({ Color = Theme.Amber, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }) },
 					}),
 					scope:New("TextButton")({
-						Name = "ShopBtn", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 206, 1, -24), Size = UDim2.fromOffset(140, 52),
+						Name = "ShopBtn", LayoutOrder = 2, Size = UDim2.fromOffset(140, 52),
 						BackgroundColor3 = Theme.Panel, BackgroundTransparency = 0.1, FontFace = Theme.Body, TextSize = 20, TextColor3 = Theme.Hud,
 						Text = "SHOP", Selectable = true,
 						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("ShopClient")) :: any):Open() end,
 						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }), scope:New("UIStroke")({ Color = Theme.Hud, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }) },
 					}),
 					scope:New("TextButton")({
-						Name = "SquadBtn", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 358, 1, -24), Size = UDim2.fromOffset(140, 52),
+						Name = "SquadBtn", LayoutOrder = 3, Size = UDim2.fromOffset(140, 52),
 						BackgroundColor3 = Theme.Panel, BackgroundTransparency = 0.1, FontFace = Theme.Body, TextSize = 20, TextColor3 = Theme.Squad,
 						Text = "SQUAD", Selectable = true,
 						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("SocialClient")) :: any):OpenSquad() end,
 						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }), scope:New("UIStroke")({ Color = Theme.Squad, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }) },
+					}),
+						},
 					}),
 					-- timing bar with the perfect window highlighted
 					scope:New("Frame")({

@@ -52,6 +52,7 @@ local bWasFiring = false
 local sLastThreat = "None"
 local nLastGroan = 0
 local nIntensity = 0
+local BASE_HIGH = -3 -- dB: a gentle permanent high-shelf so nothing in the mix turns shrill
 
 local function apply(s: Sound, def: AudioConfig.SoundDef)
 	s.SoundId = "rbxassetid://" .. tostring(def.Id)
@@ -159,10 +160,11 @@ local function step(dt: number)
 	if flying and st and stats then
 		local f = math.clamp(st.Speed / stats.MaxSpeed, 0, 1.2)
 		local boost = Input.State.Boost or st.FreeBoost > 0
-		drive("EngineCruise", 0.22 + 0.22 * f, dt, 0.85 + 0.35 * f)
-		drive("Afterburner", if boost then 0.8 else 0, dt, 0.95 + 0.15 * f, nil, if boost then 10 else 4)
+		-- pitch rises are kept small: speed should read as weight and roar, not whine
+		drive("EngineCruise", 0.22 + 0.22 * f, dt, 0.9 + 0.18 * f)
+		drive("Afterburner", if boost then 0.8 else 0, dt, 0.97 + 0.06 * f, nil, if boost then 10 else 4)
 		drive("SubRumble", (if boost then 0.75 else 0.2) * (0.5 + 0.5 * f), dt, 1, nil, 5)
-		drive("WindRush", 0.05 + 0.45 * f * f, dt, 0.9 + 0.25 * f)
+		drive("WindRush", 0.05 + 0.4 * f * f, dt, 0.94 + 0.1 * f)
 		if boost and not bWasBoost then
 			oneShot("AfterburnerIgnite")
 		end
@@ -208,8 +210,13 @@ local function step(dt: number)
 	nIntensity += (target - nIntensity) * math.clamp(dt * (if target > nIntensity then 8 else 2.5), 0, 1)
 	Audio.Intensity = nIntensity
 
-	drive("MissileWarning", if threat == "Inbound" then 0.65 + 0.35 * closeness else 0, dt, 0.9 + 0.8 * closeness, oThreat, 25)
-	drive("LockedWarning", if threat == "Locked" then 0.45 else 0, dt, 0.55, oThreat, 20)
+	-- urgency comes from beep tempo (crossfade to the fast layer) and loudness,
+	-- never from pitching the tone up (that made it shriek like a kettle)
+	local inbound = threat == "Inbound"
+	local fastMix = math.clamp((closeness - 0.35) / 0.4, 0, 1)
+	drive("MissileWarning", if inbound then (0.6 + 0.2 * closeness) * (1 - fastMix) else 0, dt, 1, oThreat, 25)
+	drive("MissileWarningFast", if inbound then (0.7 + 0.3 * closeness) * fastMix else 0, dt, 1, oThreat, 25)
+	drive("LockedWarning", if threat == "Locked" then 0.45 else 0, dt, 1, oThreat, 20)
 	drive("TensionDrone", nIntensity * 0.55, dt, 0.95 + 0.15 * nIntensity, oThreat, 3)
 	drive("Heartbeat", math.max(0, nIntensity - 0.25) * 1.1, dt, 0.9 + 0.5 * closeness, oThreat, 4)
 
@@ -225,7 +232,7 @@ local function step(dt: number)
 
 	-- tunnel-vision mix: duck + low-pass the world while a missile is inbound
 	oSfx.Volume = 1 - 0.45 * nIntensity
-	oEq.HighGain = -20 * nIntensity
+	oEq.HighGain = BASE_HIGH - 20 * nIntensity
 	oEq.MidGain = -6 * nIntensity
 
 	-- ===== WORLD: other jets' engines + flybys =====
@@ -273,15 +280,20 @@ function Audio.StartAsync(self)
 	comp.GainMakeup = 4
 	comp.Parent = oSfx
 	oEq = Instance.new("EqualizerSoundEffect")
-	oEq.HighGain = 0
+	oEq.HighGain = BASE_HIGH
 	oEq.MidGain = 0
-	oEq.LowGain = 0
+	oEq.LowGain = 1
 	oEq.Priority = 1
 	oEq.Parent = oSfx
 
 	oThreat = Instance.new("SoundGroup")
 	oThreat.Name = "AS_Threat"
 	oThreat.Parent = SoundService
+	local threatEq = Instance.new("EqualizerSoundEffect")
+	threatEq.HighGain = BASE_HIGH
+	threatEq.MidGain = 0
+	threatEq.LowGain = 0
+	threatEq.Parent = oThreat
 
 	Flight.Changed:Connect(function(phase: string)
 		if phase == "Catapult" then
@@ -302,12 +314,12 @@ function Audio.StartAsync(self)
 		end
 	end)
 	Vfx.Boom.Event:Connect(function(pos: Vector3, big: boolean)
-		oneShot("Explosion", { At = pos, Pitch = if big then 1 else 1.25 })
+		oneShot("Explosion", { At = pos, Pitch = if big then 0.9 else 1.08 })
 	end)
 	Remote:GetEvent("CombatEvent"):OnClientEvent(function(t: any)
 		if typeof(t) ~= "table" then return end
 		if t.a == "Hit" then
-			oneShot("HitTicks", { Pitch = 1 + math.random() * 0.15 })
+			oneShot("HitTicks", { Pitch = 0.95 + math.random() * 0.1 })
 		elseif t.a == "Flares" and t.owner ~= LocalPlayer.UserId then
 			oneShot("Flares", { At = t.pos })
 		elseif t.a == "Evade" then
@@ -318,7 +330,7 @@ function Audio.StartAsync(self)
 			vo("VO_SplashOne")
 		elseif t.a == "Boom" and t.hit and Flight.Jet and Flight.Jet.PrimaryPart
 			and (t.pos - Flight.Jet.PrimaryPart.Position).Magnitude < 40 then
-			oneShot("AirframeGroan", { Pitch = 1.2 }) -- we got hit
+			oneShot("AirframeGroan", { Pitch = 1.0 }) -- we got hit
 		end
 	end)
 	Remote:GetEvent("EconomyEvent"):OnClientEvent(function(t: any)

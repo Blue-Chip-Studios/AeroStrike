@@ -150,6 +150,17 @@ function Input.StartAsync(self)
 		self.LastDevice = "Touch"
 		Store.Values.bTouch:set(true)
 	end
+	-- Studio-only QA: player attribute QA_Device = "Touch" | "Gamepad" | "KeyboardMouse" forces a device mode
+	if RunService:IsStudio() then
+		Players.LocalPlayer:GetAttributeChangedSignal("QA_Device"):Connect(function()
+			local d = Players.LocalPlayer:GetAttribute("QA_Device")
+			if d == "Touch" or d == "Gamepad" or d == "KeyboardMouse" then
+				self.LastDevice = d
+				Store.Values.bTouch:set(d == "Touch")
+				Store.Values.bGamepad:set(d == "Gamepad")
+			end
+		end)
+	end
 end
 
 --[[
