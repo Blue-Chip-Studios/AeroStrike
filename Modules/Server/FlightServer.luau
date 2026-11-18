@@ -123,6 +123,9 @@ function Flight.Spawn(self, oPlayer: Player)
 	local tUp = (mProfile:GetAsync(oPlayer, "Upgrades") or {})[sJetId]
 	local tPasses = getPasses(oPlayer)
 	local stats = JetStats.Compute(sJetId, tUp, tPasses)
+	-- rookie assists for the first ranks (no G-LOC, auto gear, forgiving landings)
+	local XPConfig = require(ReplicatedStorage.Config.XPConfig)
+	stats.Rookie = XPConfig.fXPToLevel(mProfile:GetAsync(oPlayer, "XP") or 0) <= FlightConfig.RookieMaxRank
 
 	local jet = tmpl:Clone()
 	jet.Name = tostring(oPlayer.UserId)
@@ -132,6 +135,8 @@ function Flight.Spawn(self, oPlayer: Player)
 	jet:SetAttribute("MaxHealth", stats.Health)
 	jet:SetAttribute("Shield", true)
 	jet:SetAttribute("Pilot", oPlayer.DisplayName)
+	local trail = mProfile:GetAsync(oPlayer, "EquippedTrail") or ""
+	if trail ~= "" then jet:SetAttribute("Trail", trail) end
 	if stats.Special == "LowObservable" then jet:SetAttribute("LowObservable", true) end
 
 	-- paint

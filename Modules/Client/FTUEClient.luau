@@ -136,51 +136,12 @@ local function step(dt: number)
 	elseif id == "launched" then
 		MissionClient.Override = nil
 		if phase == "Flying" then complete(idx) end
-	elseif id == "steer_rings" then
-		if #tRings == 0 and phase == "Flying" then buildLane() end
-		local r = tRings[iRing]
-		if r then
-			local c = r:GetPivot().Position
-			MissionClient.Override = c
-			if pos and (pos - c).Magnitude < FTUEConfig.RingRadius then
-				r:Destroy()
-				iRing += 1
-				Store.Values.sLaunchResult:set(`RING {iRing - 1}/{#FTUEConfig.Rings}`)
-				task.delay(0.8, function() Store.Values.sLaunchResult:set("") end)
-			end
-		elseif #tRings > 0 then
-			table.clear(tRings)
-			complete(idx)
-		end
-	elseif id == "afterburner" then
-		if Input.State.Boost then nBoostHeld += dt end
-		if nBoostHeld >= FTUEConfig.BoostHoldTime then
-			-- refuelling is now taught by the tanker when fuel first runs low (no free refuel rings)
-			complete(idx)
-		end
 	elseif id == "guns" then
 		MissionClient.Override = trainingDronePos()
 		if nGunHits >= FTUEConfig.GunHitsNeeded then complete(idx) end
 	elseif id == "lock_and_fire" then
 		MissionClient.Override = trainingDronePos()
 		-- completed by a missile kill (see CombatEvent handler)
-	elseif id == "flare" then
-		MissionClient.Override = nil
-		if not bSamRequested and phase == "Flying" and os.clock() - nStepStarted > FTUEConfig.TrainingSamDelay then
-			bSamRequested = true
-			oRequest:FireServer({ a = "Sam" })
-			task.delay(8, function()
-				-- missed it? fire another
-				if FTUE.Active and FTUEConfig.Steps[currentIndex()].Id == "flare" then bSamRequested = false end
-			end)
-		end
-	elseif id == "pull_g" then
-		if st and st.G >= FTUEConfig.GTarget then nGHeld += dt else nGHeld = math.max(0, nGHeld - dt * 0.5) end
-		if nGHeld >= FTUEConfig.GHoldTime then complete(idx) end
-	elseif id == "bank_it" then
-		local deck = (carrierCF() * CFrame.new(0, MapConfig.Carrier.DeckY + 8, 0)).Position
-		MissionClient.Override = deck
-		-- completed by TouchAndGo (FlightEvent)
 	elseif id == "first_upgrade" then
 		MissionClient.Override = nil
 		if os.clock() - nStepStarted > 2.5 then complete(idx) end
@@ -201,8 +162,8 @@ local function onState(t: any)
 		clearLane()
 		MissionClient.Override = nil
 	end
-	Store.Values.bFTUESkippable:set(FTUE.Active and FTUE.Step >= 2 and FTUE.Step < 10)
-	Store.Values.bFTUEActive:set(FTUE.Active and FTUE.Step < 10)
+	Store.Values.bFTUESkippable:set(FTUE.Active and FTUE.Step >= 2 and FTUE.Step < 5)
+	Store.Values.bFTUEActive:set(FTUE.Active and FTUE.Step < 6)
 	setPrompt()
 end
 
@@ -227,14 +188,6 @@ function FTUE.StartAsync(self)
 		elseif t.a == "Kill" and t.killerId == LocalPlayer.UserId then
 			if id == "guns" then nGunHits = FTUEConfig.GunHitsNeeded end
 			if id == "lock_and_fire" and string.find(t.weapon or "", "Missile") then complete(currentIndex()) end
-		elseif t.a == "Evade" and id == "flare" then
-			complete(currentIndex())
-		end
-	end)
-	Remote:GetEvent("FlightEvent"):OnClientEvent(function(t: any)
-		if FTUE.Active and typeof(t) == "table" and t.a == "TouchAndGo" then
-			local id = FTUEConfig.Steps[currentIndex()] and FTUEConfig.Steps[currentIndex()].Id
-			if id == "bank_it" then complete(currentIndex()) end
 		end
 	end)
 	-- keep prompt text matched to the device in use

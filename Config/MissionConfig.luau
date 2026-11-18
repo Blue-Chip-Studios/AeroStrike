@@ -5,6 +5,16 @@
 ]]
 
 return {
+	-- Flying Fortress server event (BossServer): first one 5 min after the server starts, then every 9 min
+	Boss = {
+		FirstAt = 300,
+		Interval = 540,
+		Duration = 240, -- seconds before it escapes
+		Pool = 3000, -- cash split by damage share
+		MinShare = 100, -- anyone who hit it gets at least this
+		Escorts = 3,
+		Orbit = { Centre = Vector3.new(0, 850, 0), Radius = 1300 },
+	},
 	RotationTime = 180, -- seconds a mission stays live
 	Gap = 8, -- seconds between missions
 	Missions = {

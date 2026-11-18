@@ -289,7 +289,7 @@ local function noseGun(n: Npc, now: number)
 				local hit = math.random() < g.HitChance * (1 - dist / g.Range * 0.5) * jink
 				local miss = if hit then Vector3.zero else Vector3.new(math.random(-14, 14), math.random(-8, 8), math.random(-14, 14))
 				oCombatEvent:FireAllClients({ a = "NpcFire", from = root.Position + fwd * 14, to = jet.PrimaryPart.Position + miss })
-				if hit then Combat:Damage(jet, g.Damage, nil, "Red Talon") end
+				if hit then Combat:Damage(jet, g.Damage, nil, if n.Cfg.Bot then (n.Model:GetAttribute("Pilot") :: string) else "Red Talon") end
 				return
 			end
 		end
@@ -375,7 +375,15 @@ end
 function Npc.Spawn(self, sKind: string, cf: CFrame, opts: { [string]: any }?): Model?
 	local W = World
 	while not W.Ready do task.wait() end
-	local tmpl = W:GetNpcTemplate(sKind)
+	local cfgK = NpcConfig.Kinds[sKind]
+	local botJet: string? = nil
+	local tmpl
+	if cfgK and cfgK.Jets then
+		botJet = cfgK.Jets[math.random(1, #cfgK.Jets)]
+		tmpl = W:GetJetTemplate(botJet)
+	else
+		tmpl = W:GetNpcTemplate(sKind)
+	end
 	if not tmpl then return nil end
 	local count = 0
 	for _ in pairs(self.Active) do count += 1 end
@@ -389,6 +397,27 @@ function Npc.Spawn(self, sKind: string, cf: CFrame, opts: { [string]: any }?): M
 	m:SetAttribute("Health", cfg.Health)
 	m:SetAttribute("MaxHealth", cfg.Health)
 	m:SetAttribute("Pilot", if sKind == "Bomber" then "TALON BOMBER" elseif sKind == "Interceptor" then "RED TALON" elseif sKind == "Tanker" then "TANKER" else "DRONE")
+	if cfg.PilotName then m:SetAttribute("Pilot", cfg.PilotName) end
+	if botJet then
+		-- looks and reads like another pilot: player airframe, random livery, player-style callsign
+		local JetConfig = require(ReplicatedStorage.Config.JetConfig)
+		local jc = JetConfig.Jets[botJet]
+		local names = {}
+		for k in pairs(jc.Paints) do table.insert(names, k) end
+		W:ApplyPaint(m, jc.Paints[names[math.random(1, #names)]])
+		local cs = NpcConfig.Callsigns
+		local call = cs.Prefix[math.random(1, #cs.Prefix)] .. cs.Suffix[math.random(1, #cs.Suffix)]
+		if math.random() < 0.6 then call ..= tostring(math.random(1, 99)) end
+		m:SetAttribute("Pilot", call)
+		m:SetAttribute("Bot", true)
+		m:SetAttribute("JetId", botJet)
+		-- half the bot pilots fly a season trail (shows players what's earnable)
+		if math.random() < 0.5 then
+			local ids = { "Crimson", "Sky", "Emerald", "Solar", "Violet", "Arctic", "Inferno" }
+			m:SetAttribute("Trail", ids[math.random(1, #ids)])
+		end
+	end
+	if cfg.Persistent then m.ModelStreamingMode = Enum.ModelStreamingMode.Persistent end -- boss: every client tracks it
 	if cfg.Friendly then
 		m:SetAttribute("Friendly", true)
 		-- always streamed to every client: its marker / low-fuel guidance must work from anywhere

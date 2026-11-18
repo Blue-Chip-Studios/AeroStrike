@@ -49,6 +49,17 @@ function FlightModel.NewState(cf: CFrame, speed: number, fuel: number): State
 	return { CFrame = cf, Speed = speed, Fuel = fuel, G = 1, Bank = 0, OverGTime = 0, GLocTimer = 0, FreeBoost = 0, Strain = 0, Omega = 0 }
 end
 
+-- Touchdown limits (speed studs/s, sink studs/s): rookies get more slack
+function FlightModel.TouchdownLimits(s: { [string]: any }): (number, number)
+	local sp = s.MinSpeed * FlightConfig.TouchdownMaxSpeedMult
+	local sink = FlightConfig.TouchdownMaxSink
+	if s.Rookie then
+		sp *= FlightConfig.RookieTouchdownSpeed
+		sink *= FlightConfig.RookieTouchdownSink
+	end
+	return sp, sink
+end
+
 -- Turn-rate multiplier from speed: peaks at the corner speed.
 function FlightModel.TurnCurve(speed: number, s: Stats): number
 	if speed <= s.CornerSpeed then
@@ -190,7 +201,7 @@ function FlightModel.Step(st: State, input: Input, s: Stats, dt: number): State
 		else
 			strain -= FlightConfig.StrainRecover * dt
 		end
-		strain = math.clamp(strain, 0, 1)
+		strain = math.clamp(strain, 0, if (s :: any).Rookie then FlightConfig.RookieStrainCap else 1)
 		if strain >= 1 then
 			st.GLocTimer = FlightConfig.GLocDuration
 		end

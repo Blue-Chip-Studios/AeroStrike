@@ -54,6 +54,46 @@ return {
 			-- heat-seeker: hold you in a 22 deg cone for 2.6 s (you hear the lock tone) -> missile; flares / break / terrain defeat it
 			Missile = { Range = 1700, Cone = math.rad(22), LockTime = 2.6, Cooldown = 15, Count = 2, Damage = 34 },
 		},
+		-- Flying Fortress: the server-wide boss (BossServer). A giant armoured Talon bomber with
+		-- turrets covering every angle; everyone's damage counts toward a shared payout.
+		Fortress = {
+			AssetId = 132659361677014, -- Talon bomber airframe, scaled up
+			Scale = 2.6,
+			PilotName = "FLYING FORTRESS",
+			Persistent = true, -- streamed to every client (HUD health bar + marker from anywhere)
+			Health = 2400,
+			Speed = 85,
+			TurnRate = 0.12,
+			MinAGL = 500,
+			Paint = {
+				Body = { Color = Color3.fromRGB(30, 31, 34), Material = Enum.Material.Metal },
+				Markings = { Color = Color3.fromRGB(200, 150, 40), Material = Enum.Material.SmoothPlastic },
+				Canopy = { Color = Color3.fromRGB(60, 16, 14), Material = Enum.Material.Glass },
+				Trim = { Color = Color3.fromRGB(110, 20, 18), Material = Enum.Material.Metal },
+				Glow = { Color = Color3.fromRGB(255, 70, 30), Material = Enum.Material.Neon },
+			},
+			TailGun = { Range = 750, Rate = 9, Damage = 3, Cone = math.pi, HitChance = 0.26 }, -- turrets all round
+			FlareChance = 0.7,
+			LockTimeMult = 1.6,
+		},
+		-- Bot pilots: AI "players" in real player airframes and liveries, with player-style callsigns,
+		-- so a quiet server still has dogfights; they bow out as real players join (Population)
+		BotPilot = {
+			Bot = true,
+			Jets = { "SparrowT2", "ViperIX", "RhinoHX" },
+			Health = 100,
+			Speed = 165,
+			ChaseSpeed = 198, -- a touch slower than a player at full power: you can disengage
+			TurnRate = 0.85,
+			MinAGL = 50,
+			FlareChance = 0.5,
+			LockTimeMult = 1.1,
+			Evasion = { React = 0.7, Jink = 260, Period = 1.3, Duration = 4, Cooldown = 5, FlareOnLock = 0.3, MaskAGL = 70,
+				Tactics = { "Jink", "Mask", "Vertical", "Break" } },
+			Dogfight = { Range = 2400 },
+			NoseGun = { Range = 700, Rate = 5, Damage = 3, Cone = math.rad(10), HitChance = 0.2 },
+			Missile = { Range = 1600, Cone = math.rad(20), LockTime = 3.0, Cooldown = 18, Count = 2, Damage = 30 },
+		},
 		-- Aerial refuelling tanker: friendly, untargetable, flies a wide orbit near the carrier.
 		-- Slower than military power on purpose: docking means throttling back to match it.
 		Tanker = {
@@ -119,7 +159,13 @@ return {
 			Sam = { Range = 1500, Cooldown = 7, Damage = 35 },
 		},
 	},
-	MaxNpcs = 18,
+	MaxNpcs = 24,
+	-- keep every server feeling busy: top up with bot pilots to TargetPilots (players + bots)
+	Population = { TargetPilots = 8, MaxBots = 6, RespawnDelay = 20, Centre = Vector3.new(0, 700, 0), Radius = { 1100, 1900 } },
+	Callsigns = {
+		Prefix = { "Sky", "Nova", "Thunder", "Ghost", "Viper", "Blaze", "Storm", "Jet", "Rogue", "Falcon", "Shadow", "Turbo", "Iron", "Neon", "Frost", "Rapid", "Sonic", "Hawk", "Cyber", "Lunar" },
+		Suffix = { "Ace", "Hunter", "Wing", "Pilot", "Strike", "Fang", "Bolt", "Rider", "Maverick", "Racer", "Blade", "Knight", "Fox", "Raptor", "Jet", "X" },
+	},
 	-- standing Red Talon patrol: interceptors always hunting over the island (outside the carrier umbrella)
 	Patrol = { Kind = "Interceptor", Count = 2, Respawn = 40, Centre = Vector3.new(0, 650, 0), Radius = 1500 },
 	TickRate = 15, -- AI updates per second

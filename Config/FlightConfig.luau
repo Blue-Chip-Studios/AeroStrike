@@ -61,6 +61,12 @@ return {
 	TrapStopDistance = 70, -- carrier arrestor wire stops you in this many studs
 	ResupplyMaxSpeed = 12, -- studs/s: stop (almost) to resupply
 
+	-- Rookie assists (ranks 1..RookieMaxRank): no G-LOC, automatic gear, forgiving touchdowns
+	RookieMaxRank = 3,
+	RookieStrainCap = 0.9, -- strain stops short of a blackout (the warning still shows)
+	RookieTouchdownSpeed = 1.2, -- x the normal touchdown speed limit
+	RookieTouchdownSink = 1.6, -- x the normal sink limit
+
 	-- Launch
 	CatapultTime = 1.1, -- seconds on the catapult before free flight
 	LaunchSpeedFrac = 0.85, -- of CruiseSpeed

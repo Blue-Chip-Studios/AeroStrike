@@ -10,6 +10,15 @@ return {
 		Assist = { Cash = 50, XP = 40 }, -- dealt >= AssistThreshold of victim max HP
 		BomberKill = { Cash = 60, XP = 40 },
 		InterceptorKill = { Cash = 120, XP = 80 }, -- they fight back
+		BotKill = { Cash = 130, XP = 90 }, -- AI pilot (fills quiet servers)
+		FortressShare = { Cash = 0, XP = 200 }, -- cash = share of MissionConfig.Boss.Pool
+		Challenge = { Cash = 0, XP = 60 }, -- cash from ChallengeConfig per challenge
+		SeasonTier = { Cash = 0, XP = 0 }, -- cash from SeasonConfig tiers
+		Code = { Cash = 0, XP = 0 },
+		GroupReward = { Cash = 0, XP = 100 },
+		Invite = { Cash = 0, XP = 50 },
+		ChallengeSet = { Cash = 200, XP = 100 }, -- all three done
+		FortressTopGun = { Cash = 500, XP = 150 },
 		SquadronCleared = { Cash = 300, XP = 150 },
 		DestroyerSunk = { Cash = 600, XP = 300 },
 		CanyonRun = { Cash = 250, XP = 150 },

@@ -67,6 +67,12 @@ function Debug.StartAsync(self)
 				end
 			end
 			return table.concat(out, "; ")
+		elseif cmd == "damageNpc" then
+			-- damage a named NPC as the first player (boss / bot QA)
+			local m = workspace.NPC:FindFirstChild(tostring(a))
+			if not m then return "no npc" end
+			Combat:Damage(m, b or 100, game:GetService("Players"):GetPlayers()[1], "Cannon")
+			return `hp={m:GetAttribute("Health")}`
 		elseif cmd == "damageSelf" and jet then
 			Combat:Damage(jet, a or 200, nil, "Debug")
 			return "ok"

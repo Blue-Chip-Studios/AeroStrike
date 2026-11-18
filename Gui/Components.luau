@@ -17,6 +17,7 @@ local C = {}
 function C.HudText(scope: any, p: { [string]: any })
 	return scope:New("TextLabel")({
 		Name = p.Name or "HudText",
+		LayoutOrder = p.LayoutOrder or 0,
 		BackgroundTransparency = 1,
 		AnchorPoint = p.AnchorPoint or Vector2.new(0.5, 0.5),
 		Position = p.Position,
@@ -39,6 +40,7 @@ end
 function C.HudBar(scope: any, p: { [string]: any })
 	return scope:New("Frame")({
 		Name = p.Name or "HudBar",
+		LayoutOrder = p.LayoutOrder or 0,
 		AnchorPoint = p.AnchorPoint or Vector2.new(0.5, 0.5),
 		Position = p.Position,
 		Size = p.Size or UDim2.fromOffset(140, 8),

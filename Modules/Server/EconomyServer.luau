@@ -31,6 +31,8 @@ local mXP = require(ServerStorage.BCDKServer.SMXP)
 
 local Economy = ModuleUtil.New({
 	OnBanked = Instance.new("BindableEvent"),
+	OnMultiKill = Instance.new("BindableEvent"), -- (player, chainLength)
+	OnXP = Instance.new("BindableEvent"), -- (player, amount) every XP award (season track)
 })
 
 local oEvent = Remote:GetEvent("EconomyEvent")
@@ -72,6 +74,7 @@ local function addXP(oPlayer: Player, nXP: number, sSource: string)
 	local ok, Mon = pcall(require, ServerStorage.ServerModules:FindFirstChild("MonetizationServer") :: any)
 	if ok and Mon and Mon.GetPasses and Mon:GetPasses(oPlayer).VIP then nXP = math.floor(nXP * 1.1) end
 	mXP:Add(oPlayer, nXP)
+	Economy.OnXP:Fire(oPlayer, nXP)
 	local after = rank(oPlayer)
 	if after > before then
 		oEvent:FireClient(oPlayer, { a = "RankUp", rank = after })
@@ -138,7 +141,7 @@ end
 
 -- Profile helpers (replicated to the client through the "HangarReplica")
 local HANGAR_TOKEN = "HangarReplica"
-local HANGAR_KEYS = { "OwnedJets", "EquippedJet", "EquippedPaint", "Upgrades", "FTUE", "Stats" }
+local HANGAR_KEYS = { "OwnedJets", "EquippedJet", "EquippedPaint", "Upgrades", "FTUE", "Stats", "Season", "Trails", "EquippedTrail", "Rewards" }
 
 local function setKey(oPlayer: Player, sKey: string, fn: (any) -> any)
 	-- only hangar keys replicate to the client; receipts etc. stay server-only
@@ -215,6 +218,7 @@ function Economy.StartAsync(self)
 			local label = names[math.min(c.N, #names)] or `x{c.N} SPLASH!`
 			local step = EconomyConfig.MultiKill
 			self:Reward(killer, "MultiKill", { Label = label, Cash = step.CashPerStep * (c.N - 1), Mult = 1 })
+			self.OnMultiKill:Fire(killer, c.N)
 			analytics():Log(killer, "multi_kill", { n = c.N })
 		end
 	end
@@ -249,8 +253,9 @@ function Economy.StartAsync(self)
 				-- the sink reward is shared by every participant (MissionServer)
 				self:Reward(killer, "BomberKill", { Bank = true, Label = "FINAL BLOW: DESTROYER SUNK" })
 			else
-				local key = if kind == "Drone" then "DroneTraining" elseif kind == "Interceptor" then "InterceptorKill" else "BomberKill"
-				local label = if kind == "SAMSite" then "SAM SITE DESTROYED" elseif kind == "Interceptor" then "RED TALON DOWN" else `{string.upper(kind or "TARGET")} DOWN`
+				local key = if kind == "Drone" then "DroneTraining" elseif kind == "Interceptor" then "InterceptorKill" elseif kind == "BotPilot" then "BotKill" else "BomberKill"
+				local label = if kind == "SAMSite" then "SAM SITE DESTROYED" elseif kind == "Interceptor" then "RED TALON DOWN"
+					elseif kind == "BotPilot" then `SPLASH! {victim:GetAttribute("Pilot")}` elseif kind == "Fortress" then "FINAL BLOW: FLYING FORTRESS" else `{string.upper(kind or "TARGET")} DOWN`
 				self:Reward(killer, key, { Bank = true, Label = label })
 			end
 		end

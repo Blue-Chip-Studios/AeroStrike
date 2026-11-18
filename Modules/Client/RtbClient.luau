@@ -21,6 +21,7 @@ local Store = require(ReplicatedStorage.BCDKClient.LMGui.Store)
 local MapConfig = require(ReplicatedStorage.Config.MapConfig)
 local FlightConfig = require(ReplicatedStorage.Config.FlightConfig)
 local JetConfig = require(ReplicatedStorage.Config.JetConfig)
+local FlightModel = require(ReplicatedStorage.Shared.FlightModel)
 
 local LocalPlayer = Players.LocalPlayer
 local Rtb = ModuleUtil.New({ Guiding = false })
@@ -101,13 +102,15 @@ function Rtb.StartAsync(self)
 			if Flight.GearDown and nd < 2600 then
 				showMarkers = true
 				local agl = pos.Y - nearest.Pos.Y
-				if agl < 700 then
-					local maxKmh = math.floor(stats.MinSpeed * FlightConfig.TouchdownMaxSpeedMult * JetConfig.KmhPerStud)
+				-- only while actually coming down (not on the climb-out after a launch)
+				if agl < 700 and jet.PrimaryPart.AssemblyLinearVelocity.Y < -1 then
+					local maxSp, maxSink = FlightModel.TouchdownLimits(stats)
+					local maxKmh = math.floor(maxSp * JetConfig.KmhPerStud)
 					local kmh = math.floor(st.Speed * JetConfig.KmhPerStud)
 					local sink = math.max(0, -jet.PrimaryPart.AssemblyLinearVelocity.Y)
-					local okS, okV = kmh <= maxKmh, sink <= FlightConfig.TouchdownMaxSink
+					local okS, okV = kmh <= maxKmh, sink <= maxSink
 					hint = string.format("APPROACH %s   SPEED %d %s (MAX %d)   SINK %d %s (MAX %d)", nearest.Name, kmh, if okS then "OK" else "TOO FAST",
-						maxKmh, math.floor(sink), if okV then "OK" else "TOO STEEP", FlightConfig.TouchdownMaxSink)
+						maxKmh, math.floor(sink), if okV then "OK" else "TOO STEEP", math.floor(maxSink))
 				end
 			elseif guideTo and not Flight.GearDown and nd < 1200 then
 				hint = "LANDING: PRESS GEAR, SLOW DOWN, DESCEND GENTLY ONTO THE " .. nearest.Name

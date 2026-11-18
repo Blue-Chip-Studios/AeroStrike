@@ -24,6 +24,7 @@ local FlightConfig = require(ReplicatedStorage.Config.FlightConfig)
 local JetConfig = require(ReplicatedStorage.Config.JetConfig)
 local MapConfig = require(ReplicatedStorage.Config.MapConfig)
 local Store = require(ReplicatedStorage.BCDKClient.LMGui.Store)
+local IslandShape = require(ReplicatedStorage.Shared.IslandShape)
 
 local LocalPlayer = Players.LocalPlayer
 local Changed = Instance.new("BindableEvent")
@@ -142,7 +143,8 @@ end
 
 local function requestLaunch()
 	if Flight.Phase ~= "Deck" then return end
-	if require(ReplicatedStorage.Packages.fusion).peek(Store.Values.bHangarOpen) then return end
+	local F = require(ReplicatedStorage.Packages.fusion)
+	if F.peek(Store.Values.bHangarOpen) or F.peek(Store.Values.bSeasonOpen) then return end
 	local frac = ((os.clock() - nBarStart) % FlightConfig.LaunchCountdown) / FlightConfig.LaunchCountdown
 	local w = FlightConfig.PerfectWindow
 	local bPerfect = frac >= w[1] and frac <= w[2]
@@ -209,7 +211,7 @@ local function step(dt: number)
 		Store.Values.nLaunchBar:set(frac)
 		-- auto-launch after a few cycles so AFK/new players still go (paused in the hangar)
 		local Fusion = require(ReplicatedStorage.Packages.fusion)
-		if Fusion.peek(Store.Values.bHangarOpen) then
+		if Fusion.peek(Store.Values.bHangarOpen) or Fusion.peek(Store.Values.bSeasonOpen) then
 			nBarStart = os.clock()
 		elseif os.clock() - nBarStart > FlightConfig.LaunchCountdown * 3 then
 			requestLaunch()
@@ -382,8 +384,9 @@ local function step(dt: number)
 	if hit then
 		local where = landingSurface(hit.Instance)
 		local sink = -travel.Y / math.max(dt, 1e-3)
-		local tooFast = st.Speed > stats.MinSpeed * FlightConfig.TouchdownMaxSpeedMult
-		local tooSteep = sink > FlightConfig.TouchdownMaxSink or st.CFrame.LookVector.Y < FlightConfig.TouchdownMinPitch
+		local maxSp, maxSink = FlightModel.TouchdownLimits(stats)
+		local tooFast = st.Speed > maxSp
+		local tooSteep = sink > maxSink or st.CFrame.LookVector.Y < FlightConfig.TouchdownMinPitch
 		local goodLanding = where ~= nil and hit.Normal.Y > 0.85 and Flight.GearDown and not tooFast and not tooSteep
 		if shielded and not goodLanding then
 			-- spawn / training shield: bounce instead of dying
@@ -442,8 +445,29 @@ local function step(dt: number)
 	Store.Values.bGLoc:set(st.GLocTimer > 0)
 	Store.Values.bCorner:set(math.abs(st.Speed - stats.CornerSpeed) <= stats.CornerSpeed * FlightConfig.CornerBand)
 	Store.Values.bFlameout:set(st.Flameout == true)
+	-- rookie assist: the gear raises itself after take-off and lowers itself on approach
+	if stats.Rookie then
+		local ground = math.max(IslandShape.Height(p.X, p.Z), 0)
+		local agl = p.Y - ground
+		if Flight.GearDown and agl > 120 and vel.Y > -2 then
+			setGear(false)
+			Store.Values.sLaunchResult:set("AUTO GEAR UP")
+			task.delay(1.2, function() local F = require(ReplicatedStorage.Packages.fusion) if F.peek(Store.Values.sLaunchResult) == "AUTO GEAR UP" then Store.Values.sLaunchResult:set("") end end)
+		elseif not Flight.GearDown and agl < 220 and vel.Y < -1 then
+			local c = MapConfig.Carrier.CFrame.Position
+			local a = IslandShape.Airfield
+			local dC = (Vector3.new(p.X, 0, p.Z) - Vector3.new(c.X, 0, c.Z)).Magnitude
+			local dA = (Vector3.new(p.X, 0, p.Z) - Vector3.new(a.Centre.X, 0, a.Centre.Y)).Magnitude
+			if math.min(dC, dA) < 1600 then
+				setGear(true)
+				Store.Values.sLaunchResult:set("AUTO GEAR DOWN")
+				task.delay(1.2, function() local F = require(ReplicatedStorage.Packages.fusion) if F.peek(Store.Values.sLaunchResult) == "AUTO GEAR DOWN" then Store.Values.sLaunchResult:set("") end end)
+			end
+		end
+	end
+	Store.Values.bRookie:set(stats.Rookie == true)
 	-- gear left down = speed capped: keep reminding (stronger right after take-off)
-	local wantGearUp = Flight.GearDown and p.Y > 110 and (os.clock() < nGearPromptUntil or st.Speed >= stats.CruiseSpeed * FlightConfig.GearSpeedMult * 0.97)
+	local wantGearUp = Flight.GearDown and not stats.Rookie and p.Y > 110 and (os.clock() < nGearPromptUntil or st.Speed >= stats.CruiseSpeed * FlightConfig.GearSpeedMult * 0.97)
 	Store.Values.sGroundHint:set(if wantGearUp then (if Input.LastDevice == "Touch" then "GEAR DOWN (SPEED LIMITED) - TAP GEAR" elseif Input.LastDevice == "Gamepad" then "GEAR DOWN (SPEED LIMITED) - D-PAD DOWN" else "GEAR DOWN (SPEED LIMITED) - PRESS [G]") else "")
 	local lv = st.CFrame.LookVector
 	Store.Values.nHeading:set((math.deg(math.atan2(lv.X, -lv.Z)) + 360) % 360)

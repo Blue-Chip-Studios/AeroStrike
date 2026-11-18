@@ -87,6 +87,52 @@ return function(scope: any, props: { [string]: any })
 				},
 			}),
 
+			-- PROGRESS CARD (deck + death screen): rank, next jet, sortie challenges
+			(function()
+				local function row(i: number)
+					return C.HudText(scope, { Name = "Ch" .. i, Font = Theme.Body, TextSize = 16, AnchorPoint = Vector2.zero, XAlign = Enum.TextXAlignment.Left,
+						Position = UDim2.fromOffset(14, 70 + (i - 1) * 20), Size = UDim2.new(1, -28, 0, 20),
+						Color = scope:Computed(function(use) local c = (use(V.tChallenges) :: any)[i] return if c and c.Done then Theme.Hud else Theme.Ink end),
+						Text = scope:Computed(function(use)
+							local c = (use(V.tChallenges) :: any)[i]
+							if not c then return "" end
+							if c.Done then return "✓  " .. c.Text end
+							return string.format("•  %s   %d/%d   +%d", c.Text, c.Progress, c.Goal, c.Cash)
+						end) })
+				end
+				return scope:New("Frame")({
+					Name = "ProgressCard", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 124), Size = UDim2.fromOffset(560, 136),
+					BackgroundColor3 = Theme.Night, BackgroundTransparency = 0.35,
+					Visible = scope:Computed(function(use) local p = use(V.sPhase) return p == "Deck" or p == "Launching" or p == "Dead" end),
+					[Children] = {
+						scope:New("UICorner")({ CornerRadius = UDim.new(0, 8) }),
+						scope:New("UIStroke")({ Color = Theme.Amber, Thickness = 1, Transparency = 0.5 }),
+						C.HudText(scope, { Name = "RankLine", Font = Theme.Display, TextSize = 15, Color = Theme.Amber, AnchorPoint = Vector2.zero, XAlign = Enum.TextXAlignment.Left,
+							Position = UDim2.fromOffset(14, 8), Size = UDim2.new(1, -28, 0, 18), Text = V.sRankLine }),
+						C.HudText(scope, { Name = "NextJet", Font = Theme.Display, TextSize = 14, Color = Theme.Ink, AnchorPoint = Vector2.zero, XAlign = Enum.TextXAlignment.Left,
+							Position = UDim2.fromOffset(14, 28), Size = UDim2.new(1, -28, 0, 18), Text = V.sNextJet }),
+						C.HudBar(scope, { Name = "NextJetBar", AnchorPoint = Vector2.zero, Position = UDim2.fromOffset(14, 50), Size = UDim2.new(1, -28, 0, 6),
+							Fill = V.nNextJetFrac, FillColor = Theme.Amber }),
+						row(1), row(2), row(3),
+					},
+				})
+			end)(),
+
+			-- FLYING FORTRESS: countdown, then health bar (shown in flight, on deck and when dead)
+			scope:New("Frame")({
+				Name = "BossBar", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 74), Size = UDim2.fromOffset(460, 40),
+				BackgroundColor3 = Theme.Night, BackgroundTransparency = 0.4,
+				Visible = scope:Computed(function(use) return use(V.sBossBar) ~= "" end),
+				[Children] = {
+					scope:New("UICorner")({ CornerRadius = UDim.new(0, 6) }),
+					scope:New("UIStroke")({ Color = Theme.Threat, Thickness = 1.5, Transparency = 0.3 }),
+					C.HudText(scope, { Name = "BossText", Font = Theme.Display, TextSize = 15, Color = Color3.fromRGB(255, 120, 100),
+						Position = UDim2.new(0.5, 0, 0, 12), Size = UDim2.new(1, -10, 0, 18), Text = V.sBossBar }),
+					C.HudBar(scope, { Name = "BossHp", Position = UDim2.new(0.5, 0, 0, 30), Size = UDim2.new(1, -24, 0, 6), Fill = scope:Computed(function(use) return math.max(0, use(V.nBossHp) :: number) end),
+						FillColor = Theme.Threat, Visible = scope:Computed(function(use) return (use(V.nBossHp) :: number) >= 0 end) }),
+				},
+			}),
+
 			-- FLIGHT HUD ------------------------------------------------------
 			scope:New("Frame")({
 				Name = "Flight",
@@ -126,6 +172,31 @@ return function(scope: any, props: { [string]: any })
 					C.HudBar(scope, { Name = "Strain", Position = colL(0.583), Size = UDim2.fromOffset(90, 5), Fill = V.nStrain,
 						FillColor = scope:Computed(function(use) return if (use(V.nStrain) :: number) > 0.6 then Theme.Threat else Theme.Amber end),
 						Visible = scope:Computed(function(use) return (use(V.nStrain) :: number) > 0.02 end) }),
+					C.HudText(scope, { Name = "Rookie", Text = "ROOKIE ASSISTS ON", Font = Theme.Display, TextSize = 11, Color = Theme.Squad,
+						Position = colL(0.70), Visible = V.bRookie }),
+					-- sortie challenges (compact, left edge)
+					(function()
+						local rows = {}
+						for i = 1, 3 do
+							table.insert(rows, C.HudText(scope, { Name = "FCh" .. i, Font = Theme.Body, TextSize = 13, AnchorPoint = Vector2.zero, XAlign = Enum.TextXAlignment.Left,
+								Position = UDim2.fromOffset(8, 22 + (i - 1) * 17), Size = UDim2.new(1, -12, 0, 17),
+								Color = scope:Computed(function(use) local c = (use(V.tChallenges) :: any)[i] return if c and c.Done then Theme.Hud else Theme.Ink end),
+								Text = scope:Computed(function(use)
+									local c = (use(V.tChallenges) :: any)[i]
+									if not c then return "" end
+									return if c.Done then "✓ " .. c.Text else string.format("%s  %d/%d", c.Text, c.Progress, c.Goal)
+								end) }))
+						end
+						table.insert(rows, C.HudText(scope, { Text = "CHALLENGES", Font = Theme.Display, TextSize = 11, Color = Theme.Amber, AnchorPoint = Vector2.zero,
+							XAlign = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(8, 4), Size = UDim2.new(1, -12, 0, 16) }))
+						table.insert(rows, scope:New("UICorner")({ CornerRadius = UDim.new(0, 6) }))
+						return scope:New("Frame")({
+							Name = "Challenges", Position = UDim2.new(0, 16, 0.2, 0), Size = UDim2.fromOffset(236, 80),
+							BackgroundColor3 = Theme.Night, BackgroundTransparency = 0.55,
+							Visible = scope:Computed(function(use) return #(use(V.tChallenges) :: any) > 0 end),
+							[Children] = rows,
+						})
+					end)(),
 					-- landing gear state
 					C.HudText(scope, { Name = "GearState", Font = Theme.Display, TextSize = 13, Position = colL(0.672),
 						Color = scope:Computed(function(use) return if use(V.bGearDown) then Theme.Hud else Theme.Mute end),
@@ -285,7 +356,7 @@ return function(scope: any, props: { [string]: any })
 					-- one row that scales as a unit (ResponsiveUIController), so buttons never collide or drift apart
 					scope:New("Frame")({
 						Name = "DeckButtons", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 24, 1, -24),
-						Size = UDim2.fromOffset(474, 52), BackgroundTransparency = 1,
+						Size = UDim2.fromOffset(626, 52), BackgroundTransparency = 1,
 						[Children] = {
 						scope:New("UIListLayout")({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Bottom }),
 					scope:New("TextButton")({
@@ -308,6 +379,13 @@ return function(scope: any, props: { [string]: any })
 						Text = "SQUAD", Selectable = true,
 						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("SocialClient")) :: any):OpenSquad() end,
 						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }), scope:New("UIStroke")({ Color = Theme.Squad, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }) },
+					}),
+					scope:New("TextButton")({
+						Name = "SeasonBtn", LayoutOrder = 4, Size = UDim2.fromOffset(140, 52),
+						BackgroundColor3 = Theme.Panel, BackgroundTransparency = 0.1, FontFace = Theme.Body, TextSize = 20, TextColor3 = Theme.Amber,
+						Text = "SEASON", Selectable = true,
+						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("SeasonClient")) :: any):Open() end,
+						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }), scope:New("UIStroke")({ Color = Theme.Amber, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }) },
 					}),
 						},
 					}),

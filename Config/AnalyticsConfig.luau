@@ -8,8 +8,7 @@
 export type EventDef = { Kind: "Custom" | "Funnel" | "Onboarding", Funnel: string?, Step: number?, ClientAllowed: boolean? }
 
 local Onboarding = {
-	"spawned_on_catapult", "launched", "steer_rings", "afterburner", "guns", "lock_and_fire",
-	"flare", "pull_g", "bank_it", "first_upgrade", "go_live", "first_kill_or_mission",
+	"spawned_on_catapult", "launched", "guns", "lock_and_fire", "first_upgrade", "go_live", "first_kill_or_mission",
 }
 
 local Session = { "join", "loaded", "spawned", "launched", "first_shot", "first_lock", "first_kill", "first_bank", "first_upgrade" }
@@ -24,7 +23,7 @@ for _, name in ipairs({
 	"sortie_end", "missile_fired", "missile_hit", "missile_evaded", "ace_evade", "flare_used", "g_loc", "fuel_empty",
 	"bounty_start", "bounty_claimed", "mission_join", "mission_complete", "squad_create", "squad_join",
 	"perfect_launch", "crash", "bank", "purchase_failed", "purchase_cancelled", "ftue_skip", "ftue_abandon",
-	"landing", "multi_kill", "sonic_boom",
+	"landing", "multi_kill", "sonic_boom", "boss_spawn", "boss_kill", "challenge_done", "season_tier", "code_redeemed", "invite_reward", "group_reward",
 }) do
 	Events[name] = { Kind = "Custom" }
 end

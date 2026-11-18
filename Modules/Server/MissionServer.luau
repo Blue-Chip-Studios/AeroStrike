@@ -242,6 +242,46 @@ function Mission.StartAsync(self)
 		end
 	end)
 
+	-- bot pilots: top every server up to Population.TargetPilots; they bow out as players join
+	task.spawn(function()
+		local NpcConfig = require(ReplicatedStorage.Config.NpcConfig)
+		local P = NpcConfig.Population
+		if not P then return end
+		local bots: { Model } = {}
+		local lastDeath = -math.huge
+		while true do
+			task.wait(5)
+			for i = #bots, 1, -1 do
+				if not bots[i].Parent then table.remove(bots, i); lastDeath = os.clock() end
+			end
+			local players = #Players:GetPlayers()
+			local want = if players == 0 then 0 else math.clamp(P.TargetPilots - players, 0, P.MaxBots)
+			if #bots < want and os.clock() - lastDeath > P.RespawnDelay / math.max(1, want - #bots) then
+				local a = math.random() * math.pi * 2
+				local r = P.Radius[1] + math.random() * (P.Radius[2] - P.Radius[1])
+				local pos = P.Centre + Vector3.new(math.cos(a) * r, math.random(-150, 250), math.sin(a) * r)
+				local m = Npc:Spawn("BotPilot", CFrame.lookAt(pos, Vector3.new(P.Centre.X, pos.Y, P.Centre.Z)),
+					{ Orbit = { Centre = P.Centre, Radius = r }, Tag = "Bot" })
+				if m then table.insert(bots, m) end
+			elseif #bots > want then
+				-- remove the bot furthest from every player (nobody sees it vanish)
+				local worst, wd = nil, -1
+				for _, b in ipairs(bots) do
+					local bp = b:GetPivot().Position
+					local nd = math.huge
+					for _, j in ipairs(workspace.Jets:GetChildren()) do
+						if j:IsA("Model") then nd = math.min(nd, (j:GetPivot().Position - bp).Magnitude) end
+					end
+					if nd > wd then worst, wd = b, nd end
+				end
+				if worst and wd > 1500 then
+					Npc:Remove(worst, false)
+					table.remove(bots, table.find(bots, worst) :: number)
+				end
+			end
+		end
+	end)
+
 	-- standing Red Talon patrol: there is always someone out there hunting you
 	task.spawn(function()
 		local NpcConfig = require(ReplicatedStorage.Config.NpcConfig)

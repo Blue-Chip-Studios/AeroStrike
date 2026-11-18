@@ -373,6 +373,7 @@ function World.PreloadAsync(self)
 	end
 	local NpcConfig = require(ReplicatedStorage.Config.NpcConfig)
 	for sKind, tKind in pairs(NpcConfig.Kinds) do
+		if tKind.Jets then continue end -- bot pilots fly the player jet templates
 		local m = buildFlyerTemplate(tKind.AssetId, sKind)
 		if m then
 			local skinLib = ServerStorage:FindFirstChild("PBR")
@@ -380,6 +381,7 @@ function World.PreloadAsync(self)
 			local body = m:FindFirstChild("Body", true)
 			if skin and body and body:IsA("MeshPart") then skin:Clone().Parent = body end
 			self:ApplyPaint(m, tKind.Paint)
+			if tKind.Scale then m:ScaleTo(tKind.Scale) end
 			m.Parent = oTemplates
 			tNpcTemplates[sKind] = m
 		else

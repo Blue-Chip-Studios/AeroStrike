@@ -29,7 +29,7 @@ local tLastSam: { [Player]: number } = {}
 
 local Economy: any, Analytics: any, Flight: any, Combat: any
 
-local GO_LIVE = 11
+local GO_LIVE = 6 -- index of the go_live step (FTUEConfig.Steps)
 local FINAL = #FTUEConfig.Steps
 
 function FTUE.IsTraining(self, oPlayer: Player): boolean
@@ -104,20 +104,6 @@ function FTUE.StartAsync(self)
 					s.Jet:SetAttribute("Shield", false)
 				end
 				oEvent:FireClient(oPlayer, { a = "State", step = f.Step, done = true })
-			end
-		elseif t.a == "Sam" then
-			-- harmless training SAM for the flare lesson (0 damage)
-			local f = mProfile:GetAsync(oPlayer, "FTUE")
-			if not f or f.Done or (f.Step or 0) ~= 6 then return end
-			if os.clock() - (tLastSam[oPlayer] or 0) < 6 then return end
-			tLastSam[oPlayer] = os.clock()
-			local s = Flight:GetSortie(oPlayer)
-			if s and s.Phase == "Flying" and s.Jet.PrimaryPart then
-				local cf = s.Jet.PrimaryPart.CFrame
-				local p = cf.Position - cf.LookVector * FTUEConfig.TrainingSamDistance
-				p = Vector3.new(p.X, math.max(cf.Position.Y - 120, 60), p.Z) -- never spawn under the sea
-				local from = CFrame.lookAt(p, cf.Position)
-				Combat:FireMissileAt(nil, from, s.Jet, 0)
 			end
 		end
 	end)

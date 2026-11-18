@@ -24,5 +24,9 @@ return {
 		ProcessedPurchases = {}, -- [PurchaseId] = os.time() (idempotent receipts)
 		OneTimeProducts = {}, -- [productKey] = true (e.g. StarterAceBundle)
 		Settings = { Sensitivity = 1, InvertY = false, ManualRoll = false },
+		Season = { Id = 0, XP = 0, Tier = 0 }, -- free season track (SeasonServer)
+		Trails = {}, -- [trailId] = true (smoke-trail cosmetics)
+		EquippedTrail = "",
+		Rewards = { Codes = {}, Group = false, Referrals = {} }, -- one-time codes / group / invite rewards
 	},
 }

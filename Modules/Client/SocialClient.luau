@@ -72,8 +72,16 @@ function Social.OpenSquad(self)
 end
 function Social.CloseSquad(self) Store.Values.bSquadOpen:set(false) end
 
--- gold contrails for Aces (bounty) and VIP pilots
-local function ensureTrail(m: Model, on: boolean)
+-- smoke trails: gold for Aces (bounty) and VIP pilots, otherwise the pilot's season trail
+local SeasonConfig = require(ReplicatedStorage.Config.SeasonConfig)
+local tTrailKey: { [Model]: string } = {}
+local function ensureTrail(m: Model, on: boolean, colors: { Color3 }?, glow: number?)
+	local key = if on then (if colors then tostring(colors[1]) .. #colors else "gold") else ""
+	if tTrails[m] and tTrailKey[m] ~= key then
+		for _, t in ipairs(tTrails[m]) do t:Destroy() end
+		tTrails[m] = nil
+	end
+	tTrailKey[m] = key
 	if on and not tTrails[m] and m.PrimaryPart then
 		local _, size = m:GetBoundingBox()
 		local trails = {}
@@ -82,15 +90,24 @@ local function ensureTrail(m: Model, on: boolean)
 			a0.Position = Vector3.new(side * size.X * 0.48, 0, size.Z * 0.2)
 			a0.Parent = m.PrimaryPart
 			local a1 = Instance.new("Attachment")
-			a1.Position = a0.Position + Vector3.new(0, 0.6, 0)
+			a1.Position = a0.Position + Vector3.new(0, 0.3, 0) -- thin ribbon
 			a1.Parent = m.PrimaryPart
 			local t = Instance.new("Trail")
 			t.Attachment0, t.Attachment1 = a0, a1
-			t.Color = ColorSequence.new(Color3.fromRGB(255, 216, 107))
-			t.LightEmission = 0.8
+			if colors and #colors > 1 then
+				local kp = {}
+				for i, c in ipairs(colors) do table.insert(kp, ColorSequenceKeypoint.new((i - 1) / (#colors - 1), c)) end
+				t.Color = ColorSequence.new(kp)
+			else
+				t.Color = ColorSequence.new(if colors then colors[1] else Color3.fromRGB(255, 216, 107))
+			end
+			t.LightEmission = if colors then (glow or 0.25) else 0.8
 			t.Lifetime = 1.6
-			t.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) })
-			t.WidthScale = NumberSequence.new(1, 0.2)
+			-- your own trail streams past the chase camera: keep it faint so it never fills the screen
+			local own = m.Name == tostring(LocalPlayer.UserId)
+			t.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, if own then 0.8 else 0.15), NumberSequenceKeypoint.new(1, 1) })
+			t.FaceCamera = true
+			t.WidthScale = NumberSequence.new(1, 0.3)
 			t.Parent = m.PrimaryPart
 			table.insert(trails, t)
 		end
@@ -149,7 +166,7 @@ local function ensureMarker(m: Model, bounty: number?)
 		(bb:FindFirstChild("Tag") :: TextLabel).Text = `★ ACE  ◉{bounty}`
 		local me = Flight.Jet and Flight.Jet.PrimaryPart
 		local d = if me and m.PrimaryPart then (m.PrimaryPart.Position - me.Position).Magnitude else nil
-		(bb:FindFirstChild("Dist") :: TextLabel).Text = if d then string.format("%.1f km", d * 0.28 / 1000) else ""
+		(bb:FindFirstChild("Dist") :: TextLabel).Text = if d then string.format("%.1f km", d / 1000) else ""
 	end
 end
 
@@ -159,11 +176,22 @@ local function step(dt: number)
 	for _, m in ipairs(Workspace.Jets:GetChildren()) do
 		if m:IsA("Model") then
 			local bounty = m:GetAttribute("Bounty") :: number?
-			ensureTrail(m, bounty ~= nil or m:GetAttribute("VIP") == true)
+			local gold = bounty ~= nil or m:GetAttribute("VIP") == true
+			local tr = SeasonConfig.Trails[m:GetAttribute("Trail") :: string? or ""]
+			ensureTrail(m, gold or tr ~= nil, if gold or not tr then nil else tr.Colors, if tr then tr.Glow else nil)
 			ensureMarker(m, bounty)
 		end
 	end
-	for m in pairs(tTrails) do if not m.Parent then tTrails[m] = nil end end
+	local npcF = Workspace:FindFirstChild("NPC")
+	if npcF then
+		for _, m in ipairs(npcF:GetChildren()) do
+			if m:IsA("Model") and m:GetAttribute("Bot") then
+				local tr = SeasonConfig.Trails[m:GetAttribute("Trail") :: string? or ""]
+				ensureTrail(m, tr ~= nil, if tr then tr.Colors else nil, if tr then tr.Glow else nil)
+			end
+		end
+	end
+	for m in pairs(tTrails) do if not m.Parent then tTrails[m] = nil; tTrailKey[m] = nil end end
 	for m, bb in pairs(tMarkers) do if not m.Parent then bb:Destroy(); tMarkers[m] = nil end end
 
 	-- Formation bonus: a squadmate within range slowly refuels you

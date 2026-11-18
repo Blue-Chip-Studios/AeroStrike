@@ -288,7 +288,7 @@ local function step(dt: number)
 		local to = p - cf.Position
 		local dist = to.Magnitude
 		local sp, on = cam:WorldToViewportPoint(p)
-		local kind = if m:GetAttribute("NpcKind") then "Mission" elseif m:GetAttribute("Bounty") then "Ace"
+		local kind = if m:GetAttribute("NpcKind") and not m:GetAttribute("Bot") then "Mission" elseif m:GetAttribute("Bounty") then "Ace"
 			elseif LocalPlayer:GetAttribute("RevengeOn") == m:GetAttribute("OwnerUserId") then "Revenge" else "Enemy"
 		if on and dist < 6000 then
 			table.insert(hud, { Pos = Vector2.new(sp.X, sp.Y), Name = m:GetAttribute("Pilot") or m:GetAttribute("NpcKind") or "", Kind = kind, Dist = dist, Id = m.Name })
