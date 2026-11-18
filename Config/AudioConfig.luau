@@ -20,7 +20,9 @@ local Sounds: { [string]: SoundDef } = {
 	Flyby = { Id = 92497960686008, Volume = 1, Length = 5, MinDist = 60, MaxDist = 900 },
 
 	-- weapons
-	Cannon = { Id = 104450152227652, Volume = 0.85, Looped = true, Region = { 0.05, 2.9 } },
+	Cannon = { Id = 106286657902881, Volume = 0.5, Looped = true }, -- feed/breech mechanism rumble under the shots
+	CannonShot = { Id = 119242921519460, Volume = 0.75, Length = 0.45 }, -- one 30mm round (variant A: more crack)
+	CannonShotB = { Id = 113469621173087, Volume = 0.75, Length = 0.45 }, -- variant B: more thump
 	CannonSpindown = { Id = 117026329760492, Volume = 0.55, Region = { 0, 2.5 } },
 	MissileLaunch = { Id = 70728325937485, Volume = 0.9, Length = 4.5 },
 	MissileThump = { Id = 108279360914003, Volume = 1, Length = 2.5 },

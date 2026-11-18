@@ -53,6 +53,7 @@ local tLastMissile: { [Player]: number } = {}
 local tLastFlare: { [Player]: number } = {}
 local tAmmo: { [Model]: { Missiles: number, Flares: number } } = {}
 local tLockedBy: { [Player]: Model? } = {}
+local tLockState: { [Player]: number } = {} -- 0 none, 1 seeking, 2 locked (from the player's seeker)
 -- damage ledger for assists: [victim] = { [attacker] = {dmg, t} }
 local tLedger: { [Model]: { [Player]: { Dmg: number, T: number } } } = {}
 local oLockLimiter = ModuleUtil.RateLimiter(WeaponConfig.LockAnnounceRate.Count, WeaponConfig.LockAnnounceRate.Window)
@@ -147,6 +148,8 @@ function Combat.Damage(self, victim: Model, nDmg: number, attacker: Player?, sWe
 			victimId = if victimPlayer then victimPlayer.UserId else 0,
 			weapon = sWeapon,
 			pos = victim:GetPivot().Position,
+			model = victim.Name, -- clients spawn a falling, burning wreck from this model
+			vel = if victim.PrimaryPart then victim.PrimaryPart.AssemblyLinearVelocity else Vector3.zero,
 		})
 		if victimPlayer then
 			flight():DestroyJet(victimPlayer, "shot")
@@ -236,6 +239,10 @@ local function onMissile(oPlayer: Player, t: any)
 	local root = s.Jet.PrimaryPart
 	local targets = if typeof(t.t) == "table" then t.t else { t.t }
 	local maxTargets = if s.Stats.MultiLock then s.Stats.MultiLock else 1
+	-- the primary target must be the one this player's seeker announced as fully Locked
+	-- (the heat-seeker difficulty can't be skipped by a modified client)
+	local primary = findTarget(targets[1])
+	if not primary or tLockedBy[oPlayer] ~= primary or tLockState[oPlayer] ~= 2 then return end
 	local fired = 0
 	for i, name in ipairs(targets) do
 		if i > maxTargets or ammo.Missiles <= 0 then break end
@@ -314,6 +321,7 @@ local function onLock(oPlayer: Player, t: any)
 		target:SetAttribute("LockedBy", (target:GetAttribute("LockedBy") :: number? or 0) + 1)
 	end
 	tLockedBy[oPlayer] = if state > 0 then target else nil
+	tLockState[oPlayer] = state
 end
 
 -- ===================== MISSILE SIM =====================
@@ -443,6 +451,7 @@ function Combat.PlayerRemoving(self, oPlayer: Player)
 	tLastMissile[oPlayer] = nil
 	tLastFlare[oPlayer] = nil
 	tLockedBy[oPlayer] = nil
+	tLockState[oPlayer] = nil
 end
 
 return Combat

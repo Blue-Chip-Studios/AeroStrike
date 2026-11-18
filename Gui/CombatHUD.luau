@@ -128,6 +128,9 @@ return function(scope: any, props: { [string]: any })
 					-- threat banner
 					C.HudText(scope, { Name = "Threat", Font = Theme.Display, TextSize = 26, Color = Theme.Threat,
 						Position = UDim2.fromScale(0.5, 0.24), Size = UDim2.fromOffset(520, 40), Text = threatText }),
+					-- lock coaching (heat-seeker mechanic): GET ON THEIR SIX / TERRAIN MASKING / LOST IN THE SUN ...
+					C.HudText(scope, { Name = "LockHint", Font = Theme.Display, TextSize = 16, Color = Theme.Amber,
+						Position = UDim2.fromScale(0.5, 0.58), Size = UDim2.fromOffset(420, 22), Text = V.sLockHint }),
 					-- ammo panel (right of centre, above touch controls)
 					scope:New("Frame")({
 						Name = "Ammo",
@@ -251,7 +254,12 @@ return function(scope: any, props: { [string]: any })
 						XAlign = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(18, 14), Size = UDim2.fromOffset(300, 16) }),
 					C.HudText(scope, { Font = Theme.Body, TextSize = 26, Color = Theme.Ink, AnchorPoint = Vector2.zero, XAlign = Enum.TextXAlignment.Left,
 						Position = UDim2.fromOffset(18, 32), Size = UDim2.fromOffset(420, 30),
-						Text = scope:Computed(function(use) local k = use(V.tKillCard) return if k and k.Killer ~= "" then k.Killer else "The ground" end) }),
+						Text = scope:Computed(function(use) local k = use(V.tKillCard) -- no player killer: name the AI/hazard that did it (Red Talon, SAM, Tail Gunner) unless it was a crash
+							if not k then return "" end
+							if k.Killer ~= "" then return k.Killer end
+							if k.Weapon and k.Weapon ~= "" and k.Weapon ~= "Crash" then return string.upper(k.Weapon) end
+							return "The ground"
+						end) }),
 					C.HudText(scope, { Font = Theme.Body, TextSize = 15, Color = Theme.Mute, AnchorPoint = Vector2.zero, XAlign = Enum.TextXAlignment.Left,
 						Position = UDim2.fromOffset(18, 62), Size = UDim2.fromOffset(420, 20),
 						Text = scope:Computed(function(use)

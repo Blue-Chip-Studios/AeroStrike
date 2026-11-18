@@ -30,6 +30,21 @@ return {
 		RearmTime = 0, -- missiles refill only by touch-and-go / respawn
 	},
 	MultiLock = { Targets = 4, Damage = 40, LockTime = 1.8 },
+	-- Heat-seeker lock: progress rate = 1/LockTime x aspect x range x boresight x G x target
+	Lock = {
+		TailAspect = 1.6, -- right behind the hot exhaust
+		HeadOn = 0.35, -- nose-to-nose: the seeker barely sees them
+		RangeNear = 1.35, -- rate multiplier at point blank ...
+		RangeFar = 0.6, -- ... and at max lock range
+		BoresightEdge = 0.5, -- rate at the edge of the lock cone (1 at the centre)
+		GStart = 4, GPenalty = 0.09, GMin = 0.55, -- hard turns shake the seeker
+		Evading = 0.7, -- target is jinking
+		Decay = 1.4, -- progress lost per second (x lock time) when the target leaves the cone
+		FlareKnock = 0.55, -- fraction of the lock lost when the target pops flares
+		PoorAspectHint = 0.75, -- show "GET ON THEIR SIX" below this aspect factor
+		ClutterAGL = 140, Clutter = 0.5, -- target hugging the ground while you look down on it
+		SunCone = 12, Sun = 0.2, -- target within this many degrees of the sun
+	},
 	Flare = {
 		Cooldown = 2,
 		DecoyChance = 0.7,

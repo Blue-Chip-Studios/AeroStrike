@@ -152,6 +152,17 @@ function Input.StartAsync(self)
 	end
 	-- Studio-only QA: player attribute QA_Device = "Touch" | "Gamepad" | "KeyboardMouse" forces a device mode
 	if RunService:IsStudio() then
+		-- QA_Guns = true holds the trigger; QA_Press = "Missile"/"Flare"/"Launch" taps a button
+		Players.LocalPlayer:GetAttributeChangedSignal("QA_Guns"):Connect(function()
+			self.State.Guns = Players.LocalPlayer:GetAttribute("QA_Guns") == true
+		end)
+		Players.LocalPlayer:GetAttributeChangedSignal("QA_Press"):Connect(function()
+			local a = Players.LocalPlayer:GetAttribute("QA_Press")
+			if typeof(a) == "string" and a ~= "" then
+				fire(a)
+				Players.LocalPlayer:SetAttribute("QA_Press", nil)
+			end
+		end)
 		Players.LocalPlayer:GetAttributeChangedSignal("QA_Device"):Connect(function()
 			local d = Players.LocalPlayer:GetAttribute("QA_Device")
 			if d == "Touch" or d == "Gamepad" or d == "KeyboardMouse" then

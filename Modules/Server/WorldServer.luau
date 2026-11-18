@@ -52,6 +52,9 @@ function World.ApplyPaint(self, oModel: Model, tPaint: { [string]: { Color: Colo
 			if spec then
 				d.Color = spec.Color
 				d.Material = spec.Material
+				-- PBR skin (panel lines, roughness, metalness) is greyscale: the paint tints it
+				local sa = d:FindFirstChildOfClass("SurfaceAppearance")
+				if sa then pcall(function() (sa :: any).Color = spec.Color end) end
 				if spec.Material == Enum.Material.Glass then
 					d.Transparency = 0.35
 				end
@@ -275,6 +278,15 @@ function World.PreloadAsync(self)
 		local m = buildFlyerTemplate(tJet.ModelAssetId, tJet.Id)
 		if m then
 			m:SetAttribute("JetId", tJet.Id)
+			-- PBR skins are authored in Studio (ServerStorage.PBR.<JetId>_Body), cloned onto the Body mesh
+			local lib = ServerStorage:FindFirstChild("PBR")
+			local sa = lib and lib:FindFirstChild(tJet.Id .. "_Body")
+			local body = m:FindFirstChild("Body", true)
+			if sa and body and body:IsA("MeshPart") then
+				sa:Clone().Parent = body
+			elseif not sa then
+				warn(`[World] no PBR skin for {tJet.Id}`)
+			end
 			m.Parent = oTemplates
 			tJetTemplates[sId] = m
 		else
@@ -285,6 +297,10 @@ function World.PreloadAsync(self)
 	for sKind, tKind in pairs(NpcConfig.Kinds) do
 		local m = buildFlyerTemplate(tKind.AssetId, sKind)
 		if m then
+			local skinLib = ServerStorage:FindFirstChild("PBR")
+			local skin = tKind.Skin and skinLib and skinLib:FindFirstChild(tKind.Skin .. "_Body")
+			local body = m:FindFirstChild("Body", true)
+			if skin and body and body:IsA("MeshPart") then skin:Clone().Parent = body end
 			self:ApplyPaint(m, tKind.Paint)
 			m.Parent = oTemplates
 			tNpcTemplates[sKind] = m
@@ -311,6 +327,44 @@ function World.PreloadAsync(self)
 		end
 		ring.Name = "Ring"
 		ring.Parent = ct
+	end
+	-- Blender IR missile: cosmetic proxy for the server-simulated missiles (VfxController)
+	local missile = loadModel(MapConfig.MissileAssetId)
+	if missile then
+		local paint = {
+			Body = { Color3.fromRGB(226, 228, 232), Enum.Material.SmoothPlastic },
+			Band = { Color3.fromRGB(255, 194, 61), Enum.Material.SmoothPlastic },
+			Seeker = { Color3.fromRGB(20, 32, 38), Enum.Material.Glass },
+			Trim = { Color3.fromRGB(46, 49, 54), Enum.Material.Metal },
+			Glow = { Color3.fromRGB(255, 160, 70), Enum.Material.Neon },
+		}
+		local primary: BasePart? = nil
+		for _, d in ipairs(missile:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored = true
+				d.CanCollide = false
+				d.CanQuery = false
+				d.CanTouch = false
+				d.CastShadow = false
+				d.Name = ModuleUtil.StripSuffix(d.Name)
+				local p = paint[d.Name]
+				if p then d.Color = p[1]; d.Material = p[2] end
+				if d.Name == "Body" then primary = d end
+			end
+		end
+		missile.PrimaryPart = primary
+		-- point the pivot's LookVector along the actual nose (Seeker ahead of Trim), measured in the
+		-- Body's own space, so it is right whatever axes the FBX importer produced
+		-- (with a PrimaryPart the pivot is PrimaryPart.CFrame * PivotOffset; WorldPivot is ignored)
+		local seeker, trim = missile:FindFirstChild("Seeker"), missile:FindFirstChild("Trim")
+		if primary and seeker and trim and seeker:IsA("BasePart") and trim:IsA("BasePart") then
+			local noseWorld = (seeker.Position - trim.Position).Unit
+			local noseLocal = primary.CFrame:VectorToObjectSpace(noseWorld)
+			local up = if math.abs(noseLocal.Y) > 0.9 then Vector3.zAxis else Vector3.yAxis
+			primary.PivotOffset = CFrame.lookAt(Vector3.zero, noseLocal, up)
+		end
+		missile.Name = "Missile"
+		missile.Parent = ct
 	end
 	ct.Parent = ReplicatedStorage
 

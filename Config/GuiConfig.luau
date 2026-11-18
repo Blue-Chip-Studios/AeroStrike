@@ -40,6 +40,7 @@ local tValues = {
 	nFlareCooldown = 0, -- 0..1
 	sLockState = "None", -- None | Seeking | Locked
 	nLockProgress = 0,
+	sLockHint = "", -- lock coaching: GET ON THEIR SIX / EASE OFF THE G / FLARES! RE-ACQUIRE
 	tLockScreen = Vector2.new(-1000, -1000),
 	tLeadScreen = Vector2.new(-1000, -1000),
 	sThreat = "None", -- None | Locked | Inbound

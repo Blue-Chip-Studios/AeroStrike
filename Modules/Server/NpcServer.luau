@@ -15,6 +15,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local ModuleUtil = require(ReplicatedStorage.Shared.ModuleUtil)
+local IslandShape = require(ReplicatedStorage.Shared.IslandShape)
 local Remote = require(ReplicatedStorage.BCDKShared.Remote)
 local NpcConfig = require(ReplicatedStorage.Config.NpcConfig)
 
@@ -30,7 +31,13 @@ type Npc = {
 	Tag: string,
 	LastShot: number,
 	LastFlare: number,
+	TrackedSince: number?, -- when an attacker's seeker started tracking this NPC
+	EvadeUntil: number?,
+	NextEvade: number?,
+	Tactic: string?,
+	TacticT0: number?,
 }
+
 
 local Npc = ModuleUtil.New({
 	Active = {} :: { [Model]: Npc },
@@ -132,6 +139,157 @@ local function sam(n: Npc, now: number)
 	end
 end
 
+-- ===================== AI TACTICS =====================
+-- Once a player's seeker tracks an aircraft (its "RWR" hears the lock), the pilot picks a
+-- tactic after a reaction delay. Each tactic works *with* the lock mechanic (WeaponsController):
+--   Jink     weave hard left/right            -> boresight + "evading" lock penalty
+--   Mask     dive for low ground / the canyon  -> terrain blocks the seeker, ground clutter halves it
+--   Vertical pull straight up, dump flares    -> flare knock-back, sun glare if it climbs sunward
+--   Break    turn hard into the attacker       -> forces a weak head-on aspect
+local function ground(x: number, z: number): number
+	return math.max(IslandShape.Height(x, z), 0)
+end
+
+local function nearestTracker(pos: Vector3): Model?
+	local best, bd = nil, 4000
+	for _, jet in ipairs(workspace.Jets:GetChildren()) do
+		if jet:IsA("Model") and jet.PrimaryPart and not jet:GetAttribute("Dead") then
+			local d = (jet.PrimaryPart.Position - pos).Magnitude
+			if d < bd then best, bd = jet, d end
+		end
+	end
+	return best
+end
+
+local function popFlares(n: Npc, now: number, pos: Vector3)
+	if now - n.LastFlare < 0.9 then return end
+	n.LastFlare = now
+	Combat:DecoyMissilesAt(n.Model)
+	oCombatEvent:FireAllClients({ a = "Flares", owner = n.Model.Name, pos = pos })
+end
+
+-- lowest ground ahead (prefers the canyon if it is close): where a pilot would go to hide
+local function maskPoint(pos: Vector3, fwd: Vector3, agl: number): Vector3
+	local flat = Vector3.new(fwd.X, 0, fwd.Z)
+	flat = if flat.Magnitude > 1e-3 then flat.Unit else Vector3.zAxis
+	local bestP, bestH = pos + flat * 600, math.huge
+	for i = -3, 3 do
+		local dir = CFrame.Angles(0, math.rad(i * 22), 0) * flat
+		for _, d in ipairs({ 500, 800 }) do
+			local p = pos + dir * d
+			local h = ground(p.X, p.Z)
+			if h < bestH then bestH, bestP = h, p end
+		end
+	end
+	-- the canyon floor is the best cover of all if it is within reach
+	local cx = pos.X + flat.X * 600
+	local cp = Vector3.new(cx, 0, IslandShape.CanyonZ(cx))
+	if (Vector3.new(pos.X, 0, pos.Z) - cp).Magnitude < 1400 and IslandShape.Mask(cp.X, cp.Z) > 0.5 then
+		bestP, bestH = cp, IslandShape.CanyonFloor
+	end
+	return Vector3.new(bestP.X, bestH + agl, bestP.Z)
+end
+
+local function evade(n: Npc, now: number, pos: Vector3, routeTarget: Vector3): Vector3
+	local ev = n.Cfg.Evasion
+	if not ev then return routeTarget end
+	local tracked = (n.Model:GetAttribute("LockedBy") or 0) > 0
+	n.TrackedSince = if tracked then (n.TrackedSince or now) else nil
+	local fwd = n.Model:GetPivot().LookVector
+	if not (n.EvadeUntil and now < n.EvadeUntil) then
+		if tracked and now - (n.TrackedSince :: number) >= ev.React and now >= (n.NextEvade or 0) then
+			-- pick a tactic that suits the situation
+			local options = ev.Tactics or { "Jink" }
+			local overLand = ground(pos.X, pos.Z) > 0 or IslandShape.Mask(pos.X + fwd.X * 800, pos.Z + fwd.Z * 800) > 0
+			local pick = options[math.random(1, #options)]
+			if table.find(options, "Mask") and overLand and math.random() < 0.5 then pick = "Mask" end
+			n.Tactic = pick
+			n.TacticT0 = now
+			n.EvadeUntil = now + ev.Duration
+			n.NextEvade = now + ev.Duration + ev.Cooldown
+			n.Model:SetAttribute("Evading", pick)
+			if pick == "Vertical" or (ev.FlareOnLock and math.random() < ev.FlareOnLock) then popFlares(n, now, pos) end
+		else
+			if n.Model:GetAttribute("Evading") then n.Model:SetAttribute("Evading", nil) end
+			n.Tactic = nil
+			return routeTarget
+		end
+	end
+	local t = now - (n.TacticT0 or now)
+	if n.Tactic == "Mask" then
+		return maskPoint(pos, fwd, ev.MaskAGL or 70)
+	elseif n.Tactic == "Vertical" then
+		if t > 1.3 and t < 1.5 then popFlares(n, now, pos) end -- second salvo near the top
+		if t < 2.4 then return pos + Vector3.new(0, 900, 0) + fwd * 120 end
+		return pos + fwd * 600 + Vector3.new(0, -120, 0) -- roll out and dive away
+	elseif n.Tactic == "Break" then
+		local att = nearestTracker(pos)
+		if att and att.PrimaryPart then return att.PrimaryPart.Position end
+	end
+	-- Jink (default): alternate hard left/right around the heading
+	local base = (routeTarget - pos)
+	base = if base.Magnitude > 1 then base.Unit else fwd
+	local right = base:Cross(Vector3.yAxis)
+	right = if right.Magnitude > 1e-3 then right.Unit else Vector3.xAxis
+	local side = if math.floor(now / ev.Period) % 2 == 0 then 1 else -1
+	return pos + base * 400 + right * side * ev.Jink + Vector3.new(0, side * ev.Jink * 0.25, 0)
+end
+
+-- Fighters hunt: chase the nearest player (with lead) when not defending
+local function pursue(n: Npc, pos: Vector3, routeTarget: Vector3): Vector3
+	local d = n.Cfg.Dogfight
+	if not d or n.Tactic then return routeTarget end
+	local best, bd = nil, d.Range
+	for _, jet in ipairs(workspace.Jets:GetChildren()) do
+		if jet:IsA("Model") and jet.PrimaryPart and not jet:GetAttribute("Dead") and not jet:GetAttribute("Shield") then
+			local dist = (jet.PrimaryPart.Position - pos).Magnitude
+			if dist < bd then best, bd = jet, dist end
+		end
+	end
+	if not best then return routeTarget end
+	local tp = (best.PrimaryPart :: BasePart)
+	return tp.Position + tp.AssemblyLinearVelocity * math.clamp(bd / 600, 0, 1.2)
+end
+
+-- Fighter nose guns: short bursts when a player sits in front
+local function noseGun(n: Npc, now: number)
+	local g = n.Cfg.NoseGun
+	if not g or now - n.LastShot < 1 / g.Rate then return end
+	local root = n.Model.PrimaryPart :: BasePart
+	local fwd = root.CFrame.LookVector
+	for _, jet in ipairs(workspace.Jets:GetChildren()) do
+		if jet:IsA("Model") and jet.PrimaryPart and not jet:GetAttribute("Dead") and not jet:GetAttribute("Shield") then
+			local to = jet.PrimaryPart.Position - root.Position
+			local dist = to.Magnitude
+			if dist < g.Range and math.acos(math.clamp(fwd:Dot(to.Unit), -1, 1)) < g.Cone then
+				n.LastShot = now
+				local hit = math.random() < g.HitChance * (1 - dist / g.Range * 0.5)
+				local miss = if hit then Vector3.zero else Vector3.new(math.random(-14, 14), math.random(-8, 8), math.random(-14, 14))
+				oCombatEvent:FireAllClients({ a = "NpcFire", from = root.Position + fwd * 14, to = jet.PrimaryPart.Position + miss })
+				if hit then Combat:Damage(jet, g.Damage, nil, "Red Talon") end
+				return
+			end
+		end
+	end
+end
+
+-- Never fly into the island: look ahead along the nose and pull up over rising ground
+local function avoidTerrain(n: Npc, pos: Vector3, target: Vector3): Vector3
+	if n.Cfg.Ship or n.Cfg.Static then return target end
+	local agl = n.Cfg.MinAGL or 60
+	local tg = ground(target.X, target.Z) + agl
+	if target.Y < tg then target = Vector3.new(target.X, tg, target.Z) end
+	local look = n.Model:GetPivot().LookVector
+	for _, d in ipairs({ 120, 300, 550 }) do
+		local p = pos + look * d
+		local need = ground(p.X, p.Z) + agl
+		if p.Y < need then
+			return Vector3.new(target.X, math.max(target.Y, need + 250), target.Z) + Vector3.new(0, 200, 0)
+		end
+	end
+	return target
+end
+
 local function flares(n: Npc, now: number)
 	if not n.Cfg.FlareChance or now - n.LastFlare < 4 then return end
 	if (n.Model:GetAttribute("Incoming") or 0) <= 0 then return end
@@ -158,7 +316,7 @@ function Npc.Spawn(self, sKind: string, cf: CFrame, opts: { [string]: any }?): M
 	m:SetAttribute("NpcKind", sKind)
 	m:SetAttribute("Health", cfg.Health)
 	m:SetAttribute("MaxHealth", cfg.Health)
-	m:SetAttribute("Pilot", if sKind == "Bomber" then "TALON BOMBER" else "DRONE")
+	m:SetAttribute("Pilot", if sKind == "Bomber" then "TALON BOMBER" elseif sKind == "Interceptor" then "RED TALON" else "DRONE")
 	if o.Tag then m:SetAttribute("MissionTag", o.Tag) end
 	m:PivotTo(cf)
 	m.Parent = workspace.NPC
@@ -252,8 +410,12 @@ function Npc.StartAsync(self)
 					target = n.Route[n.Wp] or wp
 				end
 				if n.Cfg.Ship then target = Vector3.new(target.X, 0, target.Z) end -- ships stay on the sea
+				target = pursue(n, pos, target)
+				target = evade(n, now, pos, target)
+				target = avoidTerrain(n, pos, target)
 				steer(n, target, dt)
 				tailGun(n, now)
+				noseGun(n, now)
 				flak(n, now)
 				flares(n, now)
 			end

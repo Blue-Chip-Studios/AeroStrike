@@ -27,6 +27,7 @@ local cfSmooth: CFrame? = nil
 local vDeathPoint = Vector3.zero
 local nDeathAngle = 0
 local nShakeT = 0
+local nKick = 0 -- one-off impulse shake (kills, big hits), decays quickly
 local oGrade: ColorCorrectionEffect
 
 local CHASE_OFFSET = Vector3.new(0, 7.5, 34)
@@ -98,6 +99,8 @@ local function update(dt: number)
 	if phase == "Catapult" then shake = 0.25 end
 	shake += (require(script.Parent.AudioController) :: any).Intensity * 0.12 -- threat tremble
 	if Input.State.Boost then shake += 0.05 end
+	shake += nKick
+	nKick = math.max(0, nKick - dt * 2.2)
 	if shake > 0 then
 		nShakeT += dt * 40
 		out *= CFrame.Angles(math.noise(nShakeT, 1) * shake * 0.05, math.noise(nShakeT, 2) * shake * 0.05, 0)
@@ -127,6 +130,11 @@ function Cam.StartAsync(self)
 	end)
 	RunService:BindToRenderStep("AS_Camera", Enum.RenderPriority.Camera.Value + 1, update)
 	Players.LocalPlayer.CameraMode = Enum.CameraMode.Classic
+end
+
+-- one-off camera punch (e.g. your kill, a big hit nearby); stacks to the strongest
+function Cam.Kick(self, amount: number)
+	nKick = math.max(nKick, amount)
 end
 
 return Cam

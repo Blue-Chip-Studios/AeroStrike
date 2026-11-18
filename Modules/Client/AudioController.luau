@@ -54,6 +54,24 @@ local nLastGroan = 0
 local nIntensity = 0
 local BASE_HIGH = -3 -- dB: a gentle permanent high-shelf so nothing in the mix turns shrill
 
+-- Per-round cannon shots: a round-robin pool so overlapping shots ring out
+-- naturally instead of cutting each other off, synced 1:1 with the rounds fired.
+local tShotPool: { Sound } = {}
+local iShot = 0
+local nLastShot = -math.huge
+local SHOT_VOICES = 10
+local function playShot()
+	nLastShot = os.clock()
+	if #tShotPool == 0 then return end
+	iShot = iShot % #tShotPool + 1
+	local s = tShotPool[iShot]
+	local def = AudioConfig.Sounds[if iShot % 2 == 0 then "CannonShotB" else "CannonShot"]
+	s.PlaybackSpeed = (def.Speed or 1) * (0.94 + math.random() * 0.12) -- no two rounds identical
+	s.Volume = (def.Volume or 0.7) * (0.88 + math.random() * 0.12)
+	s.TimePosition = 0
+	s:Play()
+end
+
 local function apply(s: Sound, def: AudioConfig.SoundDef)
 	s.SoundId = "rbxassetid://" .. tostring(def.Id)
 	s.Volume = def.Volume or 0.6
@@ -188,8 +206,10 @@ local function step(dt: number)
 	drive("LockTone", if flying and lock == "Locked" then 0.5 else 0, dt, nil, oThreat, 20)
 
 	-- ===== CANNON =====
-	local firing = flying and Input.State.Guns and peek(Store.Values.nGunHeat) < 0.999
-	drive("Cannon", if firing then 0.85 else 0, dt, nil, nil, 30)
+	-- every round is its own shot (see playShot, driven by Weapons.Fired "Gun"); this
+	-- layer is the feed/breech mechanism rumble underneath while the trigger is held
+	local firing = flying and (os.clock() - nLastShot) < 0.12
+	drive("Cannon", if firing then 0.5 else 0, dt, nil, nil, 30)
 	if bWasFiring and not firing then oneShot("CannonSpindown") end
 	bWasFiring = firing
 
@@ -303,8 +323,15 @@ function Audio.StartAsync(self)
 			vo("VO_CatapultArmed")
 		end
 	end)
+	for i = 1, SHOT_VOICES do
+		local s = make(if i % 2 == 0 then "CannonShotB" else "CannonShot", SoundService)
+		s.Name = "CannonShot" .. i
+		tShotPool[i] = s
+	end
 	Weapons.Fired.Event:Connect(function(kind: string)
-		if kind == "Missile" then
+		if kind == "Gun" then
+			playShot()
+		elseif kind == "Missile" then
 			oneShot("MissileThump")
 			oneShot("MissileLaunch")
 			vo("VO_FoxTwo")

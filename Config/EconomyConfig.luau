@@ -9,6 +9,7 @@ return {
 		Kill = { Cash = 150, XP = 100 },
 		Assist = { Cash = 50, XP = 40 }, -- dealt >= AssistThreshold of victim max HP
 		BomberKill = { Cash = 60, XP = 40 },
+		InterceptorKill = { Cash = 120, XP = 80 }, -- they fight back
 		SquadronCleared = { Cash = 300, XP = 150 },
 		DestroyerSunk = { Cash = 600, XP = 300 },
 		CanyonRun = { Cash = 250, XP = 150 },

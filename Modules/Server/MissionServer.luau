@@ -94,7 +94,7 @@ local function startBomberSquadron(tag: string)
 		addUnit("Bomber", heading * CFrame.new((i - 2) * cfg.FormationSpacing, (i % 2) * 12, math.abs(i - 2) * cfg.FormationSpacing * 0.6))
 	end
 	for i = 1, cfg.Escorts do
-		addUnit("Drone", heading * CFrame.new((i == 1 and -1 or 1) * cfg.FormationSpacing * 2, 40, -60))
+		addUnit(cfg.EscortKind or "Interceptor", heading * CFrame.new((i == 1 and -1 or 1) * cfg.FormationSpacing * 2, 40, -60))
 	end
 	begin("BomberSquadron", tag, units, spawnPos)
 end

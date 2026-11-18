@@ -231,8 +231,8 @@ function Economy.StartAsync(self)
 				-- the sink reward is shared by every participant (MissionServer)
 				self:Reward(killer, "BomberKill", { Bank = true, Label = "FINAL BLOW: DESTROYER SUNK" })
 			else
-				local key = if kind == "Drone" then "DroneTraining" else "BomberKill"
-				local label = if kind == "SAMSite" then "SAM SITE DESTROYED" else `{string.upper(kind or "TARGET")} DOWN`
+				local key = if kind == "Drone" then "DroneTraining" elseif kind == "Interceptor" then "InterceptorKill" else "BomberKill"
+				local label = if kind == "SAMSite" then "SAM SITE DESTROYED" elseif kind == "Interceptor" then "RED TALON DOWN" else `{string.upper(kind or "TARGET")} DOWN`
 				self:Reward(killer, key, { Bank = true, Label = label })
 			end
 		end
