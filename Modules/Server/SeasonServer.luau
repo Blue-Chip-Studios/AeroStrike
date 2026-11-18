@@ -156,6 +156,8 @@ function Season.StartAsync(self)
 			if t.trail == "" or owned[t.trail] then
 				Economy:SetProfileKey(p, "EquippedTrail", function() return t.trail end)
 				msg(p, if t.trail == "" then "Trail off." else "Trail equipped: it shows on your next launch.", true)
+			else
+				msg(p, "That trail isn't unlocked yet: earn it on the season track.", false)
 			end
 		elseif t.a == "Code" then
 			redeem(p, t.code)

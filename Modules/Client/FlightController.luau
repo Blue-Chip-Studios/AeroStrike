@@ -363,9 +363,29 @@ local function step(dt: number)
 			end
 		end
 	end
+	-- combat-zone edge: a little past the warning line an autopilot starts turning you back,
+	-- harder the further out you are (an unsteered / AFK jet comes home instead of dying)
+	do
+		local pos = st.CFrame.Position
+		local out = Vector3.new(pos.X - MapConfig.MapCentre.X, 0, pos.Z - MapConfig.MapCentre.Z)
+		local past = out.Magnitude - (FlightConfig.BoundsRadius + 250)
+		if past > 0 and st.CFrame.LookVector:Dot(out.Unit) > -0.5 then
+			local home = (-out.Unit + Vector3.yAxis * 0.05).Unit
+			if Flight.AimDir:Dot(home) < 0.2 then
+				-- heading away: turn through the side you're already leaning to (no lerp through zero)
+				local side = Vector3.yAxis:Cross(out.Unit)
+				if Flight.AimDir:Dot(side) < 0 then side = -side end
+				home = (side + Vector3.yAxis * 0.05).Unit
+			end
+			local k = math.clamp(0.25 + past / 400, 0, 1) * math.clamp(dt * 2.5, 0, 1)
+			Flight.AimDir = Flight.AimDir:Lerp(home, k).Unit
+		end
+	end
 	-- soft ceiling: over the last CEILING_BAND studs the nose is pushed level, above it, down
 	do
-		local over = st.CFrame.Position.Y - (FlightConfig.CeilingY - CEILING_BAND)
+		-- look ahead ~1.5 s of climb so a steep zoom eases over instead of slamming into the lid
+		local climb = math.max(st.CFrame.LookVector.Y * st.Speed, 0)
+		local over = st.CFrame.Position.Y + climb * 1.5 - (FlightConfig.CeilingY - CEILING_BAND)
 		if over > 0 then
 			local a = Flight.AimDir
 			local maxY = math.sin(math.rad(math.clamp(60 - over / CEILING_BAND * 70, -15, 60)))
@@ -447,7 +467,13 @@ local function step(dt: number)
 	local vel = st.CFrame.LookVector * st.Speed
 	if p.Y > FlightConfig.CeilingY then
 		st.CFrame = CFrame.new(p.X, FlightConfig.CeilingY, p.Z) * st.CFrame.Rotation
-		if vel.Y > 0 then vel = Vector3.new(vel.X, -20, vel.Z) end
+		if vel.Y > 0 then
+			-- keep the speed, redirected level (pointing straight up, the belly gives the heading)
+			local flat = Vector3.new(st.CFrame.LookVector.X, 0, st.CFrame.LookVector.Z)
+			if flat.Magnitude < 0.2 then flat = -Vector3.new(st.CFrame.UpVector.X, 0, st.CFrame.UpVector.Z) end
+			flat = if flat.Magnitude > 1e-3 then flat.Unit else Vector3.zAxis
+			vel = flat * st.Speed + Vector3.new(0, -20, 0)
+		end
 	end
 	writeMovers(st.CFrame, vel)
 
