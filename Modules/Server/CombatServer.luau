@@ -457,7 +457,8 @@ function Combat.StartAsync(self)
 	F.OnLaunched.Event:Connect(function(oPlayer: Player)
 		self:Rearm(oPlayer)
 	end)
-	F.OnTouchAndGo.Event:Connect(function(oPlayer: Player)
+	-- missiles/flares are reloaded by the ground crew after you land and stop (FlightServer.OnResupply)
+	F.OnResupply.Event:Connect(function(oPlayer: Player)
 		self:Rearm(oPlayer)
 	end)
 	F.OnJetDestroyed.Event:Connect(function(oPlayer: Player, sCause: string, vPos: Vector3)
@@ -469,7 +470,7 @@ function Combat.StartAsync(self)
 			-- crashes while being chased credit the last attacker
 			-- client-reported impacts arrive as "crash:<what was hit>", server ones as "crash"
 			local ejected = sCause == "eject"
-			if (string.sub(sCause, 1, 5) == "crash" or ejected) and not jet:GetAttribute("Dead") then
+			if (string.sub(sCause, 1, 5) == "crash" or ejected or sCause == "bounds") and not jet:GetAttribute("Dead") then
 				local uid = jet:GetAttribute("LastAttacker")
 				local at = jet:GetAttribute("LastAttackedAt") :: number? or -math.huge
 				local recent = workspace:GetServerTimeNow() - at <= WeaponConfig.CrashCreditWindow
@@ -479,7 +480,8 @@ function Combat.StartAsync(self)
 				local how = if ejected then (if killer then "Forced Eject" else "Ejected") elseif killer then "Crash (chased)" else "Crash"
 				self.OnKill:Fire(killer, jet, how, { Assists = {} })
 				oEvent:FireAllClients({ a = "Kill", killer = if killer then killer.DisplayName else "", killerId = if killer then killer.UserId else 0,
-					victim = oPlayer.DisplayName, victimId = oPlayer.UserId, weapon = if ejected then "Eject" else "Crash", pos = vPos,
+					victim = oPlayer.DisplayName, victimId = oPlayer.UserId, weapon = if ejected then "Eject" elseif sCause == "bounds" then "Bounds" else "Crash", pos = vPos,
+					reason = string.sub(sCause, 7, 30), -- "crash:<what>" -> what (BellyLanding / HardLanding / Terrain...)
 					model = jet.Name, vel = if jet.PrimaryPart then jet.PrimaryPart.AssemblyLinearVelocity else Vector3.zero })
 			end
 		end

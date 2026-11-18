@@ -16,7 +16,7 @@ local Store = require(ReplicatedStorage.BCDKClient.LMGui.Store)
 local NpcConfig = require(ReplicatedStorage.Config.NpcConfig)
 
 local LocalPlayer = Players.LocalPlayer
-local Tanker = ModuleUtil.New({ Refuelling = false })
+local Tanker = ModuleUtil.New({ Refuelling = false, Guiding = false })
 
 local CFG = NpcConfig.Kinds.Tanker
 local oMarker: BillboardGui? = nil
@@ -102,7 +102,8 @@ function Tanker.StartAsync(self)
 			end
 		end
 		-- low fuel: guide the pilot to the tanker
-		local low = flying and fuelFrac < R.LowFuel
+		-- (after a flameout the tanker can't be caught: RtbClient guides you to a runway instead)
+		local low = flying and fuelFrac < R.LowFuel and st.Fuel > 0
 		if low and not refuelling then
 			MissionClient.Override = t:GetPivot().Position
 			bGuiding = true
@@ -111,6 +112,7 @@ function Tanker.StartAsync(self)
 			MissionClient.Override = nil
 			bGuiding = false
 		end
+		self.Guiding = bGuiding
 		if oMarker then
 			local lbl = oMarker:FindFirstChild("Label") :: TextLabel?
 			if lbl then lbl.TextColor3 = if low then Color3.fromRGB(255, 194, 61) else Color3.fromRGB(92, 255, 143) end

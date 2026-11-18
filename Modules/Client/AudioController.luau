@@ -177,16 +177,17 @@ local function step(dt: number)
 	local st = Flight.State
 	local stats = Flight.Stats
 	local jet = Flight.Jet
-	local flying = (phase == "Flying" or phase == "Catapult") and st ~= nil and stats ~= nil
+	local flying = (phase == "Flying" or phase == "Catapult" or phase == "Ground") and st ~= nil and stats ~= nil
 
 	-- ===== THRUST =====
 	if flying and st and stats then
 		local f = math.clamp(st.Speed / stats.MaxSpeed, 0, 1.2)
-		local boost = Input.State.Boost or st.FreeBoost > 0
+		local dead = st.Fuel <= 0 -- flameout: the engine winds down, only the wind is left
+		local boost = (Input.State.Boost or st.FreeBoost > 0) and not dead
 		-- pitch rises are kept small: speed should read as weight and roar, not whine
-		drive("EngineCruise", 0.22 + 0.22 * f, dt, 0.9 + 0.18 * f)
+		drive("EngineCruise", if dead then 0 else 0.22 + 0.22 * f, dt, if dead then 0.6 else 0.9 + 0.18 * f, nil, if dead then 1.2 else nil)
 		drive("Afterburner", if boost then 0.8 else 0, dt, 0.97 + 0.06 * f, nil, if boost then 10 else 4)
-		drive("SubRumble", (if boost then 0.75 else 0.2) * (0.5 + 0.5 * f), dt, 1, nil, 5)
+		drive("SubRumble", if dead then 0 else (if boost then 0.75 else 0.2) * (0.5 + 0.5 * f), dt, 1, nil, 5)
 		drive("WindRush", 0.05 + 0.4 * f * f, dt, 0.94 + 0.1 * f)
 		if boost and not bWasBoost then
 			oneShot("AfterburnerIgnite")
@@ -196,8 +197,9 @@ local function step(dt: number)
 		if fast and not bWasFast and os.clock() - nLastBoom > 8 then
 			nLastBoom = os.clock()
 			oneShot("SonicBoom")
-			Store.Values.sLaunchResult:set("SONIC BOOM")
-			task.delay(1, function() if peek(Store.Values.sLaunchResult) == "SONIC BOOM" then Store.Values.sLaunchResult:set("") end end)
+			-- the payoff: vapour cone + shockwave + camera punch here, and everyone nearby hears it
+			if jet then pcall(function() (require(script.Parent.VfxController) :: any):SonicBoom(jet, true) end) end
+			Remote:GetEvent("FlightRequest"):FireServer({ a = "Boom" })
 		end
 		bWasFast = fast
 	else

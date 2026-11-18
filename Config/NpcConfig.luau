@@ -34,6 +34,7 @@ return {
 			Skin = "ViperIX", -- reuse the Viper PBR airframe skin (tinted Talon charcoal)
 			Health = 70,
 			Speed = 150,
+			ChaseSpeed = 205, -- matches military power: you need the afterburner or a turn to shake one
 			TurnRate = 0.95,
 			MinAGL = 45,
 			Paint = {
@@ -49,7 +50,9 @@ return {
 			Evasion = { React = 0.5, Jink = 300, Period = 1.1, Duration = 4.5, Cooldown = 3.5, FlareOnLock = 0.35, MaskAGL = 60,
 				Tactics = { "Jink", "Mask", "Vertical", "Break" } },
 			Dogfight = { Range = 2600 },
-			NoseGun = { Range = 650, Rate = 5, Damage = 3, Cone = math.rad(8), HitChance = 0.25 }, -- ~2.6 dps at close range: dangerous, beatable
+			NoseGun = { Range = 750, Rate = 5, Damage = 3, Cone = math.rad(12), HitChance = 0.25 }, -- ~3 dps on a steady target close in, much less against hard breaks
+			-- heat-seeker: hold you in a 22 deg cone for 2.6 s (you hear the lock tone) -> missile; flares / break / terrain defeat it
+			Missile = { Range = 1700, Cone = math.rad(22), LockTime = 2.6, Cooldown = 15, Count = 2, Damage = 34 },
 		},
 		-- Aerial refuelling tanker: friendly, untargetable, flies a wide orbit near the carrier.
 		-- Slower than military power on purpose: docking means throttling back to match it.
@@ -117,5 +120,7 @@ return {
 		},
 	},
 	MaxNpcs = 18,
+	-- standing Red Talon patrol: interceptors always hunting over the island (outside the carrier umbrella)
+	Patrol = { Kind = "Interceptor", Count = 2, Respawn = 40, Centre = Vector3.new(0, 650, 0), Radius = 1500 },
 	TickRate = 15, -- AI updates per second
 }

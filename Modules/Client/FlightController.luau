@@ -37,6 +37,8 @@ local Flight = ModuleUtil.New({
 	Crashed = Instance.new("BindableEvent"),
 	AimDir = Vector3.new(0, 0, -1), -- world-space aim (camera-led steering)
 	Spawn = nil :: { start: CFrame, finish: CFrame }?,
+	GearDown = true,
+	Landed = Instance.new("BindableEvent"), -- (where: "Carrier"|"Airfield", trapped: boolean)
 })
 
 local Input -- InputController (resolved in StartAsync)
@@ -45,7 +47,13 @@ local nBarStart = 0
 local nCatapultT = 0
 local nLaunchSpeed = 0
 local nFreeBoost = 0
-local nTouchAndGoCooldown = 0
+local bTrapped = false -- carrier arrestor wire caught
+local nTrapDecel = 0
+local nStoppedT = 0
+local bResupplyAsked = false
+local nGearPromptUntil = 0
+local tGroundRay = RaycastParams.new()
+tGroundRay.FilterType = Enum.RaycastFilterType.Exclude
 local bClimbOut = false
 local nLaunchedAt = -math.huge
 local LAUNCH_SAFE_TIME, LAUNCH_SAFE_ALT = 4, 100
@@ -60,8 +68,28 @@ local function setPhase(p: string)
 	Flight.Phase = p
 	Store.Values.sPhase:set(p)
 	if p ~= "Flying" then Store.Values.bPullUp:set(false) end
-	if Input then Input:SetFlightMouseLock(p == "Flying" or p == "Catapult") end
+	if Input then Input:SetFlightMouseLock(p == "Flying" or p == "Catapult" or p == "Ground") end
 	Changed:Fire(p)
+end
+
+local function rideHeight(): number
+	local jet = Flight.Jet
+	return (jet and jet:GetAttribute("RideHeight") :: number?) or 3.2
+end
+
+local function setGear(bDown: boolean)
+	if Flight.GearDown == bDown then return end
+	Flight.GearDown = bDown
+	Store.Values.bGearDown:set(bDown)
+	oRequest:FireServer({ a = "Gear", down = bDown })
+end
+
+-- a surface you may land on: the carrier deck or the airfield's runway/apron
+local function landingSurface(inst: Instance): string?
+	if inst:GetAttribute("Runway") then return "Airfield" end
+	local carrier = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Carrier")
+	if carrier and inst:IsDescendantOf(carrier) then return "Carrier" end
+	return nil
 end
 
 local function waitForJet(nTimeout: number): Model?
@@ -80,8 +108,25 @@ local function onSpawned(t: any)
 	end
 	Flight.Jet = jet
 	tRayParams.FilterDescendantsInstances = { Workspace:FindFirstChild("Jets") :: Instance }
+	tGroundRay.FilterDescendantsInstances = { Workspace:FindFirstChild("Jets") :: Instance }
 	Flight.State = FlightModel.NewState(t.start, 0, t.stats.Fuel)
+	Flight.GearDown = true
+	Store.Values.bGearDown:set(true)
 	Store.Values.sLaunchResult:set("")
+	Store.Values.sGroundHint:set("")
+	bTrapped, bResupplyAsked = false, false
+	nBarStart = os.clock()
+	setPhase("Deck")
+end
+
+-- back on the catapult after a carrier trap + resupply (same jet, full tanks)
+local function onRecovered(t: any)
+	Flight.Spawn = { start = t.start, finish = t.finish }
+	if Flight.Stats then Flight.State = FlightModel.NewState(t.start, 0, Flight.Stats.Fuel) end
+	Flight.GearDown = true
+	Store.Values.bGearDown:set(true)
+	Store.Values.sGroundHint:set("")
+	bTrapped, bResupplyAsked = false, false
 	nBarStart = os.clock()
 	setPhase("Deck")
 end
@@ -192,8 +237,85 @@ local function step(dt: number)
 			bClimbOut = true
 			nLaunchedAt = os.clock()
 			Input:ResetThrottle(FlightConfig.DefaultThrottle)
+			nGearPromptUntil = os.clock() + 10
 			setPhase("Flying")
 		end
+		return
+	end
+
+	if Flight.Phase == "Ground" then
+		local aimDelta = Input:Update(dt)
+		updateAimDir(aimDelta, st.CFrame.LookVector)
+		if RunService:IsStudio() then -- QA autopilot (taxi / take-off tests)
+			local tp = LocalPlayer:GetAttribute("TestAimPoint")
+			if typeof(tp) == "Vector3" and (tp - root.Position).Magnitude > 1 then Flight.AimDir = (tp - root.Position).Unit end
+		end
+		local pos = root.Position
+		-- stay glued to the surface under the wheels
+		local down = Workspace:Raycast(pos + Vector3.new(0, 6, 0), Vector3.new(0, -6 - rideHeight() - 6, 0), tGroundRay)
+		local fwd = st.CFrame.LookVector
+		local flat = Vector3.new(fwd.X, 0, fwd.Z)
+		flat = if flat.Magnitude > 1e-3 then flat.Unit else Vector3.zAxis
+		if not down or down.Normal.Y < 0.85 then
+			-- rolled off the end of the deck / runway: you're flying (or falling) now
+			setPhase("Flying")
+			return
+		end
+		-- steering: yaw toward where you're looking (taxi turns are slow)
+		local aimFlat = Vector3.new(Flight.AimDir.X, 0, Flight.AimDir.Z)
+		if aimFlat.Magnitude > 1e-3 and not bTrapped then
+			local want = aimFlat.Unit
+			local ang = math.acos(math.clamp(flat:Dot(want), -1, 1))
+			local rate = FlightConfig.GroundTurnRate * math.clamp(st.Speed / 30, 0.25, 1)
+			if ang > 1e-3 then
+				local sign = if flat:Cross(want).Y > 0 then 1 else -1
+				flat = CFrame.fromAxisAngle(Vector3.yAxis, sign * math.min(ang, rate * dt)) * flat
+			end
+		end
+		-- thrust / brakes / arrestor
+		local thr = Input.State.Throttle
+		local flameout = st.Fuel <= 0
+		local boost = Input.State.Boost and not flameout
+		local thrust = if flameout or bTrapped then 0 elseif boost then stats.Accel * 1.4 else stats.Accel * thr
+		local drag = if bTrapped then nTrapDecel elseif thr < 0.08 and not boost then FlightConfig.GroundBrake else FlightConfig.GroundFriction
+		st.Speed = math.max(0, st.Speed + (thrust - drag) * dt)
+		if boost then st.Speed = math.min(st.Speed, stats.MaxSpeed) else st.Speed = math.min(st.Speed, stats.CruiseSpeed * FlightConfig.MilPowerMult) end
+		st.Fuel = math.max(0, st.Fuel - (if flameout then 0 else stats.FuelBurn * (0.2 + 0.8 * thr) + (if boost then stats.BoostBurn else 0)) * dt)
+		st.G, st.Bank, st.Omega = 1, 0, 0
+		local p = Vector3.new(pos.X, down.Position.Y + rideHeight(), pos.Z)
+		st.CFrame = CFrame.lookAt(p, p + flat)
+		-- take-off: past rotate speed, pull the nose up
+		local rotateSpeed = stats.MinSpeed * FlightConfig.RotateSpeedMult
+		if not bTrapped and st.Speed >= rotateSpeed and Flight.AimDir.Y > 0.05 then
+			st.CFrame = CFrame.lookAt(p + Vector3.new(0, 1.5, 0), p + Vector3.new(0, 1.5, 0) + (flat + Vector3.new(0, 0.12, 0)).Unit)
+			Flight.AimDir = (flat + Vector3.new(0, 0.2, 0)).Unit
+			nGearPromptUntil = os.clock() + 8
+			Store.Values.sGroundHint:set("")
+			setPhase("Flying")
+			return
+		end
+		writeMovers(st.CFrame, flat * st.Speed)
+		-- stopped: ask the ground crew for fuel, missiles and repairs
+		if st.Speed <= FlightConfig.ResupplyMaxSpeed then nStoppedT += dt else nStoppedT = 0; bResupplyAsked = false end
+		if nStoppedT > 0.4 and not bResupplyAsked then
+			bResupplyAsked = true
+			oRequest:FireServer({ a = "Resupply" })
+		end
+		if bTrapped and st.Speed <= 0.5 then bTrapped = false end
+		local kmh = math.floor(rotateSpeed * JetConfig.KmhPerStud)
+		local hint
+		if bResupplyAsked then hint = "GROUND CREW: REARMING · REFUELLING · REPAIRING"
+		elseif bTrapped then hint = "TRAPPED! ARRESTOR WIRE CAUGHT"
+		elseif st.Speed > FlightConfig.ResupplyMaxSpeed and thr < 0.08 then hint = "BRAKING - STOP TO RESUPPLY"
+		elseif st.Speed > FlightConfig.ResupplyMaxSpeed then hint = string.format("THROTTLE UP - PULL UP PAST %d KM/H TO TAKE OFF  |  IDLE TO BRAKE", kmh)
+		else hint = "STOP TO RESUPPLY" end
+		Store.Values.sGroundHint:set(hint)
+		Store.Values.nSpeedKmh:set(math.floor(st.Speed * JetConfig.KmhPerStud))
+		Store.Values.nAltitude:set(math.floor(math.max(0, p.Y - FlightConfig.WaterLevel)))
+		Store.Values.nFuel:set(st.Fuel / stats.Fuel)
+		Store.Values.nG:set(1)
+		Store.Values.bStall:set(false)
+		Store.Values.bBoost:set(boost)
 		return
 	end
 
@@ -244,30 +366,61 @@ local function step(dt: number)
 		Brake = Input.State.Brake,
 		Throttle = Input.State.Throttle,
 		Roll = Input.State.Roll,
+		Gear = Flight.GearDown,
 	}
 	local prev = st.CFrame
-	if stats.NoGLoc then st.GLocTimer = 0; st.OverGTime = 0 end
+	if stats.NoGLoc then st.GLocTimer = 0; st.Strain = 0 end
 	FlightModel.Step(st, input, stats :: any, dt)
 
 	-- impact / touch-and-go test along the path we're about to fly
 	local travel = st.CFrame.Position - prev.Position
 	local probe = travel + travel.Unit * 6
-	local hit = Workspace:Raycast(prev.Position, probe, tRayParams)
-	if hit and not jet:GetAttribute("Shield") then
-		local carrier = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Carrier")
-		local onDeck = carrier and hit.Instance:IsDescendantOf(carrier) and hit.Normal.Y > 0.9
-		if onDeck and st.CFrame.LookVector.Y > -0.35 then
-			-- gentle contact with the deck: roll along it (touch-and-go)
-			local p = st.CFrame.Position
-			st.CFrame = CFrame.new(p.X, hit.Position.Y + 3.2, p.Z) * st.CFrame.Rotation
-			if os.clock() > nTouchAndGoCooldown then nTouchAndGoCooldown = os.clock() + 3 end
+	-- with the gear down the wheels touch first: probe from wheel height
+	local origin = prev.Position - Vector3.new(0, if Flight.GearDown then rideHeight() - 0.6 else 0, 0)
+	local hit = Workspace:Raycast(origin, probe, tRayParams)
+	local shielded = jet:GetAttribute("Shield") == true
+	if hit then
+		local where = landingSurface(hit.Instance)
+		local sink = -travel.Y / math.max(dt, 1e-3)
+		local tooFast = st.Speed > stats.MinSpeed * FlightConfig.TouchdownMaxSpeedMult
+		local tooSteep = sink > FlightConfig.TouchdownMaxSink or st.CFrame.LookVector.Y < FlightConfig.TouchdownMinPitch
+		local goodLanding = where ~= nil and hit.Normal.Y > 0.85 and Flight.GearDown and not tooFast and not tooSteep
+		if shielded and not goodLanding then
+			-- spawn / training shield: bounce instead of dying
+			st.CFrame = CFrame.new(hit.Position + hit.Normal * 8 + Vector3.new(0, if Flight.GearDown then rideHeight() else 0, 0)) * st.CFrame.Rotation
+		elseif where and hit.Normal.Y > 0.85 then
+			if not Flight.GearDown then
+				crash("BellyLanding")
+				return
+			elseif tooFast or tooSteep then
+				crash("HardLanding")
+				return
+			end
+			-- touchdown! wheels on the surface
+			local p = Vector3.new(st.CFrame.Position.X, hit.Position.Y + rideHeight(), st.CFrame.Position.Z)
+			local flat = Vector3.new(st.CFrame.LookVector.X, 0, st.CFrame.LookVector.Z)
+			flat = if flat.Magnitude > 1e-3 then flat.Unit else Vector3.zAxis
+			st.CFrame = CFrame.lookAt(p, p + flat)
+			bTrapped = where == "Carrier"
+			-- arrestor wire: a constant deceleration that stops you within TrapStopDistance
+			nTrapDecel = (st.Speed * st.Speed) / (2 * FlightConfig.TrapStopDistance)
+			nStoppedT, bResupplyAsked = 0, false
+			Store.Values.sLaunchResult:set(if bTrapped then "TRAP!" else (if sink < 6 then "BUTTER! GREAT LANDING" else "TOUCHDOWN"))
+			task.delay(1.6, function()
+				local Fusion = require(ReplicatedStorage.Packages.fusion)
+				local cur = Fusion.peek(Store.Values.sLaunchResult)
+				if cur == "TRAP!" or cur == "TOUCHDOWN" or cur == "BUTTER! GREAT LANDING" then Store.Values.sLaunchResult:set("") end
+			end)
+			pcall(function() (require(script.Parent.CameraController) :: any):Kick(if bTrapped then 0.6 else 0.25 + sink / 40) end)
+			Flight.Landed:Fire(where, bTrapped)
+			Store.Values.bPullUp:set(false)
+			setPhase("Ground")
+			writeMovers(st.CFrame, flat * st.Speed)
+			return
 		else
 			crash(hit.Instance.Name .. "/" .. hit.Material.Name)
 			return
 		end
-	elseif hit and jet:GetAttribute("Shield") then
-		-- spawn shield: bounce instead of dying
-		st.CFrame = CFrame.new(hit.Position + hit.Normal * 8) * st.CFrame.Rotation
 	end
 
 	-- soft ceiling and bounds: steer back rather than kill
@@ -284,7 +437,14 @@ local function step(dt: number)
 	Store.Values.nAltitude:set(math.floor(math.max(0, p.Y - FlightConfig.WaterLevel)))
 	Store.Values.nFuel:set(st.Fuel / stats.Fuel)
 	Store.Values.nG:set(st.G)
-	Store.Values.nGLoc:set(if st.GLocTimer > 0 then 1 else math.clamp(st.OverGTime / FlightConfig.GLocTime, 0, 1) * 0.5)
+	Store.Values.nGLoc:set(if st.GLocTimer > 0 then 1 else (st.Strain or 0))
+	Store.Values.nStrain:set(st.Strain or 0)
+	Store.Values.bGLoc:set(st.GLocTimer > 0)
+	Store.Values.bCorner:set(math.abs(st.Speed - stats.CornerSpeed) <= stats.CornerSpeed * FlightConfig.CornerBand)
+	Store.Values.bFlameout:set(st.Flameout == true)
+	-- gear left down = speed capped: keep reminding (stronger right after take-off)
+	local wantGearUp = Flight.GearDown and p.Y > 110 and (os.clock() < nGearPromptUntil or st.Speed >= stats.CruiseSpeed * FlightConfig.GearSpeedMult * 0.97)
+	Store.Values.sGroundHint:set(if wantGearUp then (if Input.LastDevice == "Touch" then "GEAR DOWN (SPEED LIMITED) - TAP GEAR" elseif Input.LastDevice == "Gamepad" then "GEAR DOWN (SPEED LIMITED) - D-PAD DOWN" else "GEAR DOWN (SPEED LIMITED) - PRESS [G]") else "")
 	local lv = st.CFrame.LookVector
 	Store.Values.nHeading:set((math.deg(math.atan2(lv.X, -lv.Z)) + 360) % 360)
 	Store.Values.bShield:set(jet:GetAttribute("Shield") == true)
@@ -324,7 +484,8 @@ function Flight.StartAsync(self)
 	Input = require(script.Parent.InputController)
 	oRequest = Remote:GetEvent("FlightRequest")
 	Input.Pressed:Connect(function(sName: string)
-		if sName == "Eject" and Flight.Phase == "Flying" then oRequest:FireServer({ a = "Eject" }) end
+		if sName == "Eject" and (Flight.Phase == "Flying" or Flight.Phase == "Ground") then oRequest:FireServer({ a = "Eject" }) end
+		if sName == "Gear" and Flight.Phase == "Flying" then setGear(not Flight.GearDown) end
 	end)
 	-- Studio-only QA: QA_Fuel = 0..1 sets the tank level (tanker / low-fuel tests)
 	if RunService:IsStudio() then
@@ -342,8 +503,18 @@ function Flight.StartAsync(self)
 			onLaunched(t)
 		elseif t.a == "Reset" then
 			setPhase("Dead")
-		elseif t.a == "TouchAndGo" then
+		elseif t.a == "Resupplied" then
 			self:Refuel()
+			nStoppedT = 0
+			Store.Values.sLaunchResult:set("REARMED · REFUELLED · REPAIRED")
+			task.delay(2, function()
+				local Fusion = require(ReplicatedStorage.Packages.fusion)
+				if Fusion.peek(Store.Values.sLaunchResult) == "REARMED · REFUELLED · REPAIRED" then Store.Values.sLaunchResult:set("") end
+			end)
+		elseif t.a == "ResupplyFailed" then
+			bResupplyAsked = false
+		elseif t.a == "Recovered" then
+			onRecovered(t)
 		end
 	end)
 	Input.Pressed:Connect(function(sName)

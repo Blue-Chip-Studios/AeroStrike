@@ -78,6 +78,14 @@ local tValues = {
 	bPullUp = false, -- ground-proximity warning
 	nThrottle = 0.75, -- 0..1 set-and-hold throttle
 	bStall = false,
+	nStrain = 0, -- 0..1 G strain (tunnel vision; 1 = G-LOC)
+	bGLoc = false, -- blacked out
+	bCorner = false, -- at corner speed (best turn)
+	bFlameout = false, -- out of fuel: engine dead
+	bGearDown = true,
+	sGroundHint = "", -- landing / taxi / gear prompts
+	sRtbHint = "", -- return-to-base guidance (rearm / repair / glide)
+	sMach = "", -- sonic boom banner
 	bHideKillCard = false, -- briefly hides the death card after an eject
 	bHitMarker = false, -- server-confirmed gun hit (flash)
 	nHull = 1, -- own jet health 0..1

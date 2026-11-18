@@ -18,6 +18,7 @@ local ModuleUtil = require(ReplicatedStorage.Shared.ModuleUtil)
 local IslandShape = require(ReplicatedStorage.Shared.IslandShape)
 local Remote = require(ReplicatedStorage.BCDKShared.Remote)
 local NpcConfig = require(ReplicatedStorage.Config.NpcConfig)
+local MapConfig = require(ReplicatedStorage.Config.MapConfig)
 
 type Npc = {
 	Model: Model,
@@ -36,6 +37,11 @@ type Npc = {
 	NextEvade: number?,
 	Tactic: string?,
 	TacticT0: number?,
+	Chasing: boolean?,
+	LockOn: Model?, -- player jet this AI's seeker is tracking (their RWR hears it)
+	LockT0: number?,
+	LastMissile: number?,
+	MissilesLeft: number?,
 }
 
 
@@ -68,7 +74,7 @@ local function steer(n: Npc, target: Vector3, dt: number)
 	local rot = CFrame.lookAt(Vector3.zero, newDir) * CFrame.Angles(0, 0, bank)
 	local thrust = root:FindFirstChild("Thrust") :: LinearVelocity
 	local align = root:FindFirstChild("Steer") :: AlignOrientation
-	thrust.VectorVelocity = newDir * n.Cfg.Speed
+	thrust.VectorVelocity = newDir * (if n.Chasing and n.Cfg.ChaseSpeed then n.Cfg.ChaseSpeed else n.Cfg.Speed)
 	align.CFrame = rot
 end
 
@@ -235,18 +241,33 @@ local function evade(n: Npc, now: number, pos: Vector3, routeTarget: Vector3): V
 	return pos + base * 400 + right * side * ev.Jink + Vector3.new(0, side * ev.Jink * 0.25, 0)
 end
 
+-- the carrier's CIWS umbrella: AI won't chase or shoot into it (fresh launches get a fair start)
+local function underUmbrella(p: Vector3): boolean
+	local c = MapConfig.Carrier
+	return (Vector3.new(p.X, 0, p.Z) - Vector3.new(c.CFrame.X, 0, c.CFrame.Z)).Magnitude < c.SafeRadius
+end
+
+-- how hard a player jet is manoeuvring (approx. G from its turn rate); hard jinking spoils aim
+local function targetG(jet: Model): number
+	local root = jet.PrimaryPart :: BasePart
+	return 1 + root.AssemblyAngularVelocity.Magnitude * root.AssemblyLinearVelocity.Magnitude * 0.032
+end
+
 -- Fighters hunt: chase the nearest player (with lead) when not defending
 local function pursue(n: Npc, pos: Vector3, routeTarget: Vector3): Vector3
 	local d = n.Cfg.Dogfight
+	n.Chasing = false
 	if not d or n.Tactic then return routeTarget end
 	local best, bd = nil, d.Range
 	for _, jet in ipairs(workspace.Jets:GetChildren()) do
-		if jet:IsA("Model") and jet.PrimaryPart and not jet:GetAttribute("Dead") and not jet:GetAttribute("Shield") then
+		if jet:IsA("Model") and jet.PrimaryPart and not jet:GetAttribute("Dead") and not jet:GetAttribute("Shield")
+			and not underUmbrella(jet.PrimaryPart.Position) then
 			local dist = (jet.PrimaryPart.Position - pos).Magnitude
 			if dist < bd then best, bd = jet, dist end
 		end
 	end
 	if not best then return routeTarget end
+	n.Chasing = true
 	local tp = (best.PrimaryPart :: BasePart)
 	return tp.Position + tp.AssemblyLinearVelocity * math.clamp(bd / 600, 0, 1.2)
 end
@@ -261,15 +282,66 @@ local function noseGun(n: Npc, now: number)
 		if jet:IsA("Model") and jet.PrimaryPart and not jet:GetAttribute("Dead") and not jet:GetAttribute("Shield") then
 			local to = jet.PrimaryPart.Position - root.Position
 			local dist = to.Magnitude
-			if dist < g.Range and math.acos(math.clamp(fwd:Dot(to.Unit), -1, 1)) < g.Cone then
+			if dist < g.Range and math.acos(math.clamp(fwd:Dot(to.Unit), -1, 1)) < g.Cone and not underUmbrella(jet.PrimaryPart.Position) then
 				n.LastShot = now
-				local hit = math.random() < g.HitChance * (1 - dist / g.Range * 0.5)
+				-- steady targets get hit; a hard break (high G) throws the gunner's aim off
+				local jink = math.clamp(1.25 - targetG(jet) / 8, 0.3, 1)
+				local hit = math.random() < g.HitChance * (1 - dist / g.Range * 0.5) * jink
 				local miss = if hit then Vector3.zero else Vector3.new(math.random(-14, 14), math.random(-8, 8), math.random(-14, 14))
 				oCombatEvent:FireAllClients({ a = "NpcFire", from = root.Position + fwd * 14, to = jet.PrimaryPart.Position + miss })
 				if hit then Combat:Damage(jet, g.Damage, nil, "Red Talon") end
 				return
 			end
 		end
+	end
+end
+
+-- AI heat-seeker: hold a player in the seeker cone (they hear the lock tone) long enough and
+-- a real missile comes off the rail: flares, a hard break or terrain masking defeat it
+local tLosRay = RaycastParams.new()
+tLosRay.FilterType = Enum.RaycastFilterType.Include
+local function releaseLock(n: Npc)
+	local j = n.LockOn
+	if j and j.Parent then j:SetAttribute("LockedBy", math.max(0, (j:GetAttribute("LockedBy") :: number? or 0) - 1)) end
+	n.LockOn, n.LockT0 = nil, nil
+end
+local function aiMissile(n: Npc, now: number)
+	local mc = n.Cfg.Missile
+	if not mc then return end
+	if n.MissilesLeft == nil then n.MissilesLeft = mc.Count end
+	local root = n.Model.PrimaryPart :: BasePart
+	local fwd = root.CFrame.LookVector
+	local function valid(jet: Model?): boolean
+		if not jet or not jet.Parent or not jet.PrimaryPart or jet:GetAttribute("Dead") or jet:GetAttribute("Shield") then return false end
+		local to = jet.PrimaryPart.Position - root.Position
+		if to.Magnitude > mc.Range or math.acos(math.clamp(fwd:Dot(to.Unit), -1, 1)) > mc.Cone then return false end
+		if underUmbrella(jet.PrimaryPart.Position) then return false end
+		-- never more than two seekers on one pilot at a time (unless this AI already holds the lock)
+		if n.LockOn ~= jet and (jet:GetAttribute("LockedBy") :: number? or 0) >= 2 then return false end
+		tLosRay.FilterDescendantsInstances = { workspace.Terrain }
+		return workspace:Raycast(root.Position, to, tLosRay) == nil
+	end
+	if (n.MissilesLeft :: number) <= 0 or now - (n.LastMissile or -math.huge) < mc.Cooldown then
+		if n.LockOn then releaseLock(n) end
+		return
+	end
+	if n.LockOn and not valid(n.LockOn) then releaseLock(n) end
+	if not n.LockOn then
+		for _, jet in ipairs(workspace.Jets:GetChildren()) do
+			if jet:IsA("Model") and valid(jet) then
+				n.LockOn, n.LockT0 = jet, now
+				jet:SetAttribute("LockedBy", (jet:GetAttribute("LockedBy") :: number? or 0) + 1)
+				break
+			end
+		end
+		return
+	end
+	if now - (n.LockT0 :: number) >= mc.LockTime then
+		local jet = n.LockOn :: Model
+		releaseLock(n)
+		n.LastMissile = now
+		n.MissilesLeft = (n.MissilesLeft :: number) - 1
+		Combat:FireMissileAt(nil, root.CFrame * CFrame.new(0, -2, -12), jet, mc.Damage, n.Model)
 	end
 end
 
@@ -343,6 +415,7 @@ function Npc.Remove(self, m: Model, bKilled: boolean)
 	local n = self.Active[m]
 	if not n then return end
 	self.Active[m] = nil
+	releaseLock(n)
 	self.OnRemoved:Fire(m, n.Tag, bKilled)
 	if bKilled and n.Cfg.Ship and m.PrimaryPart then
 		-- a sunk destroyer lists to one side and slides under over ~6s (a payoff
@@ -421,6 +494,7 @@ function Npc.StartAsync(self)
 				steer(n, target, dt)
 				tailGun(n, now)
 				noseGun(n, now)
+				aiMissile(n, now)
 				flak(n, now)
 				flares(n, now)
 			end

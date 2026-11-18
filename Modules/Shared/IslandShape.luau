@@ -14,6 +14,18 @@ IslandShape.Radii = Vector2.new(2300, 1850)
 IslandShape.Volcano = Vector2.new(750, -420)
 IslandShape.CanyonHalfWidth = 95
 IslandShape.CanyonFloor = 50
+-- West-coast airfield: a flat pad levelled into the hills (runway runs east-west along X,
+-- apron/tower on the +Z side). Rect is [Centre.X +- HalfX] x [Centre.Y + MinZ .. Centre.Y + MaxZ].
+IslandShape.Airfield = {
+	Centre = Vector2.new(-1700, -550), -- runway centre (x, z)
+	Elev = 60, -- pad height (runway surface sits ~0.3 above)
+	HalfX = 780, -- runway 1200 long + approach lights
+	MinZ = -70,
+	MaxZ = 380, -- taxiway, apron, hangars
+	Blend = 260,
+	RunwayLength = 1200,
+	RunwayWidth = 64,
+}
 
 local function smooth(t: number): number
 	t = math.clamp(t, 0, 1)
@@ -39,8 +51,33 @@ function IslandShape.Mask(x: number, z: number): number
 	return smooth((1.02 - d) / 0.32)
 end
 
+-- 0 inside the airfield pad, rising to 1 at the edge of its blend band (and beyond)
+function IslandShape.AirfieldDist(x: number, z: number): number
+	local a = IslandShape.Airfield
+	local dx = math.max(math.abs(x - a.Centre.X) - a.HalfX, 0)
+	local lz = z - a.Centre.Y
+	local dz = if lz < a.MinZ then a.MinZ - lz elseif lz > a.MaxZ then lz - a.MaxZ else 0
+	return math.sqrt(dx * dx + dz * dz) / a.Blend
+end
+
+function IslandShape.InAirfield(x: number, z: number, margin: number?): boolean
+	return IslandShape.AirfieldDist(x, z) * IslandShape.Airfield.Blend <= (margin or 0)
+end
+
+local naturalHeight: (number, number) -> number
+
 -- Height of the surface at (x, z). Values <= 0 are open sea.
 function IslandShape.Height(x: number, z: number): number
+	local h = naturalHeight(x, z)
+	local d = IslandShape.AirfieldDist(x, z)
+	if d < 1 then
+		local t = smooth(d)
+		h = IslandShape.Airfield.Elev * (1 - t) + h * t
+	end
+	return h
+end
+
+function naturalHeight(x: number, z: number): number
 	local mask = IslandShape.Mask(x, z)
 	if mask <= 0 then return -12 end
 	local n = math.noise(x / 720, z / 720, 1.1) * 0.55 + math.noise(x / 270, z / 270, 2.7) * 0.28 + math.noise(x / 105, z / 105, 4.1) * 0.12
@@ -67,6 +104,9 @@ function IslandShape.Height(x: number, z: number): number
 end
 
 function IslandShape.Material(x: number, z: number, h: number): Enum.Material
+	local ad = IslandShape.AirfieldDist(x, z)
+	if ad <= 0 then return Enum.Material.LeafyGrass end
+	if ad < 0.35 then return Enum.Material.Grass end
 	if h < 6 then return Enum.Material.Sand end
 	local cd = IslandShape.CanyonDist(x, z)
 	if cd < 14 and h < IslandShape.CanyonFloor + 8 then return Enum.Material.CrackedLava end

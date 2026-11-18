@@ -18,7 +18,7 @@ return function(scope: any, props: { [string]: any })
 	local Input = require(ClientModules:WaitForChild("InputController")) :: any
 	local Flight = require(ClientModules:WaitForChild("FlightController")) :: any
 
-	local flying = scope:Computed(function(use) local p = use(V.sPhase) return p == "Flying" or p == "Catapult" end)
+	local flying = scope:Computed(function(use) local p = use(V.sPhase) return p == "Flying" or p == "Catapult" or p == "Ground" end)
 	local onDeck = scope:Computed(function(use) local p = use(V.sPhase) return p == "Deck" or p == "Launching" end)
 	local dead = scope:Computed(function(use) return use(V.sPhase) == "Dead" end)
 	local touch = V.bTouch
@@ -44,10 +44,10 @@ return function(scope: any, props: { [string]: any })
 		[Children] = {
 			-- G-force vignette: four gradient edges, darker red as G climbs
 			(function()
-				local strength = scope:Computed(function(use)
-					local g = use(V.nG) :: number
-					-- G grey-out and the red "you've been hit" flash share the vignette edges
-					return math.max(math.clamp((g - 5) / 4, 0, 0.9), (use(V.nHurt) :: number) * 0.85)
+					local strength = scope:Computed(function(use)
+					-- G strain tunnels the view in from the edges; the red "you've been hit" flash shares them
+					local s = use(V.nStrain) :: number
+					return math.max(math.clamp((s - 0.25) / 0.75, 0, 0.95), (use(V.nHurt) :: number) * 0.85)
 				end)
 				local edges = {}
 				for _, e in ipairs({
@@ -74,6 +74,19 @@ return function(scope: any, props: { [string]: any })
 				return scope:New("Folder")({ Name = "Vignette", [Children] = edges })
 			end)(),
 
+				-- G-LOC: blacked out (no control) until the pilot comes round
+			scope:New("Frame")({
+				Name = "Blackout", Size = UDim2.fromScale(1, 1), BorderSizePixel = 0, ZIndex = 5,
+				BackgroundColor3 = Color3.new(0, 0, 0),
+				BackgroundTransparency = scope:Computed(function(use) return if use(V.bGLoc) then 0.04 else 1 end),
+				[Children] = {
+					C.HudText(scope, { Text = "G-LOC - BLACKED OUT", Font = Theme.Display, TextSize = 26, Color = Color3.fromRGB(150, 40, 40),
+						Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(500, 40), Visible = V.bGLoc }),
+					C.HudText(scope, { Text = "Don't hold max G - pulse your turns", Font = Theme.Body, TextSize = 18, Color = Color3.fromRGB(150, 150, 150),
+						Position = UDim2.new(0.5, 0, 0.5, 34), Size = UDim2.fromOffset(500, 30), Visible = V.bGLoc }),
+				},
+			}),
+
 			-- FLIGHT HUD ------------------------------------------------------
 			scope:New("Frame")({
 				Name = "Flight",
@@ -98,6 +111,8 @@ return function(scope: any, props: { [string]: any })
 					C.HudText(scope, { Name = "SpdLbl", Text = "SPD KM/H", Font = Theme.Display, TextSize = 12, Position = colL(0.42) }),
 					C.HudText(scope, { Name = "Spd", TextSize = 30, Position = colL(0.47),
 						Text = scope:Computed(function(use) return tostring(use(V.nSpeedKmh)) end) }),
+						C.HudText(scope, { Name = "Corner", Text = "CORNER", Font = Theme.Display, TextSize = 12, Color = Theme.Hud, Position = colL(0.5),
+						Visible = V.bCorner }),
 					C.HudText(scope, { Name = "AltLbl", Text = "ALT", Font = Theme.Display, TextSize = 12, Position = colR(0.42) }),
 					C.HudText(scope, { Name = "Alt", TextSize = 30, Position = colR(0.47),
 						Text = scope:Computed(function(use) return tostring(use(V.nAltitude)) end) }),
@@ -106,8 +121,15 @@ return function(scope: any, props: { [string]: any })
 						Text = scope:Computed(function(use) return string.format("%03d", math.floor(use(V.nHeading))) end) }),
 					-- G meter
 					C.HudText(scope, { Name = "G", TextSize = 26, Position = colL(0.56),
-						Color = scope:Computed(function(use) return if use(V.nG) > 6 then Theme.Amber else Theme.Hud end),
+						Color = scope:Computed(function(use) local s = use(V.nStrain) :: number return if s > 0.6 then Theme.Threat elseif s > 0.2 then Theme.Amber else Theme.Hud end),
 						Text = scope:Computed(function(use) return string.format("%.1f G", use(V.nG)) end) }),
+					C.HudBar(scope, { Name = "Strain", Position = colL(0.583), Size = UDim2.fromOffset(90, 5), Fill = V.nStrain,
+						FillColor = scope:Computed(function(use) return if (use(V.nStrain) :: number) > 0.6 then Theme.Threat else Theme.Amber end),
+						Visible = scope:Computed(function(use) return (use(V.nStrain) :: number) > 0.02 end) }),
+					-- landing gear state
+					C.HudText(scope, { Name = "GearState", Font = Theme.Display, TextSize = 13, Position = colL(0.672),
+						Color = scope:Computed(function(use) return if use(V.bGearDown) then Theme.Hud else Theme.Mute end),
+						Text = scope:Computed(function(use) return if use(V.bGearDown) then "GEAR DOWN  v v v" else "GEAR UP" end) }),
 					-- fuel
 					C.HudText(scope, { Name = "FuelLbl", Text = "FUEL", Font = Theme.Display, TextSize = 12, Position = colR(0.555) }),
 					C.HudBar(scope, { Name = "Fuel", Position = colR(0.585), Size = UDim2.fromOffset(150, 10),
@@ -149,13 +171,46 @@ return function(scope: any, props: { [string]: any })
 						Color = scope:Computed(function(use) return if use(V.bHullCritical) then Theme.Threat else Theme.Hud end) }),
 					C.HudBar(scope, { Name = "Hull", Position = colL(0.635), Size = UDim2.fromOffset(150, 10), Fill = V.nHull,
 						Color = scope:Computed(function(use) local h = use(V.nHull) :: number return if h <= 0.35 then Theme.Threat elseif h <= 0.65 then Theme.Amber else Theme.Hud end) }),
-					C.HudText(scope, { Name = "HullCritical", Font = Theme.Display, TextSize = 20, Color = Theme.Threat,
-						Position = UDim2.new(0.5, 0, 0.745, 0), Size = UDim2.fromOffset(560, 28),
-						Visible = scope:Computed(function(use) return use(V.bHullCritical) and use(V.nPullUpBlink) end),
+						scope:New("Frame")({
+						Name = "EjectPrompt", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.745, 0), Size = UDim2.fromOffset(620, 40),
+						BackgroundColor3 = Color3.fromRGB(90, 8, 8),
+						BackgroundTransparency = scope:Computed(function(use) return if use(V.nPullUpBlink) then 0.2 else 0.5 end),
+						Visible = scope:Computed(function(use) return use(V.bHullCritical) or use(V.bFlameout) end),
+						[Children] = {
+							scope:New("UICorner")({ CornerRadius = UDim.new(0, 6) }),
+							scope:New("UIStroke")({ Color = Theme.Threat, Thickness = 2 }),
+							C.HudText(scope, { Name = "HullCritical", Font = Theme.Display, TextSize = 24, Color = Color3.fromRGB(255, 235, 230),
+								Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1),
+								Text = scope:Computed(function(use)
+									local what = if use(V.bFlameout) then "FLAMEOUT" else "HULL CRITICAL"
+									if use(V.bTouch) then return what .. " - TAP EJECT" end
+									if use(V.bGamepad) then return what .. " - HOLD [Y] TO EJECT" end
+									return what .. " - HOLD [X] TO EJECT"
+								end) }),
+						},
+					}),
+					-- return-to-base guidance and landing / taxi prompts
+					C.HudText(scope, { Name = "RtbHint", Font = Theme.Display, TextSize = 17, Color = Theme.Amber,
+						Position = UDim2.new(0.5, 0, 0.79, 0), Size = UDim2.fromOffset(820, 24), Text = V.sRtbHint }),
+					scope:New("Frame")({
+						Name = "GroundHintBack", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.83, 0), Size = UDim2.fromOffset(760, 32),
+						BackgroundColor3 = Theme.Night, BackgroundTransparency = 0.45,
+						Visible = scope:Computed(function(use) return use(V.sGroundHint) ~= "" end),
+						[Children] = {
+							scope:New("UICorner")({ CornerRadius = UDim.new(0, 6) }),
+							C.HudText(scope, { Name = "GroundHint", Font = Theme.Display, TextSize = 17, Color = Theme.Hud,
+								Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), Text = V.sGroundHint }),
+						},
+					}),
+					-- controls legend (keyboard / pad): every key the cockpit has, small, bottom centre
+					C.HudText(scope, { Name = "Legend", Font = Theme.Body, TextSize = 14, Color = Theme.Mute,
+						Position = UDim2.new(0.5, 0, 0.965, 0), Size = UDim2.fromOffset(1100, 20),
+						Visible = scope:Computed(function(use) return not use(V.bTouch) end),
 						Text = scope:Computed(function(use)
-							if use(V.bTouch) then return "HULL CRITICAL - TAP EJECT" end
-							if use(V.bGamepad) then return "HULL CRITICAL - HOLD [Y] TO EJECT" end
-							return "HULL CRITICAL - HOLD [X] TO EJECT"
+							if use(V.bGamepad) then
+								return "RT/LT THROTTLE   R1 GUNS   L1 MISSILE   B FLARES   D-PAD DOWN GEAR   HOLD Y EJECT   R3 LOOK"
+							end
+							return "W/S THROTTLE   SHIFT AFTERBURNER   LMB GUNS   RMB/SPACE MISSILE   F FLARES   G GEAR   HOLD X EJECT   C LOOK"
 						end) }),
 					-- tanker / fuel guidance
 					C.HudText(scope, { Name = "RefuelHint", Font = Theme.Display, TextSize = 18, Color = Theme.Hud,
@@ -294,7 +349,12 @@ return function(scope: any, props: { [string]: any })
 						Text = scope:Computed(function(use)
 							local k = use(V.tKillCard)
 							if k and k.Weapon == "Eject" then return "EJECTED" end
-							if k and k.Weapon == "Crash" and (k.Killer or "") == "" then return "CRASHED" end
+							if k and k.Weapon == "Bounds" then return "LEFT THE COMBAT ZONE" end
+							if k and k.Weapon == "Crash" and (k.Killer or "") == "" then
+								if k.Reason == "BellyLanding" then return "BELLY LANDING - GEAR WAS UP" end
+								if k.Reason == "HardLanding" then return "HARD LANDING - TOO FAST OR TOO STEEP" end
+								return "CRASHED"
+							end
 							return "SHOT DOWN"
 						end) }),
 					C.PrimaryButton(scope, { Name = "Relaunch", Text = "RELAUNCH", Position = UDim2.fromScale(0.5, 0.62),
@@ -325,7 +385,11 @@ return function(scope: any, props: { [string]: any })
 					C.TouchButton(scope, { Name = "Flare", Label = "FLARE", Position = UDim2.fromOffset(70, 222), Cooldown = V.nFlareCooldown,
 						OnDown = function() Input:SetTouch("Flare", true) end, OnUp = function() Input:SetTouch("Flare", false) end }),
 					-- appears only when the hull is critical (a single tap ejects)
-					C.TouchButton(scope, { Name = "Eject", Label = "EJECT", Color = Theme.Threat, SizePx = 84, Position = UDim2.fromOffset(222, -40), Visible = V.bHullCritical,
+						C.TouchButton(scope, { Name = "Gear", Label = "GEAR", SizePx = 72, Position = UDim2.fromOffset(92, -20),
+						Visible = scope:Computed(function(use) local p = use(V.sPhase) return p == "Flying" end),
+						OnDown = function() Input:SetTouch("Gear", true) end, OnUp = function() Input:SetTouch("Gear", false) end }),
+					C.TouchButton(scope, { Name = "Eject", Label = "EJECT", Color = Theme.Threat, SizePx = 84, Position = UDim2.fromOffset(222, -40),
+						Visible = scope:Computed(function(use) return use(V.bHullCritical) or use(V.bFlameout) end),
 						OnDown = function() Input:SetTouch("Eject", true) end, OnUp = function() Input:SetTouch("Eject", false) end }),
 				},
 			}),

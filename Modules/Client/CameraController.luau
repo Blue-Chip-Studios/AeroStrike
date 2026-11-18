@@ -28,6 +28,7 @@ local vDeathPoint = Vector3.zero
 local nDeathAngle = 0
 local nShakeT = 0
 local nKick = 0 -- one-off impulse shake (kills, big hits), decays quickly
+local nFovPunch = 0 -- one-off FOV widen (sonic boom), decays
 local oGrade: ColorCorrectionEffect
 
 local CHASE_OFFSET = Vector3.new(0, 7.5, 34)
@@ -120,9 +121,15 @@ local function update(dt: number)
 	-- FOV: wider with speed and afterburner
 	local targetFov = 68 + speedFrac * 14 + (if Input.State.Boost then 4 else 0) + (if phase == "Catapult" then 8 else 0)
 	cam.FieldOfView += (targetFov - cam.FieldOfView) * math.clamp(dt * 4, 0, 1)
+	if nFovPunch > 0 then
+		cam.FieldOfView += nFovPunch
+		nFovPunch = math.max(0, nFovPunch - dt * 18)
+	end
 
 	-- G-LOC grey-out
-	local gloc = if st and st.GLocTimer > 0 then 1 else math.clamp((g - tol) / 4, 0, 0.6)
+	-- G strain tunnels the view; a G-LOC blacks it out (HUD draws the black)
+	local strain = if st then (st.Strain or 0) else 0
+	local gloc = if st and st.GLocTimer > 0 then 1 else math.clamp((strain - FlightConfig.GreyoutAt) / (1 - FlightConfig.GreyoutAt), 0, 1) * 0.8
 	oGrade.Brightness = -0.35 * gloc
 	oGrade.Contrast = -0.2 * gloc
 	oGrade.Saturation = -0.9 * gloc
@@ -140,6 +147,11 @@ function Cam.StartAsync(self)
 	end)
 	RunService:BindToRenderStep("AS_Camera", Enum.RenderPriority.Camera.Value + 1, update)
 	Players.LocalPlayer.CameraMode = Enum.CameraMode.Classic
+end
+
+-- one-off FOV widen (sonic boom): the world "jumps" away from you, then settles
+function Cam.FovPunch(self, amount: number)
+	nFovPunch = math.max(nFovPunch, amount)
 end
 
 -- one-off camera punch (e.g. your kill, a big hit nearby); stacks to the strongest

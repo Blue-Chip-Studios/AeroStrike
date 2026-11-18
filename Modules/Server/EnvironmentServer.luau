@@ -92,7 +92,7 @@ function Environment.StartAsync(self)
 		tries += 1
 		local x = rng:NextNumber(-IslandShape.Radii.X, IslandShape.Radii.X)
 		local z = rng:NextNumber(-IslandShape.Radii.Y, IslandShape.Radii.Y)
-		local h = IslandShape.Height(x, z)
+		local h = if IslandShape.InAirfield(x, z, 120) then -100 else IslandShape.Height(x, z) -- keep the airfield clear
 		if h > 170 and h < 360 and IslandShape.CanyonDist(x, z) > 220 then
 			place("Spire", CFrame.new(x, h - 6, z) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0), rng:NextNumber(0.7, 1.3), spires)
 			placed += 1
@@ -108,7 +108,7 @@ function Environment.StartAsync(self)
 		tries += 1
 		local x = rng:NextNumber(-IslandShape.Radii.X, IslandShape.Radii.X)
 		local z = rng:NextNumber(-IslandShape.Radii.Y, IslandShape.Radii.Y)
-		local h = IslandShape.Height(x, z)
+		local h = if IslandShape.InAirfield(x, z, 120) then -100 else IslandShape.Height(x, z) -- keep the airfield clear
 		if h > 10 and h < 165 and IslandShape.Material(x, z, h) ~= Enum.Material.Sand then
 			for _ = 1, rng:NextInteger(1, 4) do
 				local px, pz = x + rng:NextNumber(-40, 40), z + rng:NextNumber(-40, 40)
@@ -131,7 +131,7 @@ function Environment.StartAsync(self)
 		tries += 1
 		local x = rng:NextNumber(-IslandShape.Radii.X, IslandShape.Radii.X)
 		local z = rng:NextNumber(-IslandShape.Radii.Y, IslandShape.Radii.Y)
-		local h = IslandShape.Height(x, z)
+		local h = if IslandShape.InAirfield(x, z, 120) then -100 else IslandShape.Height(x, z) -- keep the airfield clear
 		if h > 12 then
 			place("Boulder", CFrame.new(x, h - 3, z) * CFrame.Angles(0, rng:NextNumber(0, 6.28), 0), rng:NextNumber(0.6, 1.8), boulders)
 			placed += 1

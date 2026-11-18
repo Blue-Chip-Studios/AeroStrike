@@ -242,6 +242,29 @@ function Mission.StartAsync(self)
 		end
 	end)
 
+	-- standing Red Talon patrol: there is always someone out there hunting you
+	task.spawn(function()
+		local NpcConfig = require(ReplicatedStorage.Config.NpcConfig)
+		local P = NpcConfig.Patrol
+		if not P then return end
+		local slots: { { M: Model?, DeadAt: number } } = {}
+		for i = 1, P.Count do slots[i] = { M = nil, DeadAt = -math.huge } end
+		while true do
+			task.wait(3)
+			local anyFlying = false
+			for _, s in pairs(Flight.Sorties) do if s.Phase == "Flying" then anyFlying = true break end end
+			for i, slot in ipairs(slots) do
+				if slot.M and not slot.M.Parent then slot.M = nil; slot.DeadAt = os.clock() end
+				if not slot.M and anyFlying and os.clock() - slot.DeadAt > P.Respawn then
+					local a = (i / P.Count) * math.pi * 2 + math.random()
+					local pos = P.Centre + Vector3.new(math.cos(a) * P.Radius, 0, math.sin(a) * P.Radius)
+					slot.M = Npc:Spawn(P.Kind, CFrame.lookAt(pos, Vector3.new(P.Centre.X, pos.Y, P.Centre.Z)),
+						{ Orbit = { Centre = P.Centre, Radius = P.Radius }, Tag = "Patrol" })
+				end
+			end
+		end
+	end)
+
 	Combat.OnDamage.Event:Connect(function(attacker: Player?, victim: Model)
 		local cur = self.Current
 		if attacker and cur and cur.Units[victim] and not cur.Participants[attacker] then

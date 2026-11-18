@@ -19,9 +19,20 @@ return {
 		DroneTraining = { Cash = 0, XP = 20 },
 		BountyClaim = { Cash = 0, XP = 300 }, -- cash comes from the bounty value
 		Daily = { Cash = 0, XP = 50 },
+		MultiKill = { Cash = 0, XP = 60 }, -- cash scales with the chain (MultiKill.CashPerStep)
+		Landing = { Cash = 40, XP = 30 }, -- land at the airfield and stop
+		CarrierTrap = { Cash = 80, XP = 60 }, -- harder: short deck, arrestor wire
+		SonicBoom = { Cash = 0, XP = 15 }, -- first Mach 1 each sortie
+	},
+	-- quick kills chain: each kill within ChainWindow of the previous one extends it
+	MultiKill = {
+		ChainWindow = 8,
+		CashPerStep = 75, -- double +75, triple +150, quad +225, ...
+		Names = { "SPLASH!", "DOUBLE SPLASH!", "TRIPLE SPLASH!", "QUAD SPLASH!", "RAMPAGE!" },
 	},
 	DailyTrack = { 100, 150, 250, 400, 600, 900, 1500 },
 	FormationRange = 150,
+	LandingMinFlight = 30, -- seconds airborne before a landing pays the landing bonus again
 	AssistThreshold = 0.25,
 	NerveKillMult = 1.5,
 	RevengeMult = 2.0,

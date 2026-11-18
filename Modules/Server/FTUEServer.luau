@@ -122,15 +122,29 @@ function FTUE.StartAsync(self)
 		end
 	end)
 
-	-- keep training pilots shielded through the whole lesson (no griefing)
+	-- keep training pilots shielded through the lesson (no griefing), but not forever: after
+	-- TrainingShieldMax seconds of flight, or the moment they attack a real enemy, they're live
+	local function dropShield(jet: Model)
+		if jet.Parent and jet:GetAttribute("Training") then
+			jet:SetAttribute("Training", nil)
+			jet:SetAttribute("Shield", false)
+		end
+	end
 	Flight.OnLaunched.Event:Connect(function(oPlayer: Player)
 		if self:IsTraining(oPlayer) then
 			local s = Flight:GetSortie(oPlayer)
 			if s and s.Jet.Parent then
-				s.Jet:SetAttribute("Training", true)
-				s.Jet:SetAttribute("Shield", true)
+				local jet = s.Jet
+				jet:SetAttribute("Training", true)
+				jet:SetAttribute("Shield", true)
+				task.delay(FTUEConfig.TrainingShieldMax, function() dropShield(jet) end)
 			end
 		end
+	end)
+	Combat.OnDamage.Event:Connect(function(attacker: Player?, victim: Model)
+		if not attacker or victim:GetAttribute("MissionTag") == "Training" or not victim:GetAttribute("NpcKind") then return end
+		local s = Flight:GetSortie(attacker)
+		if s and s.Jet then dropShield(s.Jet) end
 	end)
 
 	-- first kill / mission completes the FTUE

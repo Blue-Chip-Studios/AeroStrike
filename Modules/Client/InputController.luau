@@ -72,7 +72,7 @@ function Input.SetTouch(self, sName: string, bDown: boolean)
 	if sName == "Boost" then bTouchAB = bDown
 	elseif sName == "Guns" then self.State.Guns = bDown
 	elseif sName == "Brake" then self.State.Brake = bDown end
-	if bDown and not was and (sName == "Missile" or sName == "Flare" or sName == "Launch" or sName == "Eject") then
+	if bDown and not was and (sName == "Missile" or sName == "Flare" or sName == "Launch" or sName == "Eject" or sName == "Gear") then
 		fire(sName)
 	end
 	if bDown and sName == "Boost" then fire("Launch") end -- BOOST also launches from the deck
@@ -140,6 +140,7 @@ function Input.StartAsync(self)
 	bindHold("AS_Guns", "Guns", Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR1)
 	bindPress("AS_Missile", "Missile", Enum.UserInputType.MouseButton2, Enum.KeyCode.Space, Enum.KeyCode.ButtonL1)
 	bindPress("AS_Flare", "Flare", Enum.KeyCode.F, Enum.KeyCode.ButtonB)
+	bindPress("AS_Gear", "Gear", Enum.KeyCode.G, Enum.KeyCode.DPadDown)
 	bindPress("AS_Launch", "Launch", Enum.KeyCode.Return, Enum.KeyCode.ButtonA)
 	ContextActionService:BindAction("AS_RollL", function(_, st)
 		nRollKeys += if st == Enum.UserInputState.Begin then -1 elseif st == Enum.UserInputState.End then 1 else 0

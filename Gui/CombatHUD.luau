@@ -287,7 +287,10 @@ return function(scope: any, props: { [string]: any })
 							if not k then return "" end
 							if k.Killer ~= "" then return k.Killer end
 							if k.Weapon == "Eject" then return "Unbanked cash saved" end
+							if k.Weapon == "Bounds" then return "Out of the combat zone" end
 							if k.Weapon and k.Weapon ~= "" and k.Weapon ~= "Crash" then return string.upper(k.Weapon) end
+							if k.Reason == "BellyLanding" then return "Forgot the landing gear" end
+							if k.Reason == "HardLanding" then return "Came in too hot" end
 							return "The ground"
 						end) }),
 					C.HudText(scope, { Font = Theme.Body, TextSize = 15, Color = Theme.Mute, AnchorPoint = Vector2.zero, XAlign = Enum.TextXAlignment.Left,

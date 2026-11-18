@@ -24,6 +24,7 @@ for _, name in ipairs({
 	"sortie_end", "missile_fired", "missile_hit", "missile_evaded", "ace_evade", "flare_used", "g_loc", "fuel_empty",
 	"bounty_start", "bounty_claimed", "mission_join", "mission_complete", "squad_create", "squad_join",
 	"perfect_launch", "crash", "bank", "purchase_failed", "purchase_cancelled", "ftue_skip", "ftue_abandon",
+	"landing", "multi_kill", "sonic_boom",
 }) do
 	Events[name] = { Kind = "Custom" }
 end

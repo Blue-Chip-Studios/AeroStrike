@@ -29,6 +29,9 @@ export type State = {
 	GLocTimer: number,
 	FreeBoost: number,
 	Stalled: boolean?,
+	Strain: number?, -- 0..1 G strain (1 = G-LOC)
+	Omega: number?, -- current turn rate (rad/s), ramps up with AngAccel
+	Flameout: boolean?,
 }
 
 export type Input = {
@@ -37,12 +40,13 @@ export type Input = {
 	Brake: boolean, -- legacy (unused; throttle replaces it)
 	Throttle: number?, -- 0..1 set-and-hold throttle (military power at 1)
 	Roll: number, -- -1..1 manual roll (0 = auto bank)
+	Gear: boolean?, -- landing gear down (drag, speed limit)
 }
 
 local FlightModel = {}
 
 function FlightModel.NewState(cf: CFrame, speed: number, fuel: number): State
-	return { CFrame = cf, Speed = speed, Fuel = fuel, G = 1, Bank = 0, OverGTime = 0, GLocTimer = 0, FreeBoost = 0 }
+	return { CFrame = cf, Speed = speed, Fuel = fuel, G = 1, Bank = 0, OverGTime = 0, GLocTimer = 0, FreeBoost = 0, Strain = 0, Omega = 0 }
 end
 
 -- Turn-rate multiplier from speed: peaks at the corner speed.
@@ -92,13 +96,26 @@ function FlightModel.Step(st: State, input: Input, s: Stats, dt: number): State
 		local banked = math.clamp(math.abs(st.Bank) / wantBank, 0, 1)
 		rate *= FlightConfig.RollInMin + (1 - FlightConfig.RollInMin) * banked
 	end
-	-- stall: below MinSpeed the controls go mushy and the nose drops
-	st.Stalled = st.Speed < s.MinSpeed * FlightConfig.StallMult
+	-- stall: below the stall speed the controls go mushy and the nose drops;
+	-- the stall speed rises when you pull G (accelerated stall)
+	local stallSpeed = s.MinSpeed * FlightConfig.StallMult * (1 + FlightConfig.AccelStall * math.max(0, st.G - 1))
+	st.Stalled = st.Speed < stallSpeed
 	if st.Stalled then
 		rate *= FlightConfig.StallAuthority
 		aim = (aim + Vector3.new(0, -FlightConfig.StallNoseDrop, 0)).Unit
 	end
-	local newFwd, turned = rotateToward(fwd, aim, rate * dt)
+	if st.GLocTimer > 0 then
+		-- blacked out: hands off the stick, the jet flies on where it was pointing
+		aim = fwd
+	end
+	-- turn-in lag: the turn rate builds up instead of snapping to full
+	local wantAngle = math.acos(math.clamp(fwd:Dot(aim), -1, 1))
+	local wantRate = math.min(rate, wantAngle / math.max(dt, 1e-3))
+	local om = st.Omega or 0
+	local acc = s.TurnRate * FlightConfig.AngAccel * dt
+	om = if wantRate > om then math.min(wantRate, om + acc) else math.max(wantRate, om - acc * 2)
+	st.Omega = om
+	local newFwd, turned = rotateToward(fwd, aim, om * dt)
 	local omega = turned / math.max(dt, 1e-3)
 
 	-- auto-bank: roll into the turn based on lateral component of the turn
@@ -123,18 +140,27 @@ function FlightModel.Step(st: State, input: Input, s: Stats, dt: number): State
 
 	-- speed
 	local hasFuel = st.Fuel > 0
-	local boosting = (input.Boost and hasFuel) or st.FreeBoost > 0
+	st.Flameout = not hasFuel
+	local boosting = hasFuel and (input.Boost or st.FreeBoost > 0)
 	local throttle = math.clamp(if input.Throttle ~= nil then input.Throttle else 0.75, 0, 1)
-	local milSpeed = s.CruiseSpeed * FlightConfig.MilPowerMult
-	local idle = s.MinSpeed * FlightConfig.IdleSpeedMult
-	local target = idle + (milSpeed - idle) * throttle
-	if boosting then target = s.MaxSpeed end
-	if not hasFuel then target = math.min(target, s.MaxSpeed * FlightConfig.NoFuelSpeedCap) end
-	local accel = s.Accel * (if boosting then 1.4 else 1)
-	if st.Speed < target then
-		st.Speed = math.min(target, st.Speed + accel * dt)
+	if hasFuel then
+		local milSpeed = s.CruiseSpeed * FlightConfig.MilPowerMult
+		local idle = s.MinSpeed * FlightConfig.IdleSpeedMult
+		local target = idle + (milSpeed - idle) * throttle
+		if boosting then target = s.MaxSpeed end
+		if input.Gear then target = math.min(target, s.CruiseSpeed * FlightConfig.GearSpeedMult) end
+		local accel = s.Accel * (if boosting then 1.4 else 1)
+		if st.Speed < target then
+			st.Speed = math.min(target, st.Speed + accel * dt)
+		else
+			-- above the throttle's speed: drag bleeds it off gently (dives keep their energy);
+			-- idle throttle opens the speedbrake
+			local decel = if throttle < 0.08 and not boosting then accel * 0.8 else FlightConfig.OverspeedDrag
+			st.Speed = math.max(target, st.Speed - decel * dt)
+		end
 	else
-		st.Speed = math.max(target, st.Speed - accel * 0.8 * dt)
+		-- flameout: no thrust at all; only diving keeps your airspeed up
+		st.Speed -= FlightConfig.FlameoutDrag * dt
 	end
 	-- climbing costs speed, diving gains it (energy feel)
 	local pitch = newFwd.Y
@@ -148,23 +174,32 @@ function FlightModel.Step(st: State, input: Input, s: Stats, dt: number): State
 	st.Speed = math.clamp(st.Speed, s.MinSpeed * FlightConfig.FloorSpeedMult, s.MaxSpeed * 1.15)
 
 	-- fuel
-	local burn = s.FuelBurn * (0.4 + 0.8 * throttle) + (if input.Boost and st.FreeBoost <= 0 and hasFuel then s.BoostBurn else 0)
+	local burn = if hasFuel then s.FuelBurn * (0.4 + 0.8 * throttle) + (if input.Boost and st.FreeBoost <= 0 then s.BoostBurn else 0) else 0
 	st.Fuel = math.max(0, st.Fuel - burn * dt)
 	st.FreeBoost = math.max(0, st.FreeBoost - dt)
 
 	-- G-force (smoothed)
 	local rawG = 1 + omega * st.Speed * FlightConfig.GScale
 	st.G = st.G + (math.clamp(rawG, 0, FlightConfig.GMax) - st.G) * math.clamp(dt * 5, 0, 1)
-	if st.G > FlightConfig.GLocThreshold and st.GLocTimer <= 0 then
-		st.OverGTime += dt
-		if st.OverGTime >= FlightConfig.GLocTime then
+	-- G strain: builds above tolerance (faster the harder you pull), drains below it
+	local strain = st.Strain or 0
+	if st.GLocTimer <= 0 then
+		local over = (st.G - s.GTolerance) / math.max(FlightConfig.GMax - s.GTolerance, 1)
+		if over > 0 then
+			strain += over * FlightConfig.StrainRate * dt
+		else
+			strain -= FlightConfig.StrainRecover * dt
+		end
+		strain = math.clamp(strain, 0, 1)
+		if strain >= 1 then
 			st.GLocTimer = FlightConfig.GLocDuration
-			st.OverGTime = 0
 		end
 	else
-		st.OverGTime = math.max(0, st.OverGTime - dt)
+		st.GLocTimer = math.max(0, st.GLocTimer - dt)
+		if st.GLocTimer <= 0 then strain = FlightConfig.GLocAfterStrain end
 	end
-	st.GLocTimer = math.max(0, st.GLocTimer - dt)
+	st.Strain = strain
+	st.OverGTime = strain -- legacy field (HUD/camera read Strain now)
 
 	-- integrate position
 	local pos = cf.Position + newFwd * st.Speed * dt

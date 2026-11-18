@@ -482,14 +482,91 @@ local function ejectSequence(cf: CFrame, vel: Vector3, mine: boolean)
 	end)
 end
 
+-- ===================== SONIC BOOM =====================
+-- Breaking Mach 1: a condensation (vapour) cone wraps the airframe, a shockwave ring is left
+-- hanging in the air behind, and a flash pops. Your own boom also kicks the camera and
+-- punches the FOV; other pilots nearby hear the double crack and feel it.
+local AudioConfig = require(ReplicatedStorage.Config.AudioConfig)
+function Vfx.SonicBoom(self, jet: Model, mine: boolean)
+	local root = jet.PrimaryPart
+	if not root then return end
+	local span = jet:GetAttribute("GearSpan") :: Vector3? or Vector3.new(20, 6, 26)
+	local att = Instance.new("Attachment")
+	att.Position = Vector3.new(0, 0, -span.Z * 0.1)
+	att.Parent = root
+	-- vapour cone: soft discs facing along the flight path, growing as they slip back along the jet
+	local cone = Instance.new("ParticleEmitter")
+	cone.Texture = FX.Smoke
+	cone.Orientation = Enum.ParticleOrientation.VelocityPerpendicular
+	cone.EmissionDirection = Enum.NormalId.Back
+	cone.Speed = NumberRange.new(1)
+	cone.VelocityInheritance = 0.72
+	cone.Lifetime = NumberRange.new(0.28, 0.34)
+	cone.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, span.X * 0.25), NumberSequenceKeypoint.new(1, span.X * 0.95) })
+	cone.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25), NumberSequenceKeypoint.new(0.6, 0.55), NumberSequenceKeypoint.new(1, 1) })
+	cone.Color = ColorSequence.new(Color3.fromRGB(245, 248, 255))
+	cone.LightEmission = 0.25
+	cone.Rate = 140
+	cone.Parent = att
+	-- shockwave ring left behind in the air
+	local ring = Instance.new("ParticleEmitter")
+	ring.Texture = FX.Shockwave
+	ring.Orientation = Enum.ParticleOrientation.VelocityPerpendicular
+	ring.EmissionDirection = Enum.NormalId.Front
+	ring.Speed = NumberRange.new(0.5)
+	ring.VelocityInheritance = 0
+	ring.Lifetime = NumberRange.new(0.7)
+	ring.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 8), NumberSequenceKeypoint.new(1, 150) })
+	ring.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) })
+	ring.LightEmission = 0.6
+	ring.Rate = 0
+	ring.Parent = att
+	ring:Emit(2)
+	local flash = Instance.new("PointLight")
+	flash.Range = 40
+	flash.Brightness = 6
+	flash.Color = Color3.fromRGB(230, 240, 255)
+	flash.Parent = att
+	task.delay(0.12, function() flash.Enabled = false end)
+	task.delay(0.8, function() cone.Enabled = false end)
+	Debris:AddItem(att, 2)
+	if mine then
+		pcall(function()
+			local Cam = require(script.Parent.CameraController) :: any
+			Cam:Kick(0.9)
+			Cam:FovPunch(12)
+		end)
+		Store.Values.sLaunchResult:set("MACH 1!")
+		task.delay(1.4, function()
+			local Fusion = require(ReplicatedStorage.Packages.fusion)
+			if Fusion.peek(Store.Values.sLaunchResult) == "MACH 1!" then Store.Values.sLaunchResult:set("") end
+		end)
+	else
+		-- someone else's boom: a 3D double crack where they are, a nudge if it's close
+		local s = Instance.new("Sound")
+		s.SoundId = "rbxassetid://" .. tostring(AudioConfig.SonicBoom.Id)
+		s.Volume = 1.6
+		s.RollOffMaxDistance = 2600
+		s.RollOffMinDistance = 120
+		s.Parent = att
+		s:Play()
+		local cam = Workspace.CurrentCamera
+		local d = (cam.CFrame.Position - root.Position).Magnitude
+		if d < 700 then
+			pcall(function() (require(script.Parent.CameraController) :: any):Kick(0.5 * (1 - d / 700)) end)
+		end
+	end
+end
+
 -- your own kills: a punchy centre banner that escalates for quick multi-kills
 local tMyKills: { number } = {}
 local function killBanner()
 	local now = os.clock()
 	table.insert(tMyKills, now)
-	while #tMyKills > 0 and now - tMyKills[1] > 6 do table.remove(tMyKills, 1) end
+	-- same chain rule as the server's multi-kill bonus: each kill within 8 s of the last extends it
+	if #tMyKills >= 2 and now - tMyKills[#tMyKills - 1] > 8 then tMyKills = { now } end
 	local n = #tMyKills
-	local text = if n >= 4 then "ACE SPLASH!" elseif n == 3 then "TRIPLE SPLASH!" elseif n == 2 then "DOUBLE SPLASH!" else "SPLASH!"
+	local text = if n >= 5 then "RAMPAGE!" elseif n == 4 then "QUAD SPLASH!" elseif n == 3 then "TRIPLE SPLASH!" elseif n == 2 then "DOUBLE SPLASH!" else "SPLASH!"
 	Store.Values.sLaunchResult:set(text)
 	task.delay(1.6, function()
 		local Fusion = require(ReplicatedStorage.Packages.fusion)
@@ -525,6 +602,10 @@ function Vfx.StartAsync(self)
 		if typeof(t) ~= "table" then return end
 		if t.a == "Boom" then
 			explosion(t.pos, t.hit)
+		elseif t.a == "SonicBoom" then
+			-- your own boom already played locally the moment you broke Mach 1
+			local jet = typeof(t.jet) == "string" and Workspace.Jets:FindFirstChild(t.jet)
+			if jet and jet:IsA("Model") and t.owner ~= LocalPlayer.UserId then Vfx:SonicBoom(jet, false) end
 		elseif t.a == "Eject" then
 			ejectSequence(t.cf, if typeof(t.vel) == "Vector3" then t.vel else Vector3.zero, t.owner == LocalPlayer.UserId)
 		elseif t.a == "Kill" then
@@ -541,7 +622,7 @@ function Vfx.StartAsync(self)
 			local line = if t.killer ~= "" then `{t.killer}  ▸  {t.victim}  [{t.weapon}]` else `{t.victim}  [{t.weapon}]`
 			toast(line, if mine then Color3.fromRGB(255, 194, 61) elseif me then Color3.fromRGB(255, 75, 62) else nil)
 			if me then
-				local card = { Killer = t.killer, Weapon = t.weapon, KillerId = t.killerId }
+				local card = { Killer = t.killer, Weapon = t.weapon, KillerId = t.killerId, Reason = t.reason }
 				Store.Values.tKillCard:set(card)
 				if t.weapon == "Eject" then
 					-- hold the card back so you can watch your chute open

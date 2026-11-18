@@ -24,6 +24,7 @@ local JetStats = require(ReplicatedStorage.Shared.JetStats)
 local FlightConfig = require(ReplicatedStorage.Config.FlightConfig)
 local MapConfig = require(ReplicatedStorage.Config.MapConfig)
 local EconomyConfig = require(ReplicatedStorage.Config.EconomyConfig)
+local IslandShape = require(ReplicatedStorage.Shared.IslandShape)
 
 local mProfile = require(ServerStorage.BCDKServer.SMProfile)
 
@@ -40,13 +41,18 @@ export type Sortie = {
 	Strikes: number,
 	LastBank: number,
 	Passes: { [string]: boolean },
+	Resupplying: boolean?,
+	LastBoom: number?,
+	Boomed: boolean?, -- first sonic boom this sortie already rewarded
 }
 
 local Flight = ModuleUtil.New({
 	Sorties = {} :: { [Player]: Sortie },
 	OnLaunched = Instance.new("BindableEvent"),
 	OnJetDestroyed = Instance.new("BindableEvent"), -- (player, cause)
-	OnTouchAndGo = Instance.new("BindableEvent"), -- (player)
+	OnTouchAndGo = Instance.new("BindableEvent"), -- (player) low pass over the deck: Bank It
+	OnResupply = Instance.new("BindableEvent"), -- (player, where: "Carrier"|"Airfield") landed + stopped: rearm, refuel, repair
+	OnSonicBoom = Instance.new("BindableEvent"), -- (player, firstThisSortie)
 })
 
 local oEvent = Remote:GetEvent("FlightEvent")
@@ -138,6 +144,10 @@ function Flight.Spawn(self, oPlayer: Player)
 	local iCat = pickCatapult()
 	tCatapultBusy[iCat] = os.clock()
 	local cfStart, cfEnd = W:CatapultWorld(iCat)
+	-- catapult CFrames are for a belly-height root; raise by this jet's gear ride height
+	local lift = Vector3.new(0, ((tmpl:GetAttribute("RideHeight") :: number?) or 3.2) - 3.2, 0)
+	cfStart, cfEnd = cfStart + lift, cfEnd + lift
+	jet:SetAttribute("GearDown", true)
 	jet:PivotTo(cfStart)
 	local root = jet.PrimaryPart :: BasePart
 	root.Anchored = true
@@ -173,6 +183,62 @@ local function launch(self, oPlayer: Player, bPerfectClaim: boolean)
 	self.OnLaunched:Fire(oPlayer, bPerfect)
 	task.delay(FlightConfig.SpawnShield, function()
 		if s.Jet.Parent and not s.Jet:GetAttribute("Training") then s.Jet:SetAttribute("Shield", false) end
+	end)
+end
+
+-- where a stopped jet may be resupplied (server truth, not the client's word)
+local function landingSite(pos: Vector3): string?
+	local c = MapConfig.Carrier
+	local lp = c.CFrame:PointToObjectSpace(pos)
+	if math.abs(lp.X) < 34 and math.abs(lp.Z) < 165 and lp.Y > c.DeckY - 1 and lp.Y < c.DeckY + 14 then return "Carrier" end
+	local a = IslandShape.Airfield
+	if IslandShape.AirfieldDist(pos.X, pos.Z) <= 0 and pos.Y > a.Elev - 2 and pos.Y < a.Elev + 16 then return "Airfield" end
+	return nil
+end
+
+-- after a carrier trap: taxi'd onto a free catapult, same jet, ready to launch again
+function Flight.Recover(self, oPlayer: Player)
+	local s = self.Sorties[oPlayer]
+	if not s or s.Phase ~= "Flying" or not s.Jet.PrimaryPart then return end
+	local W = getWorld()
+	local iCat = pickCatapult()
+	tCatapultBusy[iCat] = os.clock()
+	s.Catapult = iCat
+	local cfStart, cfEnd = W:CatapultWorld(iCat)
+	local lift = Vector3.new(0, ((s.Jet:GetAttribute("RideHeight") :: number?) or 3.2) - 3.2, 0)
+	cfStart, cfEnd = cfStart + lift, cfEnd + lift
+	local root = s.Jet.PrimaryPart :: BasePart
+	root.Anchored = true
+	s.Jet:PivotTo(cfStart)
+	s.Phase = "Deck"
+	s.Jet:SetAttribute("GearDown", true)
+	oEvent:FireClient(oPlayer, { a = "Recovered", start = cfStart, finish = cfEnd })
+end
+
+local function resupply(self, oPlayer: Player)
+	local s = self.Sorties[oPlayer]
+	if not s or s.Phase ~= "Flying" or s.Resupplying or not s.Jet.PrimaryPart then return end
+	local root = s.Jet.PrimaryPart :: BasePart
+	local where = landingSite(root.Position)
+	if not where or root.AssemblyLinearVelocity.Magnitude > FlightConfig.ResupplyMaxSpeed * 2.5 then
+		oEvent:FireClient(oPlayer, { a = "ResupplyFailed" })
+		return
+	end
+	s.Resupplying = true
+	task.delay(2.5, function()
+		s.Resupplying = false
+		if s.Phase ~= "Flying" or not s.Jet.Parent or not s.Jet.PrimaryPart then return end
+		local r = s.Jet.PrimaryPart :: BasePart
+		if landingSite(r.Position) ~= where or r.AssemblyLinearVelocity.Magnitude > FlightConfig.ResupplyMaxSpeed * 2.5 then
+			oEvent:FireClient(oPlayer, { a = "ResupplyFailed" })
+			return
+		end
+		s.Jet:SetAttribute("Health", s.Jet:GetAttribute("MaxHealth"))
+		self.OnResupply:Fire(oPlayer, where)
+		oEvent:FireClient(oPlayer, { a = "Resupplied", where = where })
+		if where == "Carrier" then
+			task.delay(1.2, function() self:Recover(oPlayer) end)
+		end
 	end)
 end
 
@@ -236,6 +302,23 @@ function Flight.StartAsync(self)
 			local s = self.Sorties[oPlayer]
 			if not s or s.Phase == "Dead" then
 				self:Spawn(oPlayer)
+			end
+		elseif t.a == "Gear" then
+			local s = self.Sorties[oPlayer]
+			if s and s.Phase == "Flying" then s.Jet:SetAttribute("GearDown", t.down == true) end
+		elseif t.a == "Resupply" then
+			resupply(self, oPlayer)
+		elseif t.a == "Boom" then
+			-- sonic boom: everyone nearby hears/feels it (rate-limited; speed sanity-checked)
+			local s = self.Sorties[oPlayer]
+			if s and s.Phase == "Flying" and s.Jet.PrimaryPart and os.clock() - (s.LastBoom or 0) > 4 then
+				local root = s.Jet.PrimaryPart :: BasePart
+				if root.AssemblyLinearVelocity.Magnitude * 3.6 >= 780 then
+					s.LastBoom = os.clock()
+					Remote:GetEvent("CombatEvent"):FireAllClients({ a = "SonicBoom", owner = oPlayer.UserId, pos = root.Position, jet = s.Jet.Name })
+					self.OnSonicBoom:Fire(oPlayer, not s.Boomed)
+					s.Boomed = true
+				end
 			end
 		elseif t.a == "Eject" then
 			-- pilot punches out: everyone sees the seat + parachute; the jet goes down

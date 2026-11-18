@@ -47,4 +47,24 @@ return {
 	RingAssetId = 82812705025398, -- Blender flight/fuel ring
 	MissileAssetId = 137511282209196, -- Blender IR missile (cosmetic client proxy)
 	ParachuteAssetId = 136874083901245, -- Blender ejection seat, pilot and parachute
+	GearAssetId = 113959138367634, -- Blender landing gear (nose + main struts, wheels, doors)
+	-- West-coast airfield (placement/pad from IslandShape.Airfield): land, taxi, resupply, take off
+	Airfield = {
+		AssetId = 89915098896790,
+		Paint = {
+			Runway = { Color = Color3.fromRGB(38, 40, 44), Material = Enum.Material.Asphalt },
+			Concrete = { Color = Color3.fromRGB(128, 128, 122), Material = Enum.Material.Concrete },
+			Markings = { Color = Color3.fromRGB(232, 232, 224), Material = Enum.Material.SmoothPlastic },
+			Yellow = { Color = Color3.fromRGB(240, 186, 30), Material = Enum.Material.SmoothPlastic },
+			Tower = { Color = Color3.fromRGB(176, 174, 168), Material = Enum.Material.Concrete },
+			Glass = { Color = Color3.fromRGB(26, 52, 58), Material = Enum.Material.Glass },
+			Hangar = { Color = Color3.fromRGB(96, 106, 112), Material = Enum.Material.CorrodedMetal },
+			Trim = { Color = Color3.fromRGB(34, 36, 40), Material = Enum.Material.Metal },
+			Tanks = { Color = Color3.fromRGB(206, 206, 196), Material = Enum.Material.Metal },
+			Lights = { Color = Color3.fromRGB(255, 236, 190), Material = Enum.Material.Neon },
+			LightsGreen = { Color = Color3.fromRGB(60, 255, 120), Material = Enum.Material.Neon },
+			LightsRed = { Color = Color3.fromRGB(255, 50, 40), Material = Enum.Material.Neon },
+			Sock = { Color = Color3.fromRGB(255, 110, 20), Material = Enum.Material.Fabric },
+		},
+	},
 }

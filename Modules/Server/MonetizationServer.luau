@@ -97,7 +97,7 @@ local function grant(oPlayer: Player, sKey: string): boolean
 	end
 	if g.Rearm then
 		Combat:Rearm(oPlayer)
-		Remote:GetEvent("FlightEvent"):FireClient(oPlayer, { a = "TouchAndGo" }) -- client refuel path
+		Remote:GetEvent("FlightEvent"):FireClient(oPlayer, { a = "Resupplied", where = "Purchase" }) -- client refuel path
 	end
 	if g.BountyShield then
 		tBountyShield[oPlayer] = true

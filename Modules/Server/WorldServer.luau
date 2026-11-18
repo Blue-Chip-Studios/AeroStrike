@@ -21,6 +21,8 @@ local Lighting = game:GetService("Lighting")
 local ModuleUtil = require(ReplicatedStorage.Shared.ModuleUtil)
 local JetConfig = require(ReplicatedStorage.Config.JetConfig)
 local MapConfig = require(ReplicatedStorage.Config.MapConfig)
+local FlightConfig = require(ReplicatedStorage.Config.FlightConfig)
+local IslandShape = require(ReplicatedStorage.Shared.IslandShape)
 
 local World = ModuleUtil.New({
 	Ready = false,
@@ -150,6 +152,10 @@ local function buildFlyerTemplate(nAssetId: number, sName: string): Model?
 
 	m.PrimaryPart = root
 	m.Name = sName
+	-- landing gear: the root (bbox centre) rides this far above the surface with gear down;
+	-- GearController mounts the struts from GearSpan (the airframe's bbox size)
+	m:SetAttribute("RideHeight", size.Y / 2 + FlightConfig.RideClearance)
+	m:SetAttribute("GearSpan", size)
 	return m
 end
 
@@ -216,6 +222,76 @@ local function buildCarrier()
 	m.Parent = map
 end
 
+-- West-coast airfield: Blender runway/apron/tower/hangars on the levelled pad (IslandShape.Airfield),
+-- plus invisible "Runway" colliders you can land and taxi on
+local function buildAirfield()
+	local cfg = MapConfig.Airfield
+	if not cfg or cfg.AssetId == 0 then return end
+	local map = workspace:FindFirstChild("Map") :: Folder
+	local old = map:FindFirstChild("Airfield")
+	if old then old:Destroy() end
+	local m = loadModel(cfg.AssetId)
+	if not m then warn("[World] airfield failed to load") return end
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored, d.CanCollide, d.CanTouch, d.CanQuery = true, false, false, false
+			d.Name = ModuleUtil.StripSuffix(d.Name)
+			d.CastShadow = d.Name ~= "Runway" and d.Name ~= "Markings" and d.Name ~= "Yellow" and d.Name ~= "Concrete"
+		end
+	end
+	World:ApplyPaint(m, cfg.Paint)
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("BasePart") and string.find(d.Name, "^Lights") then d.Material = Enum.Material.Neon end
+	end
+	local a = IslandShape.Airfield
+	local runway = m:FindFirstChild("Runway") :: BasePart
+	-- map the runway slab (top centre, long axis) onto the pad: centred, running along world X
+	local cf = runway.CFrame
+	local along = if runway.Size.X >= runway.Size.Z then cf.RightVector else cf.LookVector
+	along = Vector3.new(along.X, 0, along.Z).Unit
+	local topC = runway.Position + Vector3.new(0, runway.Size.Y / 2, 0)
+	local from = CFrame.fromMatrix(topC, along, Vector3.yAxis)
+	-- smooth terrain draws its surface about half a voxel above the filled height: measure it
+	local tp = RaycastParams.new()
+	tp.FilterType = Enum.RaycastFilterType.Include
+	tp.FilterDescendantsInstances = { workspace.Terrain }
+	local hit = workspace:Raycast(Vector3.new(a.Centre.X, a.Elev + 60, a.Centre.Y), Vector3.new(0, -120, 0), tp)
+	local surfaceY = (if hit then hit.Position.Y else a.Elev) + 0.3
+	workspace:SetAttribute("AirfieldSurfaceY", surfaceY)
+	local centre = Vector3.new(a.Centre.X, surfaceY, a.Centre.Y)
+	local to = CFrame.fromMatrix(centre, Vector3.xAxis, Vector3.yAxis)
+	m:PivotTo(to * from:Inverse() * m:GetPivot())
+	-- the apron/tower must sit on the +Z (inland) side of the runway
+	local tower = m:FindFirstChild("Tower") :: BasePart?
+	if tower and tower.Position.Z < a.Centre.Y then
+		local c = CFrame.new(centre)
+		m:PivotTo(c * CFrame.Angles(0, math.pi, 0) * c:Inverse() * m:GetPivot())
+	end
+	m.Name = "Airfield"
+	-- colliders: runway + taxiway/apron (flat, landable, marked Runway)
+	local cols = Instance.new("Folder")
+	cols.Name = "Colliders"
+	cols.Parent = m
+	local function collider(name: string, cf: CFrame, size: Vector3)
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch = true, true, true, false
+		p.Transparency = 1
+		p.Size = size
+		p.CFrame = cf
+		p:SetAttribute("Runway", true)
+		p.Parent = cols
+	end
+	collider("RunwayCollider", CFrame.new(a.Centre.X, surfaceY - 0.5, a.Centre.Y), Vector3.new(a.RunwayLength + 40, 1, a.RunwayWidth + 20))
+	for _, d in ipairs(m:GetChildren()) do
+		if d:IsA("BasePart") and d.Name == "Concrete" then
+			-- taxiway + apron share one mesh; cover its footprint at surface height
+			collider("ApronCollider", CFrame.new(d.Position.X, surfaceY - 0.5, d.Position.Z), Vector3.new(d.Size.X, 1, d.Size.Z))
+		end
+	end
+	m.Parent = map
+end
+
 local function applyLighting()
 	-- "Golden Sortie" preset (GDD §26). Lighting.Technology = Future is a
 	-- place setting (not scriptable at runtime); set once in Studio.
@@ -274,6 +350,8 @@ function World.PreloadAsync(self)
 	local ok, err = pcall(applyLighting)
 	if not ok then warn("[World] lighting:", err) end
 	buildCarrier()
+	local okA, errA = pcall(buildAirfield)
+	if not okA then warn("[World] airfield:", errA) end
 	for sId, tJet in pairs(JetConfig.Jets) do
 		local m = buildFlyerTemplate(tJet.ModelAssetId, tJet.Id)
 		if m then
@@ -388,6 +466,25 @@ function World.PreloadAsync(self)
 		end
 		chute.Name = "Parachute"
 		chute.Parent = ct
+	end
+	-- Blender landing gear (GearController mounts it on every player jet)
+	local gear = loadModel(MapConfig.GearAssetId)
+	if gear then
+		local paint = {
+			NoseStrut = { Color3.fromRGB(196, 198, 202), Enum.Material.Metal }, MainStrut = { Color3.fromRGB(196, 198, 202), Enum.Material.Metal },
+			NoseWheel = { Color3.fromRGB(24, 24, 26), Enum.Material.Rubber }, MainWheel = { Color3.fromRGB(24, 24, 26), Enum.Material.Rubber },
+			NoseDoor = { Color3.fromRGB(120, 126, 132), Enum.Material.Metal }, MainDoor = { Color3.fromRGB(120, 126, 132), Enum.Material.Metal },
+		}
+		for _, d in ipairs(gear:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.Anchored, d.CanCollide, d.CanQuery, d.CanTouch, d.Massless = false, false, false, false, true
+				d.Name = ModuleUtil.StripSuffix(d.Name)
+				local p = paint[d.Name]
+				if p then d.Color = p[1]; d.Material = p[2] end
+			end
+		end
+		gear.Name = "Gear"
+		gear.Parent = ct
 	end
 	ct.Parent = ReplicatedStorage
 

@@ -14,8 +14,10 @@ return {
 	MaxBank = math.rad(80),
 
 	-- Turn curve: turn rate peaks at CornerSpeed, falls off above/below
-	TurnLowSpeedMult = 0.55,
-	TurnHighSpeedMult = 0.6,
+	TurnLowSpeedMult = 0.45, -- slow = sluggish: keep your energy up
+	TurnHighSpeedMult = 0.5, -- too fast = wide turns: the corner speed is the sweet spot
+	AngAccel = 3.2, -- x TurnRate per second: turns take a moment to bite (lead your target)
+	CornerBand = 0.12, -- +-12% of corner speed shows as CORNER on the HUD
 
 	-- Energy / throttle (the skill layer: simple to fly, rewarding to fly well)
 	MilPowerMult = 1.15, -- 100% throttle = CruiseSpeed x this; afterburner = MaxSpeed
@@ -29,16 +31,35 @@ return {
 	StallNoseDrop = 0.35, -- how hard the nose falls in a stall
 	FloorSpeedMult = 0.7, -- absolute minimum speed (deep stall)
 	ClimbDrag = 18, -- studs/s^2 lost per 1.0 of nose-up
-	DiveGain = 14,
-	NoFuelSpeedCap = 0.55, -- top speed fraction with empty tank (no flame-out)
+	DiveGain = 22, -- studs/s^2 per 1.0 of nose-down: dive to trade height for speed (Mach 1 in a steep dive)
+	OverspeedDrag = 9, -- studs/s^2 bleed when faster than the throttle setting (idle = speedbrake)
+	FlameoutDrag = 6, -- studs/s^2 lost with the engine out: trade height for speed and glide it in
+	AccelStall = 0.05, -- stall speed rises with G (x per G above 1): yanking hard when slow stalls you
 
 	-- G-force (arcade)
 	GScale = 0.032, -- G = 1 + omega * speed * GScale (max-rate cruise turn ~6.5G)
 	GMax = 11,
-	GLocThreshold = 8.5, -- sustained above this -> grey-out (needs boost + tight turn)
-	GLocTime = 2.0,
-	GLocDuration = 1.5,
+	-- G strain: pulling above your G tolerance fills a strain meter (tunnel vision);
+	-- full = G-LOC blackout (no control). Pulse your turns instead of holding max G.
+	StrainRate = 0.7, -- per second at full over-G (GMax); ~2 s of max pull to black out
+	StrainRecover = 0.33, -- per second once below tolerance
+	GreyoutAt = 0.35, -- strain where the screen starts to tunnel
+	GLocDuration = 2.2, -- seconds blacked out
+	GLocAfterStrain = 0.55, -- strain left after waking up (you can't pull hard straight away)
 	GStiffen = 0.35, -- turn rate lost at full over-G
+
+	-- Landing gear + ground ops
+	RideClearance = 2.4, -- studs between belly and ground with gear down
+	GearSpeedMult = 0.78, -- gear-down top speed (x CruiseSpeed)
+	TouchdownMaxSink = 16, -- studs/s descent rate at contact (more = hard landing)
+	TouchdownMaxSpeedMult = 1.7, -- x MinSpeed at contact (below the gear-down top speed: throttle back to land)
+	TouchdownMinPitch = -0.3, -- nose can't be pointing down harder than this
+	GroundBrake = 34, -- studs/s^2 with throttle at idle
+	GroundFriction = 4,
+	GroundTurnRate = 0.9, -- rad/s taxi steering
+	RotateSpeedMult = 1.25, -- x MinSpeed: lift off when pulling up past this
+	TrapStopDistance = 70, -- carrier arrestor wire stops you in this many studs
+	ResupplyMaxSpeed = 12, -- studs/s: stop (almost) to resupply
 
 	-- Launch
 	CatapultTime = 1.1, -- seconds on the catapult before free flight

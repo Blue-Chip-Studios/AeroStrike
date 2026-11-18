@@ -203,7 +203,24 @@ function Economy.StartAsync(self)
 	local Flight = require(ServerStorage.ServerModules.FlightServer)
 	local Combat = require(ServerStorage.ServerModules.CombatServer)
 
+	-- multi-kill chains: every kill within ChainWindow of the last one extends the chain
+	local tChain: { [Player]: { N: number, T: number } } = {}
+	local function chainKill(killer: Player)
+		local now = os.clock()
+		local c = tChain[killer]
+		if c and now - c.T <= EconomyConfig.MultiKill.ChainWindow then c.N += 1; c.T = now else c = { N = 1, T = now } end
+		tChain[killer] = c
+		if c.N >= 2 then
+			local names = EconomyConfig.MultiKill.Names
+			local label = names[math.min(c.N, #names)] or `x{c.N} SPLASH!`
+			local step = EconomyConfig.MultiKill
+			self:Reward(killer, "MultiKill", { Label = label, Cash = step.CashPerStep * (c.N - 1), Mult = 1 })
+			analytics():Log(killer, "multi_kill", { n = c.N })
+		end
+	end
+
 	Combat.OnKill.Event:Connect(function(killer: Player?, victim: Model, sWeapon: string, info: any)
+		if killer and not victim:GetAttribute("Friendly") and victim:GetAttribute("NpcKind") ~= "Drone" then chainKill(killer) end
 		local victimId = victim:GetAttribute("OwnerUserId")
 		local victimPlayer = if victimId then Players:GetPlayerByUserId(victimId) else nil
 		if victimPlayer then
@@ -252,6 +269,41 @@ function Economy.StartAsync(self)
 
 	Flight.OnTouchAndGo.Event:Connect(function(oPlayer: Player)
 		self:Bank(oPlayer)
+	end)
+
+	-- a safe landing banks your cash too, plus a landing bonus (once per flight: you have to take off again)
+	local tLandedSince: { [Player]: number } = {}
+	Flight.OnLaunched.Event:Connect(function(oPlayer: Player) tLandedSince[oPlayer] = os.clock() end)
+	Flight.OnResupply.Event:Connect(function(oPlayer: Player, where: string)
+		self:Bank(oPlayer)
+		local since = tLandedSince[oPlayer]
+		if since and os.clock() - since > EconomyConfig.LandingMinFlight then
+			tLandedSince[oPlayer] = nil
+			if where == "Carrier" then
+				self:Reward(oPlayer, "CarrierTrap", { Bank = true, Label = "CARRIER TRAP!" })
+			else
+				self:Reward(oPlayer, "Landing", { Bank = true, Label = "SAFE LANDING" })
+			end
+			analytics():Log(oPlayer, "landing", { where = where })
+		end
+	end)
+	-- airfield take-offs count as a new flight for the landing bonus
+	Flight.OnSonicBoom.Event:Connect(function(oPlayer: Player, bFirst: boolean)
+		if bFirst then
+			self:Reward(oPlayer, "SonicBoom", { Bank = true, Label = "MACH 1!" })
+			analytics():Log(oPlayer, "sonic_boom")
+		end
+	end)
+	task.spawn(function()
+		-- mark airborne-again after an airfield take-off (no launch event there)
+		while true do
+			task.wait(2)
+			for p, s in pairs(Flight.Sorties) do
+				if s.Phase == "Flying" and not tLandedSince[p] and s.Jet.PrimaryPart and s.Jet.PrimaryPart.AssemblyLinearVelocity.Magnitude > 60 then
+					tLandedSince[p] = os.clock()
+				end
+			end
+		end
 	end)
 
 	Flight.OnLaunched.Event:Connect(function(oPlayer: Player, bPerfect: boolean)
