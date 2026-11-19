@@ -268,7 +268,7 @@ return function(scope: any, props: { [string]: any })
 								Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1),
 								Text = scope:Computed(function(use)
 									local what = if use(V.bFlameout) then "FLAMEOUT" else "HULL CRITICAL"
-									if use(V.bTouch) then return what .. " - TAP EJECT" end
+									if use(V.bTouch) then return what .. " - TAP THE RED EJECT BUTTON" end
 									if use(V.bGamepad) then return what .. " - HOLD [Y] TO EJECT" end
 									return what .. " - HOLD [X] TO EJECT"
 								end) }),
@@ -507,7 +507,21 @@ return function(scope: any, props: { [string]: any })
 						C.TouchButton(scope, { Name = "Gear", Label = "GEAR", SizePx = 72, Position = UDim2.fromOffset(92, -20),
 						Visible = scope:Computed(function(use) local p = use(V.sPhase) return p == "Flying" end),
 						OnDown = function() Input:SetTouch("Gear", true) end, OnUp = function() Input:SetTouch("Gear", false) end }),
-					C.TouchButton(scope, { Name = "Eject", Label = "EJECT", Color = Theme.Threat, SizePx = 84, Position = UDim2.fromOffset(222, -40),
+					-- EJECT: only when the jet is about to be lost (hull critical / flameout). Big, solid red and
+					-- flashing with a pulsing halo so it is found instantly; ejecting saves the unbanked cash.
+					scope:New("Frame")({
+						Name = "EjectHalo", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(118, -122), BackgroundTransparency = 1,
+						Size = scope:Computed(function(use) return if use(V.nPullUpBlink) then UDim2.fromOffset(150, 150) else UDim2.fromOffset(134, 134) end),
+						Visible = scope:Computed(function(use) return use(V.bHullCritical) or use(V.bFlameout) end),
+						[Children] = {
+							scope:New("UICorner")({ CornerRadius = UDim.new(0, 18) }),
+							scope:New("UIStroke")({ Color = Theme.Threat, Thickness = 4,
+								Transparency = scope:Computed(function(use) return if use(V.nPullUpBlink) then 0.05 else 0.6 end) }),
+						},
+					}),
+					C.TouchButton(scope, { Name = "Eject", Label = "EJECT", Color = Color3.fromRGB(255, 245, 240), TextSize = 26, SizePx = 118,
+						Position = UDim2.fromOffset(118, -122),
+						Fill = scope:Computed(function(use) return if use(V.nPullUpBlink) then Theme.Threat else Color3.fromRGB(120, 10, 10) end),
 						Visible = scope:Computed(function(use) return use(V.bHullCritical) or use(V.bFlameout) end),
 						OnDown = function() Input:SetTouch("Eject", true) end, OnUp = function() Input:SetTouch("Eject", false) end }),
 				},

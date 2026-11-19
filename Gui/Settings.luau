@@ -76,7 +76,7 @@ return function(scope: any, props: { [string]: any })
 								scope:Computed(function(use) return CAMERA_TEXT[use(settings).Camera or "Chase"] or "CHASE" end), {
 									{ Name = "Cycle", Text = "⇄", OnClick = function() S:CycleCamera() end },
 								}),
-							row(5, "TOUCH STEERING", "Swipe: the aim follows your finger. Stick: hold and push to keep turning (great on tablets)",
+							row(5, "TOUCH STEERING", "Swipe: the aim follows your finger - hold it out to keep turning. Stick: a fixed-rate joystick under your thumb",
 							scope:Computed(function(use) return if use(settings).TouchSteer == "Stick" then "STICK" else "SWIPE" end), {
 								{ Name = "Toggle", Text = "⇄", OnClick = function() S:ToggleTouchSteer() end },
 							}),

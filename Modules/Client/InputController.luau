@@ -39,7 +39,7 @@ local Input = ModuleUtil.New({
 		Throttle = 0.75, -- 0..1 set-and-hold; afterburner (Boost) is the detent past 100%
 		Sensitivity = 1,
 		InvertY = false,
-		TouchMode = "Swipe", -- "Swipe": drag = aim moves with your finger; "Stick": hold + offset = continuous turn
+		TouchMode = "Swipe", -- "Swipe": drag aims + holding away from the touch point keeps turning; "Stick": pure virtual joystick
 	},
 	Pressed = Pressed.Event,
 	LastDevice = "KeyboardMouse",
@@ -274,6 +274,9 @@ end
 local MOUSE_RAD_PER_PX = math.rad(0.16)
 local TOUCH_RAD_PER_PX = math.rad(0.32)
 local STICK_RAD_PER_S = math.rad(95)
+local HOLD_RANGE = 150 -- px (x UI scale) from the touch point to full hold-turn rate
+local HOLD_DEAD = 0.18 -- small offsets stay pure swipe so precise aiming doesn't drift
+local HOLD_RATE = 1.1 -- x STICK_RAD_PER_S at full hold
 
 function Input.SetFlightMouseLock(self, bLock: boolean)
 	if self.LastDevice == "KeyboardMouse" then
@@ -317,11 +320,29 @@ function Input.Update(self, dt: number): Vector2
 				local inset = game:GetService("GuiService"):GetGuiInset()
 				setStick(vDragStart + inset, vDragStart + inset + knob)
 			else
+				-- swipe + hold: moving the thumb aims directly (precise), and holding it away from
+				-- where it first touched keeps turning (faster further out), so a turn never stalls
+				-- when the thumb stops or reaches the screen edge
 				if vLastDrag == Vector2.zero then vLastDrag = vDragStart end
 				local delta = p - vLastDrag
 				vLastDrag = p
 				d = Vector2.new(delta.X, -delta.Y * inv) * TOUCH_RAD_PER_PX
-				setStick(nil, nil)
+				local okR, Resp = pcall(require, script.Parent.ResponsiveUIController)
+				local uiScale = if okR and Resp and Resp.Scale then Resp.Scale else 1
+				local range = HOLD_RANGE * uiScale
+				local off = p - vDragStart
+				local v = Vector2.new(off.X, -off.Y) / range
+				if v.Magnitude > 1 then v = v.Unit end
+				local m = v.Magnitude
+				if m > HOLD_DEAD then
+					local k = (m - HOLD_DEAD) / (1 - HOLD_DEAD)
+					local hv = v.Unit * (k * k)
+					d += Vector2.new(hv.X, hv.Y * inv) * STICK_RAD_PER_S * HOLD_RATE * dt
+					local inset = game:GetService("GuiService"):GetGuiInset()
+					setStick(vDragStart + inset, vDragStart + inset + Vector2.new(v.X, -v.Y) * range)
+				else
+					setStick(nil, nil)
+				end
 			end
 		else
 			vLastDrag = Vector2.zero

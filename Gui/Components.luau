@@ -71,8 +71,8 @@ function C.TouchButton(scope: any, p: { [string]: any })
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = p.Position,
 		Size = UDim2.fromOffset(p.SizePx or 104, p.SizePx or 104),
-		BackgroundColor3 = Theme.Panel,
-		BackgroundTransparency = scope:Computed(function(use) return if use(held) then 0.15 else 0.35 end),
+		BackgroundColor3 = p.Fill or Theme.Panel, -- Fill: optional (computed) background colour, e.g. a flashing alert
+		BackgroundTransparency = scope:Computed(function(use) return if use(held) then 0.15 elseif p.Fill then 0.1 else 0.35 end),
 		AutoButtonColor = false,
 		Text = "",
 		Visible = p.Visible,
