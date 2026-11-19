@@ -23,7 +23,7 @@ return {
 		Daily = { LastClaimDay = 0, Streak = 0 },
 		ProcessedPurchases = {}, -- [PurchaseId] = os.time() (idempotent receipts)
 		OneTimeProducts = {}, -- [productKey] = true (e.g. StarterAceBundle)
-		Settings = { Sensitivity = 1, InvertY = false, ManualRoll = false, Camera = "Chase", KillCam = true }, -- SettingsClient
+		Settings = { Sensitivity = 1, InvertY = false, ManualRoll = false, Camera = "Chase", KillCam = true, TouchSteer = "Swipe" }, -- SettingsClient
 		Season = { Id = 0, XP = 0, Tier = 0 }, -- free season track (SeasonServer)
 		Trails = {}, -- [trailId] = true (smoke-trail cosmetics)
 		EquippedTrail = "",

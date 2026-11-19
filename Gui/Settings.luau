@@ -52,9 +52,9 @@ return function(scope: any, props: { [string]: any })
 		[Children] = {
 			scope:New("Frame")({ Name = "Dim", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Theme.Night, BackgroundTransparency = 0.25, BorderSizePixel = 0 }),
 			scope:New("Frame")({
-				Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.7, 0.8), BackgroundTransparency = 1,
+				Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.72, 0.86), BackgroundTransparency = 1,
 				[Children] = {
-					scope:New("UISizeConstraint")({ MaxSize = Vector2.new(820, 560) }),
+					scope:New("UISizeConstraint")({ MaxSize = Vector2.new(860, 620) }),
 					scope:New("TextLabel")({ BackgroundTransparency = 1, Size = UDim2.new(1, -150, 0, 40), FontFace = Theme.Display, TextSize = 26, TextColor3 = Theme.Ink,
 						TextXAlignment = Enum.TextXAlignment.Left, Text = "SETTINGS" }),
 					C.PrimaryButton(scope, { Name = "Close", Text = "DONE ›", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Size = UDim2.fromOffset(130, 40),
@@ -76,7 +76,11 @@ return function(scope: any, props: { [string]: any })
 								scope:Computed(function(use) return CAMERA_TEXT[use(settings).Camera or "Chase"] or "CHASE" end), {
 									{ Name = "Cycle", Text = "⇄", OnClick = function() S:CycleCamera() end },
 								}),
-							row(4, "MISSILE KILL CAM", "A quick look at your missile kills (never while you're locked)",
+							row(5, "TOUCH STEERING", "Swipe: the aim follows your finger. Stick: hold and push to keep turning (great on tablets)",
+							scope:Computed(function(use) return if use(settings).TouchSteer == "Stick" then "STICK" else "SWIPE" end), {
+								{ Name = "Toggle", Text = "⇄", OnClick = function() S:ToggleTouchSteer() end },
+							}),
+						row(4, "MISSILE KILL CAM", "A quick look at your missile kills (never while you're locked)",
 								scope:Computed(function(use) return if use(settings).KillCam == false then "OFF" else "ON" end), {
 									{ Name = "Toggle", Text = "⇄", OnClick = function() S:Toggle("KillCam") end },
 								}),

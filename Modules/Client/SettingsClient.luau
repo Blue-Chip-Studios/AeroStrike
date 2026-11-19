@@ -29,6 +29,7 @@ local function apply(s: { [string]: any })
 	Input.State.InvertY = s.InvertY == true
 	Cam.Mode = s.Camera or "Chase"
 	Cam.KillCamOn = s.KillCam ~= false
+	Input.State.TouchMode = if s.TouchSteer == "Stick" then "Stick" else "Swipe"
 end
 
 local function send(s: { [string]: any })
@@ -59,6 +60,12 @@ end
 function Settings.Toggle(self, key: string)
 	local s = current()
 	if key == "KillCam" then s.KillCam = s.KillCam == false else s[key] = not s[key] end
+	send(s)
+end
+
+function Settings.ToggleTouchSteer(self)
+	local s = current()
+	s.TouchSteer = if s.TouchSteer == "Stick" then "Swipe" else "Stick"
 	send(s)
 end
 

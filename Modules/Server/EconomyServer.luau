@@ -233,6 +233,7 @@ local function saveSettings(oPlayer: Player, t: any)
 		if typeof(t.InvertY) == "boolean" then s.InvertY = t.InvertY end
 		if typeof(t.KillCam) == "boolean" then s.KillCam = t.KillCam end
 		if typeof(t.Camera) == "string" and CAMERAS[t.Camera] then s.Camera = t.Camera end
+		if t.TouchSteer == "Swipe" or t.TouchSteer == "Stick" then s.TouchSteer = t.TouchSteer end
 		return s
 	end)
 end

@@ -39,6 +39,7 @@ local Input = ModuleUtil.New({
 		Throttle = 0.75, -- 0..1 set-and-hold; afterburner (Boost) is the detent past 100%
 		Sensitivity = 1,
 		InvertY = false,
+		TouchMode = "Swipe", -- "Swipe": drag = aim moves with your finger; "Stick": hold + offset = continuous turn
 	},
 	Pressed = Pressed.Event,
 	LastDevice = "KeyboardMouse",
@@ -257,6 +258,19 @@ end
     radians (+yaw = right, +pitch = up). Camera-led aim: the aim moves, the
     jet chases it, and letting go leaves the jet flying where you pointed.
 ]]
+-- Stick-mode visual (HUD ring + knob); only pushed to the Store when it changes
+local HIDDEN = Vector2.new(-1000, -1000)
+local vStickBase, vStickKnob = HIDDEN, HIDDEN
+local function setStick(base: Vector2?, knob: Vector2?)
+	local b, k = base or HIDDEN, knob or HIDDEN
+	if (b - vStickBase).Magnitude < 0.5 and (k - vStickKnob).Magnitude < 0.5 then return end
+	vStickBase, vStickKnob = b, k
+	if Store.Values.tStickBase then
+		Store.Values.tStickBase:set(b)
+		Store.Values.tStickKnob:set(k)
+	end
+end
+
 local MOUSE_RAD_PER_PX = math.rad(0.16)
 local TOUCH_RAD_PER_PX = math.rad(0.32)
 local STICK_RAD_PER_S = math.rad(95)
@@ -288,12 +302,27 @@ function Input.Update(self, dt: number): Vector2
 	if self.LastDevice == "Touch" then
 		if oDragInput then
 			local p = Vector2.new(oDragInput.Position.X, oDragInput.Position.Y)
-			if vLastDrag == Vector2.zero then vLastDrag = vDragStart end
-			local delta = p - vLastDrag
-			vLastDrag = p
-			d = Vector2.new(delta.X, -delta.Y * inv) * TOUCH_RAD_PER_PX
+			if self.State.TouchMode == "Stick" then
+				-- virtual stick: where you hold relative to where you touched sets the turn rate
+				local off = p - vDragStart
+				local v = Vector2.new(off.X, -off.Y) / DRAG_RANGE
+				if v.Magnitude > 1 then v = v.Unit end
+				local knob = Vector2.new(v.X, -v.Y) * DRAG_RANGE
+				if v.Magnitude < 0.08 then v = Vector2.zero end
+				v = v * v.Magnitude -- fine control near the centre, full rate at the rim
+				d = Vector2.new(v.X, v.Y * inv) * STICK_RAD_PER_S * 1.15 * dt
+				local inset = game:GetService("GuiService"):GetGuiInset()
+				setStick(vDragStart + inset, vDragStart + inset + knob)
+			else
+				if vLastDrag == Vector2.zero then vLastDrag = vDragStart end
+				local delta = p - vLastDrag
+				vLastDrag = p
+				d = Vector2.new(delta.X, -delta.Y * inv) * TOUCH_RAD_PER_PX
+				setStick(nil, nil)
+			end
 		else
 			vLastDrag = Vector2.zero
+			setStick(nil, nil)
 		end
 	elseif self.LastDevice == "Gamepad" then
 		local s = if vStick1.Magnitude > vStick2.Magnitude then vStick1 else vStick2

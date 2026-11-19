@@ -449,11 +449,13 @@ return function(scope: any, props: { [string]: any })
 							end
 							return "SHOT DOWN"
 						end) }),
-					C.PrimaryButton(scope, { Name = "Relaunch", Text = "RELAUNCH", Position = UDim2.fromScale(0.5, 0.62),
+					-- while the REVIVE offer is up the two sit side by side (never over the killer card)
+					C.PrimaryButton(scope, { Name = "Relaunch", Text = "RELAUNCH",
+						Position = scope:Computed(function(use) return UDim2.fromScale(if use(V.bReviveOffer) then 0.36 else 0.5, 0.62) end),
 						OnClick = function() Flight:Relaunch() end }),
 					-- REVIVE HERE (Robux impulse offer for a few seconds after a real sortie)
 					scope:New("TextButton")({
-						Name = "Revive", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(360, 52),
+						Name = "Revive", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.66, 0.62), Size = UDim2.fromOffset(360, 60),
 						BackgroundColor3 = Theme.Hud, AutoButtonColor = true, Selectable = true, FontFace = Theme.Body, TextSize = 19,
 						TextColor3 = Color3.fromRGB(11, 26, 16), Text = "REVIVE HERE · KEEP YOUR CASH   R$ 25", Visible = V.bReviveOffer,
 						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("ShopClient")) :: any):Buy("ReviveHere") end,
@@ -465,6 +467,23 @@ return function(scope: any, props: { [string]: any })
 						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("HangarClient")) :: any):Open() end,
 					}),
 				},
+			}),
+
+			-- TOUCH STICK (Stick steering mode): ring where your thumb went down + knob
+			scope:New("Frame")({
+				Name = "StickRing", AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(280, 280), BackgroundTransparency = 1,
+				Position = screenPos(V.tStickBase),
+				Visible = scope:Computed(function(use) return (use(V.tStickBase) :: Vector2).X > -500 and use(flying) end),
+				[Children] = {
+					scope:New("UICorner")({ CornerRadius = UDim.new(0.5, 0) }),
+					scope:New("UIStroke")({ Color = Theme.Hud, Thickness = 2, Transparency = 0.45 }),
+				},
+			}),
+			scope:New("Frame")({
+				Name = "StickKnob", AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(64, 64), BackgroundColor3 = Theme.Hud, BackgroundTransparency = 0.6,
+				Position = screenPos(V.tStickKnob),
+				Visible = scope:Computed(function(use) return (use(V.tStickKnob) :: Vector2).X > -500 and use(flying) end),
+				[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0.5, 0) }) },
 			}),
 
 			-- TOUCH CONTROLS (thumb arc, bottom-right) --------------------------
