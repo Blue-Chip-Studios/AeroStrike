@@ -9,7 +9,7 @@
 
 return {
 	Passes = {
-		SeasonPremium = { Id = 0, Name = "Season 1 Premium", Price = 399, Order = 0 }, -- cosmetics + faster season track (no combat power)
+		SeasonPremium = { Id = 2094309905, Name = "Season 1 Premium", Price = 399, Order = 0 }, -- cosmetics + faster season track (no combat power)
 		WraithX = { Id = 2092347121, Name = "Wraith-X Stealth Ace", Price = 799, Order = 1 },
 		MultiLock = { Id = 2093211054, Name = "Multi-Lock Missiles", Price = 499, Order = 2 },
 		DoubleCash = { Id = 2092701119, Name = "2x Cash", Price = 399, Order = 3 },
@@ -19,7 +19,7 @@ return {
 		FlarePod = { Id = 2094537074, Name = "Extra Flare Pod", Price = 199, Order = 7 },
 	},
 	Products = {
-		ReviveHere = { Id = 0, Name = "Revive Here", Price = 25, Order = 0, Hidden = true, Grant = { Revive = true } }, -- death screen impulse buy
+		ReviveHere = { Id = 3733440715, Name = "Revive Here", Price = 25, Order = 0, Hidden = true, Grant = { Revive = true } }, -- death screen impulse buy
 		StarterAce = { Id = 3733032938, Name = "Starter Ace Bundle", Price = 99, OneTime = true, Order = 1,
 			Grant = { Jet = "ViperIX", Cash = 5000 } },
 		CashS = { Id = 3733032949, Name = "Cash Crate S", Price = 75, Order = 2, Grant = { Cash = 5000 } },
