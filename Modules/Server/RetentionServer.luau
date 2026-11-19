@@ -41,6 +41,9 @@ local PR = RetentionConfig.Prompts
 local tActive: { [Player]: number } = {}
 local tNext: { [Player]: number } = {}
 local tJoined: { [Player]: number } = {}
+local tInputAt: { [Player]: number } = {} -- last time the client reported real input (RetentionRequest "Active")
+local oRequest = Remote:GetEvent("RetentionRequest")
+local oReqLimiter = ModuleUtil.RateLimiter(10, 10)
 
 local function syncGift(p: Player)
 	local g = P.Gifts[tNext[p] or 1]
@@ -51,6 +54,9 @@ end
 local function isActive(p: Player): boolean
 	local s = Flight:GetSortie(p)
 	if not s then return false end
+	-- only time with real input counts (no AFK farming: auto-launch + the turn-back autopilot
+	-- would otherwise keep an unattended jet "active")
+	if os.clock() - (tInputAt[p] or -math.huge) > P.InputGrace then return false end
 	if s.Phase ~= "Dead" then return true end
 	return os.clock() - (s.DeadAt or 0) < P.DeadGrace
 end
@@ -129,7 +135,11 @@ local function flush()
 			if ds then
 				local ok, err = pcall(ds.IncrementAsync, ds, tostring(uid), n)
 				if not ok then
-					if string.find(tostring(err), "StudioAccessToApisNotAllowed") or string.find(tostring(err), "403") then bStoreOk = false end
+					if string.find(tostring(err), "StudioAccessToApisNotAllowed") or string.find(tostring(err), "403") then
+						bStoreOk = false
+					elseif kind == "D" then
+						tPending[uid] = (tPending[uid] or 0) + n -- retry next flush (weekly is re-added with it)
+					end
 				end
 			end
 		end
@@ -165,6 +175,7 @@ local function read(kind: "D" | "W"): { { Id: number, Name: string, Score: numbe
 end
 
 local oBoardGui: SurfaceGui? = nil
+local tTopLogged: { [number]: number } = {} -- userId -> day already logged / badge tried
 
 local function drawBoard()
 	if not oBoardGui then return end
@@ -250,7 +261,8 @@ local function refreshBoards()
 	drawBoard()
 	for i, e in ipairs(tBoard.daily) do
 		local p = Players:GetPlayerByUserId(e.Id)
-		if p and e.Score > 0 then
+		if p and e.Score > 0 and tTopLogged[e.Id] ~= dayKey() then
+			tTopLogged[e.Id] = dayKey()
 			local okB, Badge = pcall(require, ServerStorage.ServerModules:FindFirstChild("BadgeServer") :: any)
 			if okB and Badge and Badge.Award then Badge:Award(p, "TopAce") end
 			Analytics:Log(p, "board_top10", { pos = i })
@@ -265,6 +277,18 @@ end
 
 -------------------------------------------------------------------------------- prompts
 local tPrompted: { [Player]: boolean } = {}
+local tOffered: { [Player]: string } = {} -- prompt sent, waiting for the client's "shown"
+
+local function promptShown(p: Player, what: any)
+	if tOffered[p] == nil or tOffered[p] ~= what then return end
+	tOffered[p] = nil
+	local now = os.time()
+	Economy:SetProfileKey(p, "Prompts", function(v)
+		v = v or {}
+		if what == "Favorite" then v.Fav = now else v.Notif = now end
+		return v
+	end)
+end
 
 local function moment(p: Player, kind: string)
 	if not PR.Moments[kind] or tPrompted[p] or not p.Parent then return end
@@ -276,11 +300,7 @@ local function moment(p: Player, kind: string)
 	if now - (pr.Fav or 0) > cd then what = "Favorite" elseif now - (pr.Notif or 0) > cd then what = "Notify" end
 	if not what then return end
 	tPrompted[p] = true
-	Economy:SetProfileKey(p, "Prompts", function(v)
-		v = v or {}
-		if what == "Favorite" then v.Fav = now else v.Notif = now end
-		return v
-	end)
+	tOffered[p] = what
 	oEvent:FireClient(p, { a = "Prompt", what = what })
 	Analytics:Log(p, if what == "Favorite" then "prompt_favorite" else "prompt_notify", { moment = kind })
 end
@@ -325,6 +345,14 @@ function Retention.StartAsync(self)
 	end)
 	MasteryS.OnLevel.Event:Connect(function(p: Player) moment(p, "Mastery") end)
 
+	oRequest:OnServerEvent(function(p: Player, t: any)
+		if typeof(t) ~= "table" or not oReqLimiter:Check(p) then return end
+		if t.a == "Active" then
+			tInputAt[p] = os.clock()
+		elseif t.a == "PromptShown" then
+			promptShown(p, t.what)
+		end
+	end)
 	buildBoard()
 	task.spawn(function() while true do task.wait(1); tickGifts() end end)
 	task.spawn(function() while true do task.wait(B.FlushSecs); flush() end end)
@@ -344,6 +372,7 @@ end
 
 function Retention.PlayerRemoving(self, p: Player)
 	tActive[p], tNext[p], tKills[p], tJoined[p], tPrompted[p] = nil, nil, nil, nil, nil
+	tInputAt[p], tOffered[p] = nil, nil
 end
 
 return Retention

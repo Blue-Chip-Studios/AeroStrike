@@ -15,7 +15,7 @@ $items = @(
   @{ k='FlarePod';    kind='pass';    name='Extra Flare Pod';      price=199; desc='+4 flares on every jet you fly.' },
   @{ k='DoubleCash';  kind='pass';    name='2x Cash';              price=399; desc='Double Cash from every kill, mission and reward. Forever.' },
   @{ k='VIP';         kind='pass';    name='VIP Pilot';            price=249; desc='Gold name tag, exclusive gold contrail and +10% Ace XP.' },
-  @{ k='StarterAce';  kind='product'; name='Starter Ace Bundle';   price=99;  desc='Viper IX unlock + 5,000 Cash + Rookie Ace paint. One per pilot.' },
+  @{ k='StarterAce';  kind='product'; name='Starter Ace Bundle';   price=99;  desc='Viper IX unlock + 5,000 Cash. One per pilot.' },
   @{ k='CashS';       kind='product'; name='Cash Crate S';         price=75;  desc='5,000 Cash.' },
   @{ k='CashM';       kind='product'; name='Cash Crate M';         price=299; desc='25,000 Cash.' },
   @{ k='CashL';       kind='product'; name='Cash Crate L';         price=899; desc='100,000 Cash.' },

@@ -253,7 +253,8 @@ local function onMissile(oPlayer: Player, t: any)
 		-- no confirmed lock: the missile still leaves the rail, unguided, with a proximity fuse
 		spawnMissile(oPlayer, root.CFrame * CFrame.new(2, -1.5, -4), nil, WeaponConfig.Missile.Damage, 1, s.Jet)
 		tMissiles[#tMissiles].Unguided = true
-		ammo.Missiles -= 1
+		-- tutorial: missiles don't run out (a rookie who misses twice would be stuck on the lock step)
+		if not s.Jet:GetAttribute("Training") then ammo.Missiles -= 1 end
 		tLastMissile[oPlayer] = now
 		s.Jet:SetAttribute("Missiles", ammo.Missiles)
 		return
@@ -271,7 +272,7 @@ local function onMissile(oPlayer: Player, t: any)
 		local dmg = if #targets > 1 then WeaponConfig.MultiLock.Damage else WeaponConfig.Missile.Damage
 		local side = if fired % 2 == 0 then 2 else -2
 		spawnMissile(oPlayer, root.CFrame * CFrame.new(side, -1.5, -4), target, dmg, s.Stats.MissileTurnMult or 1, s.Jet)
-		ammo.Missiles -= 1
+		if not s.Jet:GetAttribute("Training") then ammo.Missiles -= 1 end
 		fired += 1
 	end
 	if fired > 0 then
@@ -456,6 +457,10 @@ function Combat.StartAsync(self)
 		elseif t.a == "Missile" then onMissile(oPlayer, t)
 		elseif t.a == "Flare" then onFlare(oPlayer)
 		elseif t.a == "Lock" then onLock(oPlayer, t) end
+		-- session funnel steps (once per session)
+		local A = require(ServerStorage.ServerModules.AnalyticsServer)
+		if t.a == "Gun" then A:LogOnce(oPlayer, "session_first_shot")
+		elseif t.a == "Lock" and t.s == "Locked" then A:LogOnce(oPlayer, "session_first_lock") end
 	end)
 
 	-- rearm on spawn and on touch-and-go

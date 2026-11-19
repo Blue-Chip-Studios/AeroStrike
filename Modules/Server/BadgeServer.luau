@@ -47,6 +47,7 @@ end
 
 local REWARD_BADGES = {
 	Kill = "FirstKill",
+	BotKill = "FirstKill",
 	SonicBoom = "MachOne",
 	CarrierTrap = "CarrierTrap",
 	BountyClaim = "BountyHunter",

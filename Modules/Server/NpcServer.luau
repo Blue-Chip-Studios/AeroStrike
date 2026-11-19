@@ -286,7 +286,8 @@ local function noseGun(n: Npc, now: number)
 				n.LastShot = now
 				-- steady targets get hit; a hard break (high G) throws the gunner's aim off
 				local jink = math.clamp(1.25 - targetG(jet) / 8, 0.3, 1)
-				local hit = math.random() < g.HitChance * (1 - dist / g.Range * 0.5) * jink
+				local rookie = if jet:GetAttribute("Rookie") then 0.5 else 1 -- new pilots (rank <= FlightConfig.RookieMaxRank) get a chance to learn
+				local hit = math.random() < g.HitChance * (1 - dist / g.Range * 0.5) * jink * rookie
 				local miss = if hit then Vector3.zero else Vector3.new(math.random(-14, 14), math.random(-8, 8), math.random(-14, 14))
 				oCombatEvent:FireAllClients({ a = "NpcFire", from = root.Position + fwd * 14, to = jet.PrimaryPart.Position + miss })
 				if hit then Combat:Damage(jet, g.Damage, nil, if n.Cfg.Bot then (n.Model:GetAttribute("Pilot") :: string) else "Red Talon") end
@@ -336,7 +337,8 @@ local function aiMissile(n: Npc, now: number)
 		end
 		return
 	end
-	if now - (n.LockT0 :: number) >= mc.LockTime then
+	local lockTime = mc.LockTime * (if (n.LockOn :: Model):GetAttribute("Rookie") then 1.6 else 1)
+	if now - (n.LockT0 :: number) >= lockTime then
 		local jet = n.LockOn :: Model
 		releaseLock(n)
 		n.LastMissile = now
@@ -403,7 +405,7 @@ function Npc.Spawn(self, sKind: string, cf: CFrame, opts: { [string]: any }?): M
 		local JetConfig = require(ReplicatedStorage.Config.JetConfig)
 		local jc = JetConfig.Jets[botJet]
 		local names = {}
-		for k in pairs(jc.Paints) do table.insert(names, k) end
+		for k in pairs(jc.Paints) do if not JetConfig.IsMasteryPaint(k) then table.insert(names, k) end end
 		W:ApplyPaint(m, jc.Paints[names[math.random(1, #names)]])
 		local cs = NpcConfig.Callsigns
 		local call = cs.Prefix[math.random(1, #cs.Prefix)] .. cs.Suffix[math.random(1, #cs.Suffix)]

@@ -305,9 +305,12 @@ function Input.Update(self, dt: number): Vector2
 			if self.State.TouchMode == "Stick" then
 				-- virtual stick: where you hold relative to where you touched sets the turn rate
 				local off = p - vDragStart
-				local v = Vector2.new(off.X, -off.Y) / DRAG_RANGE
+				local okR, Resp = pcall(require, script.Parent.ResponsiveUIController)
+				local uiScale = if okR and Resp and Resp.Scale then Resp.Scale else 1
+				local range = DRAG_RANGE * uiScale -- the ring is drawn with the HUD's UI scale
+				local v = Vector2.new(off.X, -off.Y) / range
 				if v.Magnitude > 1 then v = v.Unit end
-				local knob = Vector2.new(v.X, -v.Y) * DRAG_RANGE
+				local knob = Vector2.new(v.X, -v.Y) * range
 				if v.Magnitude < 0.08 then v = Vector2.zero end
 				v = v * v.Magnitude -- fine control near the centre, full rate at the rim
 				d = Vector2.new(v.X, v.Y * inv) * STICK_RAD_PER_S * 1.15 * dt

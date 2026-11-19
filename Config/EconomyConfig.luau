@@ -25,7 +25,7 @@ return {
 		CanyonGold = { Cash = 150, XP = 50 },
 		AceEvade = { Cash = 40, XP = 25 },
 		PerfectLaunch = { Cash = 10, XP = 5 },
-		DroneTraining = { Cash = 0, XP = 20 },
+		DroneTraining = { Cash = 20, XP = 20 },
 		BountyClaim = { Cash = 0, XP = 300 }, -- cash comes from the bounty value
 		Daily = { Cash = 0, XP = 50 },
 		MultiKill = { Cash = 0, XP = 60 }, -- cash scales with the chain (MultiKill.CashPerStep)

@@ -225,8 +225,9 @@ local function shop(oPlayer: Player, t: any): any
 end
 
 local CAMERAS = { Chase = true, Close = true, Nose = true }
+local tSettingsLimiter = ModuleUtil.RateLimiter(10, 3)
 local function saveSettings(oPlayer: Player, t: any)
-	if typeof(t) ~= "table" or not tShopLimiter:Check(oPlayer) then return end
+	if typeof(t) ~= "table" or not tSettingsLimiter:Check(oPlayer) then return end
 	setKey(oPlayer, "Settings", function(s)
 		s = s or {}
 		if typeof(t.Sensitivity) == "number" and t.Sensitivity == t.Sensitivity then s.Sensitivity = math.clamp(math.floor(t.Sensitivity * 10 + 0.5) / 10, 0.3, 2.5) end
@@ -325,6 +326,9 @@ function Economy.StartAsync(self)
 
 	-- a safe landing banks your cash too, plus a landing bonus (once per flight: you have to take off again)
 	local tLandedSince: { [Player]: number } = {}
+	Players.PlayerRemoving:Connect(function(p: Player)
+		task.defer(function() tChain[p], tLandedSince[p], tLost[p] = nil, nil, nil end)
+	end)
 	Flight.OnLaunched.Event:Connect(function(oPlayer: Player) tLandedSince[oPlayer] = os.clock() end)
 	Flight.OnResupply.Event:Connect(function(oPlayer: Player, where: string)
 		self:Bank(oPlayer)

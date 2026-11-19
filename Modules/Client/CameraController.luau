@@ -64,7 +64,7 @@ local function update(dt: number)
 	local st = Flight.State
 
 	-- nose view hides your own airframe only while flying in that mode (and never in the kill cam)
-	hideOwnJet(jet, Cam.Mode == "Nose" and phase == "Flying" and os.clock() >= nKillCamUntil and jet ~= nil and jet.Parent ~= nil)
+	hideOwnJet(jet, Cam.Mode == "Nose" and phase == "Flying" and not Input.State.FreeLook and os.clock() >= nKillCamUntil and jet ~= nil and jet.Parent ~= nil)
 
 	if phase == "Dead" or not jet or not jet.Parent or not jet.PrimaryPart then
 		-- you ejected: watch your own parachute drift down (with the wreck falling away behind)

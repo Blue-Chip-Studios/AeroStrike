@@ -62,7 +62,7 @@ return {
 	ResupplyMaxSpeed = 12, -- studs/s: stop (almost) to resupply
 
 	-- Rookie assists (ranks 1..RookieMaxRank): no G-LOC, automatic gear, forgiving touchdowns
-	RookieMaxRank = 3,
+	RookieMaxRank = 5,
 	RookieStrainCap = 0.9, -- strain stops short of a blackout (the warning still shows)
 	RookieTouchdownSpeed = 1.2, -- x the normal touchdown speed limit
 	RookieTouchdownSink = 1.6, -- x the normal sink limit

@@ -20,8 +20,9 @@ local oReq
 
 local CAMERAS = { "Chase", "Close", "Nose" }
 
+local tPending: { [string]: any }? = nil -- local edits not yet echoed back by the replica
 local function current(): { [string]: any }
-	return table.clone(((peek(Store.Values.tHangar) :: any).Settings) or {})
+	return table.clone(tPending or ((peek(Store.Values.tHangar) :: any).Settings) or {})
 end
 
 local function apply(s: { [string]: any })
@@ -32,9 +33,17 @@ local function apply(s: { [string]: any })
 	Input.State.TouchMode = if s.TouchSteer == "Stick" then "Stick" else "Swipe"
 end
 
+local nSendToken = 0
 local function send(s: { [string]: any })
 	apply(s) -- feel it immediately; the replica echo confirms
-	oReq:FireServer(s)
+	tPending = s
+	nSendToken += 1
+	local token = nSendToken
+	task.delay(0.35, function() -- debounce rapid taps into one save
+		if token ~= nSendToken then return end
+		oReq:FireServer(s)
+		task.delay(2, function() if token == nSendToken then tPending = nil end end)
+	end)
 end
 
 function Settings.Open(self)

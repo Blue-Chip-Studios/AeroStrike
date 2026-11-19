@@ -20,6 +20,7 @@ return {
 			{ At = 30, Cash = 1200, Label = "30-MINUTE GIFT" },
 		},
 		DeadGrace = 20, -- seconds on the relaunch screen that still count as active
+		InputGrace = 40, -- a second only counts if the player gave real input within this many seconds
 	},
 	Boards = {
 		Size = 10,

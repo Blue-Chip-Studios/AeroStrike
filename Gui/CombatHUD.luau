@@ -284,7 +284,7 @@ return function(scope: any, props: { [string]: any })
 						Image = scope:Computed(function(use) local i = use(V.tShopInfo).StarterAce return if i then i.Icon else "" end) }),
 					C.HudText(scope, { Text = "STARTER ACE BUNDLE", Font = Theme.Display, TextSize = 18, Color = Theme.Amber, AnchorPoint = Vector2.zero,
 						XAlign = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(200, 34), Size = UDim2.fromOffset(300, 24), ZIndex = 21 }),
-					C.HudText(scope, { Text = "Viper IX interceptor + 5,000 Cash + Rookie Ace paint. One time only.", Font = Theme.Body, TextSize = 17,
+					C.HudText(scope, { Text = "Viper IX interceptor + 5,000 Cash. One time only.", Font = Theme.Body, TextSize = 17,
 						Color = Theme.Ink, AnchorPoint = Vector2.zero, XAlign = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(200, 64),
 						Size = UDim2.fromOffset(300, 70), ZIndex = 21 }),
 					C.PrimaryButton(scope, { Name = "BuyStarter", AnchorPoint = Vector2.zero, Position = UDim2.fromOffset(200, 150), Size = UDim2.fromOffset(300, 48),

@@ -109,8 +109,15 @@ local function onSpawned(t: any)
 		return
 	end
 	Flight.Jet = jet
-	tRayParams.FilterDescendantsInstances = { Workspace:FindFirstChild("Jets") :: Instance }
-	tGroundRay.FilterDescendantsInstances = { Workspace:FindFirstChild("Jets") :: Instance }
+	-- crash test only against the world: never other aircraft's invisible weapon hitboxes,
+	-- missiles or client effects (flying close to a drone used to count as a crash)
+	local ignore: { Instance } = {}
+	for _, n in ipairs({ "Jets", "NPC", "Missiles", "AS_Fx" }) do
+		local f = Workspace:FindFirstChild(n)
+		if f then table.insert(ignore, f) end
+	end
+	tRayParams.FilterDescendantsInstances = ignore
+	tGroundRay.FilterDescendantsInstances = ignore
 	Flight.State = FlightModel.NewState(t.start, 0, t.stats.Fuel)
 	Flight.GearDown = true
 	Store.Values.bGearDown:set(true)

@@ -53,7 +53,27 @@ local function updateGift(dt: number)
 	if s ~= sLast then sLast = s; Store.Values.sGiftLine:set(s) end
 end
 
+local oReq: any = nil
+-- tell the server we're really playing (any input in the last 30 s), every 15 s
+local nLastInput = os.clock()
+local function watchInput()
+	local UIS = game:GetService("UserInputService")
+	local function bump(inp: InputObject)
+		local t = inp.UserInputType
+		if t ~= Enum.UserInputType.MouseMovement or UIS.MouseBehavior == Enum.MouseBehavior.LockCenter then nLastInput = os.clock() end
+	end
+	UIS.InputBegan:Connect(bump)
+	UIS.InputChanged:Connect(bump)
+	task.spawn(function()
+		while true do
+			if os.clock() - nLastInput < 30 and oReq then oReq:FireServer({ a = "Active" }) end
+			task.wait(15)
+		end
+	end)
+end
+
 local function showPrompt(what: string)
+	if oReq then oReq:FireServer({ a = "PromptShown", what = what }) end
 	if what == "Favorite" then
 		pcall(function()
 			AvatarEditorService:PromptSetFavorite(game.PlaceId, Enum.AvatarItemType.Asset, true)
@@ -82,6 +102,8 @@ end
 
 function Retention.StartAsync(self)
 	Flight = require(script.Parent.FlightController)
+	oReq = Remote:GetEvent("RetentionRequest")
+	watchInput()
 	Remote:GetEvent("RetentionEvent"):OnClientEvent(function(t: any)
 		if typeof(t) ~= "table" then return end
 		if t.a == "Gift" then

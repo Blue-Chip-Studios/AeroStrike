@@ -215,7 +215,9 @@ local function spawnTraining()
 	local centre = (MapConfig.Carrier.CFrame * CFrame.new(cfg.Offset)).Position
 	for i = 1, cfg.Drones do
 		local cf = CFrame.new(centre + Vector3.new(cfg.Orbit * (i == 1 and 1 or -1), 0, 0))
-		Npc:Spawn("Drone", cf, { Orbit = { Centre = centre, Radius = cfg.Orbit }, Tag = "Training" })
+		local m = Npc:Spawn("Drone", cf, { Orbit = { Centre = centre, Radius = cfg.Orbit }, Tag = "Training" })
+		local hb = m and m:FindFirstChild("Hitbox")
+		if hb and hb:IsA("BasePart") and cfg.HitboxScale then hb.Size *= cfg.HitboxScale end
 	end
 end
 

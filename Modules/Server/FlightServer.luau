@@ -139,6 +139,8 @@ function Flight.Spawn(self, oPlayer: Player)
 	jet:SetAttribute("MaxHealth", stats.Health)
 	jet:SetAttribute("Shield", true)
 	jet:SetAttribute("Pilot", oPlayer.DisplayName)
+	if stats.Rookie then jet:SetAttribute("Rookie", true) end -- AI goes easier on new pilots (NpcServer)
+	pcall(function() require(ServerStorage.ServerModules.AnalyticsServer):LogOnce(oPlayer, "session_spawned") end)
 	local trail = mProfile:GetAsync(oPlayer, "EquippedTrail") or ""
 	if trail ~= "" then jet:SetAttribute("Trail", trail) end
 	if stats.Special == "LowObservable" then jet:SetAttribute("LowObservable", true) end

@@ -36,7 +36,7 @@ local MIN_SCALE, MAX_SCALE, REF_HEIGHT = 0.58, 1.15, 720
 -- LEGIBILITY: after scaling, no text renders smaller than this many pixels (phones need more)
 local MIN_TEXT_TOUCH, MIN_TEXT = 11, 10
 local tScales: { UIScale } = {}
-local tTexts: { [Instance]: number } = {} -- text object -> authored TextSize
+local tTexts: { [Instance]: number } = setmetatable({}, { __mode = "k" }) :: any -- text object -> authored TextSize
 
 local function effectiveScale(o: Instance): number
 	local s = 1
@@ -81,7 +81,7 @@ end
 -- Menu windows (Hangar / Shop / Season: a screen-fraction "Window") scale as one unit: the
 -- window gets a UIScale and a proportionally bigger logical size, so on a phone it keeps the
 -- desktop layout instead of showing three oversized cards and a long scroll.
-local tBoxes: { [GuiObject]: UDim2 } = {}
+local tBoxes: { [GuiObject]: UDim2 } = setmetatable({}, { __mode = "k" }) :: any
 local function windowScale(): number
 	return math.clamp(Responsive.Scale, 0.62, 1)
 end

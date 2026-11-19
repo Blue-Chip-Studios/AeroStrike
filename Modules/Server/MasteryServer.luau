@@ -31,7 +31,10 @@ local function schemesAt(level: number): { string }
 end
 
 local function add(p: Player, n: number)
-	local jetId = mProfile:GetAsync(p, "EquippedJet")
+	local okF, Flight = pcall(require, ServerStorage.ServerModules.FlightServer)
+	local s = okF and Flight.GetSortie and Flight:GetSortie(p)
+	local flown = s and s.Jet and s.Jet:GetAttribute("JetId")
+	local jetId = flown or mProfile:GetAsync(p, "EquippedJet")
 	if not jetId or not JetConfig.Jets[jetId] or n <= 0 then return end
 	local all = mProfile:GetAsync(p, "Mastery") or {}
 	local before = all[jetId] or 0
