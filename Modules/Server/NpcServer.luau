@@ -260,6 +260,12 @@ local function targetG(jet: Model): number
 	return 1 + root.AssemblyAngularVelocity.Magnitude * root.AssemblyLinearVelocity.Magnitude * 0.032
 end
 
+-- bot-on-bot fights stay over the combat zone (chasing each other they used to drift off the map for good)
+local function inArena(p: Vector3): boolean
+	local P = NpcConfig.Population
+	return (Vector3.new(p.X, 0, p.Z) - Vector3.new(P.Centre.X, 0, P.Centre.Z)).Magnitude < Engage.BotArena
+end
+
 -- Fighters hunt: chase the nearest player (with lead) when not defending
 local function pursue(n: Npc, pos: Vector3, routeTarget: Vector3): Vector3
 	local d = n.Cfg.Dogfight
@@ -271,6 +277,7 @@ local function pursue(n: Npc, pos: Vector3, routeTarget: Vector3): Vector3
 	local tp = e.PrimaryPart :: BasePart
 	local bd = (tp.Position - pos).Magnitude
 	if bd > d.Range * 1.3 then return routeTarget end
+	if e.Parent ~= workspace.Jets and not (inArena(pos) and inArena(tp.Position)) then return routeTarget end
 	n.Chasing = true
 	return tp.Position + tp.AssemblyLinearVelocity * math.clamp(bd / 600, 0, 1.2)
 end
@@ -581,6 +588,7 @@ local function assignTargets(self, now: number)
 		local function ok(m: Model?): boolean
 			local o = m and self.Active[m]
 			return o ~= nil and aliveModel(m) and o.Side ~= nil and o.Side ~= n.Side and dist(n.Model, m :: Model) < n.Cfg.Dogfight.Range
+				and inArena((n.Model.PrimaryPart :: BasePart).Position) and inArena(((m :: Model).PrimaryPart :: BasePart).Position)
 		end
 		if not (n.Engage and ok(n.Engage)) then
 			n.Engage = nil

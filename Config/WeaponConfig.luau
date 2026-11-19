@@ -10,6 +10,8 @@ return {
 		Range = 850,
 		Spread = math.rad(0.6),
 		ConeTolerance = math.rad(14), -- server: target must be within this of the nose
+		AssistTouch = math.rad(4.5), -- client aim assist: rounds bend onto a target this close to the nose (touch / gamepad)
+		AssistMouse = math.rad(1.5),
 		HeatPerShot = 0.018, -- ~3 s of fire to overheat
 		CoolRate = 0.45, -- per second when not firing
 		OverheatLock = 1.6, -- seconds locked out at 100%

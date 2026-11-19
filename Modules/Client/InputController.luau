@@ -273,10 +273,12 @@ end
 
 local MOUSE_RAD_PER_PX = math.rad(0.16)
 local TOUCH_RAD_PER_PX = math.rad(0.32)
-local STICK_RAD_PER_S = math.rad(95)
 local HOLD_RANGE = 150 -- px (x UI scale) from the touch point to full hold-turn rate
 local HOLD_DEAD = 0.18 -- small offsets stay pure swipe so precise aiming doesn't drift
-local HOLD_RATE = 1.1 -- x STICK_RAD_PER_S at full hold
+-- full deflection must swing the aim faster than any jet can turn (TurnRate 1.35-1.8 rad/s), or the
+-- jet never pulls max G on touch / gamepad and the G mechanic (strain, vignette, shake) never kicks in
+local PULL_RAD_PER_S = math.rad(165)
+local HOLD_RATE = 1.0 -- x PULL_RAD_PER_S at full hold
 
 function Input.SetFlightMouseLock(self, bLock: boolean)
 	if self.LastDevice == "KeyboardMouse" then
@@ -316,7 +318,7 @@ function Input.Update(self, dt: number): Vector2
 				local knob = Vector2.new(v.X, -v.Y) * range
 				if v.Magnitude < 0.08 then v = Vector2.zero end
 				v = v * v.Magnitude -- fine control near the centre, full rate at the rim
-				d = Vector2.new(v.X, v.Y * inv) * STICK_RAD_PER_S * 1.15 * dt
+				d = Vector2.new(v.X, v.Y * inv) * PULL_RAD_PER_S * dt
 				local inset = game:GetService("GuiService"):GetGuiInset()
 				setStick(vDragStart + inset, vDragStart + inset + knob)
 			else
@@ -336,8 +338,8 @@ function Input.Update(self, dt: number): Vector2
 				local m = v.Magnitude
 				if m > HOLD_DEAD then
 					local k = (m - HOLD_DEAD) / (1 - HOLD_DEAD)
-					local hv = v.Unit * (k * k)
-					d += Vector2.new(hv.X, hv.Y * inv) * STICK_RAD_PER_S * HOLD_RATE * dt
+					local hv = v.Unit * (k ^ 1.6)
+					d += Vector2.new(hv.X, hv.Y * inv) * PULL_RAD_PER_S * HOLD_RATE * dt
 					local inset = game:GetService("GuiService"):GetGuiInset()
 					setStick(vDragStart + inset, vDragStart + inset + Vector2.new(v.X, -v.Y) * range)
 				else
@@ -353,7 +355,7 @@ function Input.Update(self, dt: number): Vector2
 		if s.Magnitude < 0.12 then s = Vector2.zero end
 		-- squared response: fine control near centre, fast at full deflection
 		s = s * s.Magnitude
-		d = Vector2.new(s.X, s.Y * inv) * STICK_RAD_PER_S * dt
+		d = Vector2.new(s.X, s.Y * inv) * PULL_RAD_PER_S * dt
 	else
 		local md = UserInputService:GetMouseDelta()
 		-- a one-frame jump this big is a window-focus / alt-tab artefact, not a flick

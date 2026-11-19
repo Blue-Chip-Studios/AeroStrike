@@ -182,5 +182,6 @@ return {
 		SelfDefence = 10, -- a bot hit by a player within this many seconds targets that player
 		BotDogfights = true,
 		BotVsBotDamage = 0.4, -- bot-on-bot gun damage multiplier (fights last and look busy)
+		BotArena = 2700, -- bot-on-bot fights only within this distance of Population.Centre (then back to patrol)
 	},
 }

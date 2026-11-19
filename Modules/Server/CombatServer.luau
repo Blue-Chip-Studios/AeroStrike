@@ -452,6 +452,20 @@ local function stepMissiles(dt: number)
 		end
 		m.Vel = newDir * speed
 		local newPos = pos + m.Vel * dt
+		-- closest approach this step (relative motion): a fast crossing shot can pass the fuse radius between
+		-- two server ticks, which used to read as "the lock was fine but it flew straight past"
+		if not m.DecoyPos and m.Target and m.Target.PrimaryPart then
+			local tv = m.Target.PrimaryPart.AssemblyLinearVelocity
+			local rel0 = (targetPos :: Vector3) - pos
+			local relV = tv - m.Vel
+			local tStar = math.clamp(-rel0:Dot(relV) / math.max(relV:Dot(relV), 1e-6), 0, dt)
+			if (rel0 + relV * tStar).Magnitude < WeaponConfig.Missile.Fuse then
+				table.remove(tMissiles, i)
+				m.Part.CFrame = CFrame.new(pos + m.Vel * tStar)
+				detonate(m, m.Target)
+				continue
+			end
+		end
 		-- terrain impact
 		tRay.FilterDescendantsInstances = { workspace.Terrain }
 		local hit = workspace:Raycast(pos, newPos - pos, tRay)

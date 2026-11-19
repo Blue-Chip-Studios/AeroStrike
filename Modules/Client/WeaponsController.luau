@@ -258,6 +258,11 @@ local function flushHits()
 	nShotsPending = 0
 end
 
+-- what the HUD marks this frame; projected to the screen AFTER the camera moves (see project)
+local tShown: { Model } = {}
+local oBoxTarget: Model? = nil
+local oPipTarget: Model? = nil
+
 local function step(dt: number)
 	local jet = Flight.Jet
 	local phase = Flight.Phase
@@ -268,6 +273,7 @@ local function step(dt: number)
 		nLockProgress = 0
 		Store.Values.sLockState:set("None")
 		Store.Values.tTargets:set({})
+		tShown, oBoxTarget, oPipTarget = {}, nil, nil
 		Weapons.FocusTarget = nil
 		Store.Values.sThreat:set("None")
 		return
@@ -281,19 +287,13 @@ local function step(dt: number)
 	local hud = {}
 	local best: Model? = nil
 	local bestAngle = WeaponConfig.Missile.LockCone
-	local leadScreen = Vector2.new(-1000, -1000)
 	local nearestGun: Model? = nil
 	local nearestGunDist = WeaponConfig.Gun.Range
 	for _, m in ipairs(targets) do
 		local p = (m.PrimaryPart :: BasePart).Position
 		local to = p - cf.Position
 		local dist = to.Magnitude
-		local sp, on = cam:WorldToViewportPoint(p)
-		local kind = if m:GetAttribute("NpcKind") and not m:GetAttribute("Bot") then "Mission" elseif m:GetAttribute("Bounty") then "Ace"
-			elseif LocalPlayer:GetAttribute("RevengeOn") == m:GetAttribute("OwnerUserId") then "Revenge" else "Enemy"
-		if on and dist < 6000 then
-			table.insert(hud, { Pos = Vector2.new(sp.X, sp.Y), Name = m:GetAttribute("Pilot") or m:GetAttribute("NpcKind") or "", Kind = kind, Dist = dist, Id = m.Name })
-		end
+		if dist < 6000 then table.insert(hud, m) end
 		local angle = math.acos(math.clamp(cf.LookVector:Dot(to.Unit), -1, 1))
 		if dist < WeaponConfig.Missile.LockRange and angle < bestAngle then
 			best = m
@@ -304,7 +304,7 @@ local function step(dt: number)
 			nearestGunDist = dist
 		end
 	end
-	Store.Values.tTargets:set(hud)
+	tShown = hud
 
 	-- secondary locks for multi-lock jets/pass: every target in the cone builds its own progress
 	local maxLocks = stats.MultiLock or 1
@@ -397,21 +397,9 @@ local function step(dt: number)
 	Store.Values.sLockState:set(newState)
 	if RunService:IsStudio() then LocalPlayer:SetAttribute("QA_Lock", newState .. ":" .. (if best then best.Name else "")) end
 	Store.Values.nLockProgress:set(if best then nLockProgress / lockTime else 0)
-	if best then
-		local sp, on = cam:WorldToViewportPoint((best.PrimaryPart :: BasePart).Position)
-		Store.Values.tLockScreen:set(if on then Vector2.new(sp.X, sp.Y) else Vector2.new(-1000, -1000))
-	else
-		Store.Values.tLockScreen:set(Vector2.new(-1000, -1000))
-	end
-
-	-- lead pip for guns
-	if nearestGun then
-		local tp = (nearestGun.PrimaryPart :: BasePart)
-		local lead = tp.Position + tp.AssemblyLinearVelocity * (nearestGunDist / WeaponConfig.Gun.MuzzleSpeed)
-		local sp, on = cam:WorldToViewportPoint(lead)
-		if on then leadScreen = Vector2.new(sp.X, sp.Y) end
-	end
-	Store.Values.tLeadScreen:set(leadScreen)
+	oBoxTarget = best
+	-- gun pip: guns are hitscan (instant), so the place to shoot IS the target's hitbox, not a lead point
+	oPipTarget = nearestGun
 
 	-- guns
 	local now = os.clock()
@@ -432,7 +420,19 @@ local function step(dt: number)
 			nShotsPending += 1
 			nHeat += WeaponConfig.Gun.HeatPerShot
 			local spread = WeaponConfig.Gun.Spread
-			local dir = (cf * CFrame.Angles((math.random() - 0.5) * spread, (math.random() - 0.5) * spread, 0)).LookVector
+			-- aim assist: rounds bend onto a target that is almost on the nose (more on touch / gamepad)
+			local aimCf = cf
+			if nearestGun then
+				local hb = nearestGun:FindFirstChild("Hitbox") :: BasePart? or nearestGun.PrimaryPart
+				if hb then
+					local toT = (hb.Position - cf.Position).Unit
+					local cone = if Input.LastDevice == "KeyboardMouse" then WeaponConfig.Gun.AssistMouse else WeaponConfig.Gun.AssistTouch
+					if math.acos(math.clamp(cf.LookVector:Dot(toT), -1, 1)) < cone then
+						aimCf = CFrame.lookAt(cf.Position, cf.Position + toT, cf.UpVector)
+					end
+				end
+			end
+			local dir = (aimCf * CFrame.Angles((math.random() - 0.5) * spread, (math.random() - 0.5) * spread, 0)).LookVector
 			local origin = cf.Position + cf.LookVector * 14 + cf.UpVector * -0.6
 			local hit = Workspace:Raycast(origin, dir * WeaponConfig.Gun.Range, tRay)
 			if hit and hit.Instance.Name == "Hitbox" and hit.Instance.Parent then
@@ -561,6 +561,36 @@ function Weapons.StartAsync(self)
 		elseif sName == "Flare" then fireFlare() end
 	end)
 	RunService.Heartbeat:Connect(step)
+	-- project HUD markers after the camera has moved this frame (on Heartbeat they trailed a frame behind,
+	-- so in a turn the lock box / pip sat beside the plane, worse at low frame rates)
+	RunService:BindToRenderStep("AS_WeaponsHud", Enum.RenderPriority.Camera.Value + 2, function()
+		if Flight.Phase ~= "Flying" then return end
+		local cam = Workspace.CurrentCamera
+		local jet = Flight.Jet
+		local myPos = if jet and jet.PrimaryPart then jet.PrimaryPart.Position else cam.CFrame.Position
+		local hud = {}
+		for _, m in ipairs(tShown) do
+			local pp = m.PrimaryPart
+			if pp and m.Parent and not m:GetAttribute("Dead") then
+				local sp, on = cam:WorldToViewportPoint(pp.Position)
+				if on then
+					local kind = if m:GetAttribute("NpcKind") and not m:GetAttribute("Bot") then "Mission" elseif m:GetAttribute("Bounty") then "Ace"
+						elseif LocalPlayer:GetAttribute("RevengeOn") == m:GetAttribute("OwnerUserId") then "Revenge" else "Enemy"
+					table.insert(hud, { Pos = Vector2.new(sp.X, sp.Y), Name = m:GetAttribute("Pilot") or m:GetAttribute("NpcKind") or "", Kind = kind,
+						Dist = (pp.Position - myPos).Magnitude, Id = m.Name })
+				end
+			end
+		end
+		Store.Values.tTargets:set(hud)
+		local function screenOf(m: Model?): Vector2
+			local pp = m and (m:FindFirstChild("Hitbox") :: BasePart? or m.PrimaryPart)
+			if not pp then return Vector2.new(-1000, -1000) end
+			local sp, on = cam:WorldToViewportPoint(pp.Position)
+			return if on then Vector2.new(sp.X, sp.Y) else Vector2.new(-1000, -1000)
+		end
+		Store.Values.tLockScreen:set(screenOf(oBoxTarget))
+		Store.Values.tLeadScreen:set(screenOf(oPipTarget))
+	end)
 end
 
 return Weapons
