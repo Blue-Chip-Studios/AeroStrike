@@ -77,6 +77,8 @@ function Analytics.LogOnce(self, oPlayer: Player, sEvent: string, tData: { [stri
 end
 
 function Analytics.Economy(self, oPlayer: Player, sFlow: "Source" | "Sink", sCurrency: string, nAmount: number, nBalance: number, sTxType: string, sSku: string?)
+	local okM, Metrics = pcall(require, game:GetService("ServerStorage").ServerModules.MetricsServer)
+	if okM and Metrics and Metrics.Econ then pcall(Metrics.Econ, Metrics, oPlayer, sFlow, nAmount, sTxType, sSku) end
 	safe(function()
 		local eFlow = if sFlow == "Source" then Enum.AnalyticsEconomyFlowType.Source else Enum.AnalyticsEconomyFlowType.Sink
 		local eTx = Enum.AnalyticsEconomyTransactionType.Gameplay

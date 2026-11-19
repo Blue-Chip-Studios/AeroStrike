@@ -165,6 +165,12 @@ function Combat.Damage(self, victim: Model, nDmg: number, attacker: Player?, sWe
 end
 
 -- ===================== GUNS =====================
+-- MetricsServer mechanics counters (never let metrics break combat)
+local function mech(p: Player?, key: string, n: number?)
+	local ok, M = pcall(require, ServerStorage.ServerModules.MetricsServer)
+	if ok and M and M.Mech then pcall(M.Mech, M, p, key, n) end
+end
+
 local function onGun(oPlayer: Player, t: any)
 	local s = flight():GetSortie(oPlayer)
 	if not s or s.Phase ~= "Flying" or not s.Jet.PrimaryPart then return end
@@ -177,6 +183,7 @@ local function onGun(oPlayer: Player, t: any)
 	if now < g.Locked then return end
 	local shots = math.clamp(tonumber(t.shots) or 0, 0, math.ceil(WeaponConfig.Gun.FireRate * math.min(dt, 0.5) * 1.3) + 1)
 	g.Heat += shots * WeaponConfig.Gun.HeatPerShot
+	if shots > 0 then mech(oPlayer, "gun_shots", shots) end
 	if g.Heat >= 1 then
 		g.Heat = 1
 		g.Locked = now + WeaponConfig.Gun.OverheatLock
@@ -203,6 +210,7 @@ local function onGun(oPlayer: Player, t: any)
 		budget -= n
 		if n > 0 then
 			Combat:Damage(target, n * WeaponConfig.Gun.Damage, oPlayer, "Cannon")
+			mech(oPlayer, "gun_hits", n)
 			oEvent:FireClient(oPlayer, { a = "Hit", t = target.Name, dmg = n * WeaponConfig.Gun.Damage })
 		end
 	end
@@ -228,7 +236,11 @@ local function spawnMissile(oPlayer: Player?, from: CFrame, target: Model?, nDam
 		Damage = nDamage, Turn = WeaponConfig.Missile.TurnRate * nTurnMult,
 		Vel = from.LookVector * WeaponConfig.Missile.Speed * 0.75,
 	})
-	if target then target:SetAttribute("Incoming", (target:GetAttribute("Incoming") :: number? or 0) + 1) end
+	if target then
+		target:SetAttribute("Incoming", (target:GetAttribute("Incoming") :: number? or 0) + 1)
+		local vp = ownerOf(target)
+		if vp then mech(vp, if oPlayer then "msl_incoming_pvp" else "msl_incoming_ai") end
+	end
 	oEvent:FireAllClients({ a = "MissileFired", owner = if oPlayer then oPlayer.UserId else 0, target = if target then target.Name else "" })
 end
 
@@ -253,6 +265,7 @@ local function onMissile(oPlayer: Player, t: any)
 		-- no confirmed lock: the missile still leaves the rail, unguided, with a proximity fuse
 		spawnMissile(oPlayer, root.CFrame * CFrame.new(2, -1.5, -4), nil, WeaponConfig.Missile.Damage, 1, s.Jet)
 		tMissiles[#tMissiles].Unguided = true
+		mech(oPlayer, "msl_unguided")
 		-- tutorial: missiles don't run out (a rookie who misses twice would be stuck on the lock step)
 		if not s.Jet:GetAttribute("Training") then ammo.Missiles -= 1 end
 		tLastMissile[oPlayer] = now
@@ -276,6 +289,7 @@ local function onMissile(oPlayer: Player, t: any)
 		fired += 1
 	end
 	if fired > 0 then
+		mech(oPlayer, "msl_fired", fired)
 		tLastMissile[oPlayer] = now
 		s.Jet:SetAttribute("Missiles", ammo.Missiles)
 	end
@@ -290,6 +304,7 @@ local function onFlare(oPlayer: Player)
 	if not ammo or ammo.Flares <= 0 then return end
 	ammo.Flares -= 1
 	s.Jet:SetAttribute("Flares", ammo.Flares)
+	mech(oPlayer, "flare_used")
 	tLastFlare[oPlayer] = now
 	local pos = s.Jet:GetPivot().Position
 	oEvent:FireAllClients({ a = "Flares", owner = oPlayer.UserId, pos = pos })
@@ -310,6 +325,7 @@ local function onFlare(oPlayer: Player)
 		end
 	end
 	if evaded > 0 then
+		mech(oPlayer, "flare_saved", evaded)
 		oEvent:FireClient(oPlayer, { a = "Evade", ace = bestAce })
 		Combat.OnEvade:Fire(oPlayer, bestAce)
 	end
@@ -349,7 +365,10 @@ local function detonate(m: Missile, hitTarget: Model?)
 	if hitTarget and not hitTarget:GetAttribute("Dead") then
 		local owner = m.Owner
 		if owner then
-			if canHarm(owner, hitTarget) then Combat:Damage(hitTarget, m.Damage, owner, "IR Missile") end
+			if canHarm(owner, hitTarget) then
+				Combat:Damage(hitTarget, m.Damage, owner, "IR Missile")
+				mech(owner, "msl_hit")
+			end
 		else
 			if not hitTarget:GetAttribute("Shield") then Combat:Damage(hitTarget, m.Damage, nil, "SAM") end
 		end
