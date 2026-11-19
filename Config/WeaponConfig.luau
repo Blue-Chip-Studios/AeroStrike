@@ -36,6 +36,8 @@ return {
 	MultiLock = { Targets = 4, Damage = 40, LockTime = 1.8 },
 	-- Heat-seeker lock: progress rate = 1/LockTime x aspect x range x boresight x G x target
 	Lock = {
+		DistanceWeight = 1.2, -- candidate score = off-nose angle / cone + distance / range * this (nearer wins)
+		Stickiness = 0.3, -- current candidate keeps the lock unless another target scores this much better
 		TailAspect = 1.6, -- right behind the hot exhaust
 		HeadOn = 0.6, -- nose-to-nose: slower, but still lockable
 		RangeNear = 1.35, -- rate multiplier at point blank ...

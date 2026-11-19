@@ -287,6 +287,7 @@ local function step(dt: number)
 	local hud = {}
 	local best: Model? = nil
 	local bestAngle = WeaponConfig.Missile.LockCone
+	local bestScore = math.huge
 	local nearestGun: Model? = nil
 	local nearestGunDist = WeaponConfig.Gun.Range
 	for _, m in ipairs(targets) do
@@ -295,9 +296,14 @@ local function step(dt: number)
 		local dist = to.Magnitude
 		if dist < 6000 then table.insert(hud, m) end
 		local angle = math.acos(math.clamp(cf.LookVector:Dot(to.Unit), -1, 1))
-		if dist < WeaponConfig.Missile.LockRange and angle < bestAngle then
-			best = m
-			bestAngle = angle
+		if dist < WeaponConfig.Missile.LockRange and angle < WeaponConfig.Missile.LockCone then
+			-- prefer what you can actually see: a jet close by and a little off the nose beats a
+			-- 2-pixel speck far away dead ahead (that read as "locking onto thin air" on phones)
+			local score = angle / WeaponConfig.Missile.LockCone + (dist / WeaponConfig.Missile.LockRange) * WeaponConfig.Lock.DistanceWeight
+			if m == oLockCandidate then score -= WeaponConfig.Lock.Stickiness end -- no flicker between two targets
+			if score < bestScore then
+				best, bestScore, bestAngle = m, score, angle
+			end
 		end
 		if dist < nearestGunDist and angle < math.rad(25) then
 			nearestGun = m

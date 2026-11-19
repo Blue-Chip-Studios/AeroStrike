@@ -112,6 +112,9 @@ def main():
     avg_all = tot.get("sess_secs", 0) / ended / 60 if ended else 0
     nn = tot.get("sess_new_n", 0)
     avg_new = tot.get("sess_new_secs", 0) / nn / 60 if nn else 0
+    vers = sorted(((k[4:], v) for k, v in tot.items() if k.startswith("ver:")), key=lambda x: -int(x[0]) if x[0].isdigit() else 0)
+    if vers:
+        print("\nSessions by published version: " + ", ".join(f"v{k} {v}" for k, v in vers))
     print("\n== Session length (all sessions / new players' sessions) ==")
     for b in BUCKETS:
         print(f"  {b.replace('_','-').replace('lt1','<1').replace('40p','40+'):>6} min  {pct(tot.get('sb_'+b,0), ended)}   {pct(tot.get('sbn_'+b,0), nn)}")

@@ -370,6 +370,7 @@ function Metrics.InitProfileAsync(self, p: Player, tProfile: any)
 	m.LastDay = d
 	m.Sessions = (m.Sessions or 0) + 1
 	add(tDay, d, "sessions")
+	add(tDay, d, "ver:" .. tostring(game.PlaceVersion)) -- which published version this server runs
 	local sess: Sess = { start = os.clock(), new = cohort == d, cohort = cohort, seen = {}, paid = false, errs = 0,
 		sortieKills = 0, step = "none", stepN = 0, rank0 = rankOf(p) }
 	tSess[p] = sess
