@@ -49,6 +49,9 @@ function Analytics.Log(self, oPlayer: Player, sEvent: string, tData: { [string]:
 		warn(`[Analytics] unknown event "{sEvent}" (add it to AnalyticsConfig)`)
 		return
 	end
+	-- our own aggregated metrics (Open Cloud readable); never let it break logging
+	local okM, Metrics = pcall(require, game:GetService("ServerStorage").ServerModules.MetricsServer)
+	if okM and Metrics and Metrics.Count then pcall(Metrics.Count, Metrics, oPlayer, sEvent, tData) end
 	safe(function()
 		if def.Kind == "Onboarding" then
 			-- onboarding steps are logged once per player per step

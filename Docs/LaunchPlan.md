@@ -17,6 +17,12 @@
 - **Keep the budget flat every day.** The algorithm reads consistency; don't front-load and stop.
 - Expect roughly **100-300 visits/day from ads**. Ads alone won't reach 1,000 concurrent players. Their job is to give Roblox enough players to measure engagement. If engagement is strong, Roblox recommends the game (Home, Recommended, Up Next), and that's where real growth comes from.
 
+## Live data
+
+- **Ad campaign:** `c8314850-9c93-46b0-be6f-ce10bd8893cf` (Ads Manager; ad numbers have no API, so paste impressions / CTR / cost per visit from Ads Manager into the chat).
+- **In-game metrics:** `MetricsServer` aggregates players, sessions, session length, new-player funnels, retention cohorts, Robux, devices and errors into the DataStore `AS_Metrics` every minute. Pull the report with:
+  `uv run --no-project python Tools/metrics_report.py --days 7` (needs DataStore read on the API key in `.env`).
+
 ## What to watch every day (Creator Dashboard > Analytics)
 
 | Metric | Healthy target | If it's low |

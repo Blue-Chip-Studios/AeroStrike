@@ -31,5 +31,6 @@ return {
 		Mastery = {}, -- [jetId] = mastery XP (MasteryServer)
 		Prompts = { Fav = 0, Notif = 0 }, -- os.time of the last favourite / notification prompt
 		Badges = {}, -- [badgeKey] = true once awarded (saves BadgeService calls)
+		Meta = { FirstDay = 0, LastDay = 0, DaysPlayed = 0, Sessions = 0 }, -- MetricsServer (UTC day numbers)
 	},
 }
