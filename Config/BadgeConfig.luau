@@ -8,12 +8,12 @@
 export type Badge = { Id: number, Name: string, Desc: string }
 
 local Badges: { [string]: Badge } = {
-	Welcome = { Id = 0, Name = "Wheels Up", Desc = "Launch off the carrier for the first time." },
-	FirstKill = { Id = 0, Name = "Splash One", Desc = "Shoot down your first enemy pilot." },
-	MachOne = { Id = 0, Name = "Sound Barrier", Desc = "Break Mach 1." },
-	CarrierTrap = { Id = 0, Name = "Trapped", Desc = "Catch the wire: land back on the carrier." },
+	Welcome = { Id = 827574388586209, Name = "Wheels Up", Desc = "Launch off the carrier for the first time." },
+	FirstKill = { Id = 2106010100222346, Name = "Splash One", Desc = "Shoot down your first enemy pilot." },
+	MachOne = { Id = 3315996126439503, Name = "Sound Barrier", Desc = "Break Mach 1." },
+	CarrierTrap = { Id = 2713946695104913, Name = "Trapped", Desc = "Catch the wire: land back on the carrier." },
 	MultiKill = { Id = 0, Name = "Triple Splash", Desc = "Score three kills in one chain." },
-	Ace = { Id = 0, Name = "Ace", Desc = "Reach a 5-kill streak and wear the Ace Bounty." },
+	Ace = { Id = 3078115105520892, Name = "Ace", Desc = "Reach a 5-kill streak and wear the Ace Bounty." },
 	BountyHunter = { Id = 0, Name = "Bounty Hunter", Desc = "Shoot down an Ace and claim the bounty." },
 	Fortress = { Id = 0, Name = "Fortress Breaker", Desc = "Help bring down the Flying Fortress." },
 	Viper = { Id = 0, Name = "Viper Pilot", Desc = "Unlock the Viper IX." },
