@@ -169,4 +169,18 @@ return {
 	-- standing Red Talon patrol: interceptors always hunting over the island (outside the carrier umbrella)
 	Patrol = { Kind = "Interceptor", Count = 2, Respawn = 40, Centre = Vector3.new(0, 650, 0), Radius = 1500 },
 	TickRate = 15, -- AI updates per second
+	-- Engagement manager (NpcServer): who the AI fighters may attack, so a busy sky never becomes a pile-on.
+	-- Each fighter gets ONE target. A player is attacked by at most Cap[tier] AI at once, none during the calm
+	-- window after a launch, and a newly assigned AI holds fire for HoldFire seconds (time to see it coming).
+	-- A bot a player attacks fights back regardless of the cap. Unassigned bots dogfight each other (two sides).
+	Engagement = {
+		Interval = 1.5, -- seconds between re-assignments
+		MidRank = 10, -- tiers: Rookie = rank <= FlightConfig.RookieMaxRank, Mid = rank <= MidRank, else Vet
+		Cap = { Rookie = 1, Mid = 2, Vet = 3 },
+		Calm = { Rookie = 20, Mid = 12, Vet = 6 }, -- seconds after launch before any AI fighter engages
+		HoldFire = 3,
+		SelfDefence = 10, -- a bot hit by a player within this many seconds targets that player
+		BotDogfights = true,
+		BotVsBotDamage = 0.4, -- bot-on-bot gun damage multiplier (fights last and look busy)
+	},
 }

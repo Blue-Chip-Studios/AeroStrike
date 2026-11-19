@@ -42,6 +42,10 @@ type Npc = {
 	LockT0: number?,
 	LastMissile: number?,
 	MissilesLeft: number?,
+	Engage: Model?, -- the one jet (player or opposing bot) this fighter is assigned to attack
+	EngageT0: number?,
+	Side: string?, -- bots only: "Blue" | "Red" (unassigned bots dogfight the other side)
+	SelfDef: boolean?,
 }
 
 
@@ -52,7 +56,10 @@ local Npc = ModuleUtil.New({
 
 local nNextId = 0
 local oCombatEvent = Remote:GetEvent("CombatEvent")
-local World: any, Combat: any
+local World: any, Combat: any, Flight: any
+local Engage = NpcConfig.Engagement
+local nSide = 0
+local nNextAssign = 0
 
 local function steer(n: Npc, target: Vector3, dt: number)
 	local root = n.Model.PrimaryPart :: BasePart
@@ -258,17 +265,13 @@ local function pursue(n: Npc, pos: Vector3, routeTarget: Vector3): Vector3
 	local d = n.Cfg.Dogfight
 	n.Chasing = false
 	if not d or n.Tactic then return routeTarget end
-	local best, bd = nil, d.Range
-	for _, jet in ipairs(workspace.Jets:GetChildren()) do
-		if jet:IsA("Model") and jet.PrimaryPart and not jet:GetAttribute("Dead") and not jet:GetAttribute("Shield")
-			and not underUmbrella(jet.PrimaryPart.Position) then
-			local dist = (jet.PrimaryPart.Position - pos).Magnitude
-			if dist < bd then best, bd = jet, dist end
-		end
-	end
-	if not best then return routeTarget end
+	-- chase only the target the engagement manager assigned (see assignTargets)
+	local e = n.Engage
+	if not e or not e.Parent or not e.PrimaryPart or e:GetAttribute("Dead") then return routeTarget end
+	local tp = e.PrimaryPart :: BasePart
+	local bd = (tp.Position - pos).Magnitude
+	if bd > d.Range * 1.3 then return routeTarget end
 	n.Chasing = true
-	local tp = (best.PrimaryPart :: BasePart)
 	return tp.Position + tp.AssemblyLinearVelocity * math.clamp(bd / 600, 0, 1.2)
 end
 
@@ -278,8 +281,23 @@ local function noseGun(n: Npc, now: number)
 	if not g or now - n.LastShot < 1 / g.Rate then return end
 	local root = n.Model.PrimaryPart :: BasePart
 	local fwd = root.CFrame.LookVector
-	for _, jet in ipairs(workspace.Jets:GetChildren()) do
-		if jet:IsA("Model") and jet.PrimaryPart and not jet:GetAttribute("Dead") and not jet:GetAttribute("Shield") then
+	local jet = n.Engage
+	if not jet or not jet.Parent or not jet.PrimaryPart or jet:GetAttribute("Dead") then return end
+	if jet.Parent ~= workspace.Jets then
+		-- bot-on-bot: lighter damage so their fights run long and fill the sky
+		local to = jet.PrimaryPart.Position - root.Position
+		if to.Magnitude < g.Range and math.acos(math.clamp(fwd:Dot(to.Unit), -1, 1)) < g.Cone then
+			n.LastShot = now
+			local hit = math.random() < g.HitChance * (1 - to.Magnitude / g.Range * 0.5)
+			local miss = if hit then Vector3.zero else Vector3.new(math.random(-14, 14), math.random(-8, 8), math.random(-14, 14))
+			oCombatEvent:FireAllClients({ a = "NpcFire", from = root.Position + fwd * 14, to = jet.PrimaryPart.Position + miss })
+			if hit then Combat:Damage(jet, g.Damage * Engage.BotVsBotDamage, nil, "Cannon") end
+		end
+		return
+	end
+	if jet:GetAttribute("Shield") or now - (n.EngageT0 or now) < Engage.HoldFire then return end
+	do
+		do
 			local to = jet.PrimaryPart.Position - root.Position
 			local dist = to.Magnitude
 			if dist < g.Range and math.acos(math.clamp(fwd:Dot(to.Unit), -1, 1)) < g.Cone and not underUmbrella(jet.PrimaryPart.Position) then
@@ -327,13 +345,12 @@ local function aiMissile(n: Npc, now: number)
 		return
 	end
 	if n.LockOn and not valid(n.LockOn) then releaseLock(n) end
+	if n.LockOn and n.LockOn ~= n.Engage then releaseLock(n) end
 	if not n.LockOn then
-		for _, jet in ipairs(workspace.Jets:GetChildren()) do
-			if jet:IsA("Model") and valid(jet) then
-				n.LockOn, n.LockT0 = jet, now
-				jet:SetAttribute("LockedBy", (jet:GetAttribute("LockedBy") :: number? or 0) + 1)
-				break
-			end
+		local jet = n.Engage
+		if jet and jet.Parent == workspace.Jets and now - (n.EngageT0 or now) >= Engage.HoldFire and valid(jet) then
+			n.LockOn, n.LockT0 = jet, now
+			jet:SetAttribute("LockedBy", (jet:GetAttribute("LockedBy") :: number? or 0) + 1)
 		end
 		return
 	end
@@ -413,6 +430,8 @@ function Npc.Spawn(self, sKind: string, cf: CFrame, opts: { [string]: any }?): M
 		m:SetAttribute("Pilot", call)
 		m:SetAttribute("Bot", true)
 		m:SetAttribute("JetId", botJet)
+		nSide += 1
+		m:SetAttribute("Side", if nSide % 2 == 0 then "Blue" else "Red")
 		-- half the bot pilots fly a season trail (shows players what's earnable)
 		if math.random() < 0.5 then
 			local ids = { "Crimson", "Sky", "Emerald", "Solar", "Violet", "Arctic", "Inferno" }
@@ -438,6 +457,7 @@ function Npc.Spawn(self, sKind: string, cf: CFrame, opts: { [string]: any }?): M
 	self.Active[m] = {
 		Model = m, Kind = sKind, Cfg = cfg, Route = o.Route or {}, Wp = 1, Loop = o.Loop == true,
 		Orbit = o.Orbit, Angle = math.random() * math.pi * 2, Tag = o.Tag or "", LastShot = 0, LastFlare = 0,
+		Side = m:GetAttribute("Side") :: string?,
 	}
 	return m
 end
@@ -479,9 +499,114 @@ function Npc.RemoveTag(self, sTag: string)
 	end
 end
 
+-- ENGAGEMENT MANAGER: give every AI fighter at most one target, capping how many hunt any one player
+local function aliveModel(m: Model?): boolean
+	return m ~= nil and m.Parent ~= nil and m.PrimaryPart ~= nil and not m:GetAttribute("Dead")
+end
+
+local function assignTargets(self, now: number)
+	local FlightConfig = require(ReplicatedStorage.Config.FlightConfig)
+	local tPlayerJets: { [Model]: { cap: number, count: number } } = {}
+	local tJetOf: { [Player]: Model } = {}
+	for _, p in ipairs(Players:GetPlayers()) do
+		local so = Flight and Flight:GetSortie(p)
+		local jet = so and so.Jet
+		if jet and aliveModel(jet) and so.Phase == "Flying" and not jet:GetAttribute("Shield")
+			and not underUmbrella((jet.PrimaryPart :: BasePart).Position) then
+			local ls = p:FindFirstChild("leaderstats")
+			local rv = ls and ls:FindFirstChild("Rank")
+			local rank = if rv then tonumber((rv :: any).Value) or 1 else 1
+			local tier = if rank <= FlightConfig.RookieMaxRank then "Rookie" elseif rank <= Engage.MidRank then "Mid" else "Vet"
+			if os.clock() - (so.LaunchedAt or 0) >= Engage.Calm[tier] then
+				tPlayerJets[jet] = { cap = Engage.Cap[tier], count = 0 }
+				tJetOf[p] = jet
+			end
+		end
+	end
+	local fighters: { Npc } = {}
+	for m, n in pairs(self.Active) do
+		if n.Cfg.Dogfight and aliveModel(m) then table.insert(fighters, n) end
+	end
+	local function dist(a: Model, b: Model): number
+		return ((a.PrimaryPart :: BasePart).Position - (b.PrimaryPart :: BasePart).Position).Magnitude
+	end
+	-- 1) self-defence: a fighter a player has just hit goes after that player (outside the cap)
+	local serverNow = workspace:GetServerTimeNow()
+	for _, n in ipairs(fighters) do
+		n.SelfDef = false
+		local uid, at = n.Model:GetAttribute("LastAttacker"), n.Model:GetAttribute("LastAttackedAt")
+		if typeof(uid) == "number" and typeof(at) == "number" and serverNow - at < Engage.SelfDefence then
+			local ap = Players:GetPlayerByUserId(uid)
+			local jet = ap and tJetOf[ap]
+			if jet then
+				if n.Engage ~= jet then n.Engage, n.EngageT0 = jet, now end
+				n.SelfDef = true
+				tPlayerJets[jet].count += 1
+			end
+		end
+	end
+	-- 2) keep existing player engagements that are still valid and within the cap
+	for _, n in ipairs(fighters) do
+		if n.SelfDef then continue end
+		local e = n.Engage
+		if e and tPlayerJets[e] then
+			local info = tPlayerJets[e]
+			if info.count < info.cap and dist(n.Model, e) < n.Cfg.Dogfight.Range * 1.3 then
+				info.count += 1
+			else
+				n.Engage = nil
+			end
+		elseif e and e.Parent == workspace.Jets then
+			n.Engage = nil -- player in a calm window / shielded / landed / gone
+		end
+	end
+	-- 3) fill each player's spare slots with the nearest fighters not already on a player
+	for jet, info in pairs(tPlayerJets) do
+		while info.count < info.cap do
+			local best, bd = nil, math.huge
+			for _, n in ipairs(fighters) do
+				if not (n.Engage and tPlayerJets[n.Engage]) then
+					local d = dist(n.Model, jet)
+					if d < n.Cfg.Dogfight.Range and d < bd then best, bd = n, d end
+				end
+			end
+			if not best then break end
+			best.Engage, best.EngageT0 = jet, now
+			info.count += 1
+		end
+	end
+	-- 4) everyone else: bots dogfight the other side (never mission aircraft), others patrol
+	for _, n in ipairs(fighters) do
+		if n.Engage and tPlayerJets[n.Engage] then continue end
+		local function ok(m: Model?): boolean
+			local o = m and self.Active[m]
+			return o ~= nil and aliveModel(m) and o.Side ~= nil and o.Side ~= n.Side and dist(n.Model, m :: Model) < n.Cfg.Dogfight.Range
+		end
+		if not (n.Engage and ok(n.Engage)) then
+			n.Engage = nil
+			if Engage.BotDogfights and n.Side then
+				local best, bd = nil, math.huge
+				for _, o in ipairs(fighters) do
+					if o ~= n and ok(o.Model) then
+						local d = dist(n.Model, o.Model)
+						if d < bd then best, bd = o, d end
+					end
+				end
+				if best then n.Engage, n.EngageT0 = best.Model, now end
+			end
+		end
+	end
+	-- visible for QA / debugging: which model each fighter is attacking
+	for _, n in ipairs(fighters) do
+		local want = if n.Engage then n.Engage.Name else nil
+		if n.Model:GetAttribute("Engaging") ~= want then n.Model:SetAttribute("Engaging", want) end
+	end
+end
+
 function Npc.StartAsync(self)
 	World = require(ServerStorage.ServerModules.WorldServer)
 	Combat = require(ServerStorage.ServerModules.CombatServer)
+	Flight = require(ServerStorage.ServerModules.FlightServer)
 	Combat.OnKill.Event:Connect(function(_killer, victim: Model)
 		if self.Active[victim] then self:Remove(victim, true) end
 	end)
@@ -490,6 +615,11 @@ function Npc.StartAsync(self)
 		while true do
 			task.wait(dt)
 			local now = os.clock()
+			if now >= nNextAssign then
+				nNextAssign = now + Engage.Interval
+				local okA, errA = pcall(assignTargets, self, now)
+				if not okA then warn("[Npc] assignTargets", errA) end
+			end
 			for m, n in pairs(self.Active) do
 				if not m.Parent or not m.PrimaryPart then
 					self.Active[m] = nil
