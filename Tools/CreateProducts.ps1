@@ -10,7 +10,7 @@ $icons = Join-Path $Root 'Assets\Icons'
 $items = @(
   @{ k='WraithX';     kind='pass';    name='Wraith-X Stealth Ace'; price=799; desc='Unlock the Wraith-X stealth fighter: top speed 1,250 km/h and Low Observable (enemies take 40% longer to lock you).' },
   @{ k='MultiLock';   kind='pass';    name='Multi-Lock Missiles';  price=499; desc='Lock up to 4 targets at once with +25% missile tracking. Every missile can still be dodged with flares.' },
-  @{ k='Afterburner'; kind='pass';    name='Afterburner Pass';     price=349; desc='Afterburner burns 60% less fuel and fuel rings refill twice as fast.' },
+  @{ k='Afterburner'; kind='pass';    name='Afterburner Pass';     price=349; desc='Afterburner burns 60% less fuel on every jet, so you can boost longer to chase, escape and break Mach 1.' },
   @{ k='GSuitPro';    kind='pass';    name='G-Suit Pro';           price=299; desc='+3G before the vignette kicks in and no G-blackout.' },
   @{ k='FlarePod';    kind='pass';    name='Extra Flare Pod';      price=199; desc='+4 flares on every jet you fly.' },
   @{ k='DoubleCash';  kind='pass';    name='2x Cash';              price=399; desc='Double Cash from every kill, mission and reward. Forever.' },
