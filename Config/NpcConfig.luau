@@ -80,7 +80,7 @@ return {
 		-- so a quiet server still has dogfights; they bow out as real players join (Population)
 		BotPilot = {
 			Bot = true,
-			Jets = { "SparrowT2", "ViperIX", "RhinoHX" },
+			Jets = { "SparrowT2", "ViperIX", "RhinoHX", "MakoSR9" }, -- bots show off the newest jet too
 			Health = 100,
 			Speed = 165,
 			ChaseSpeed = 198, -- a touch slower than a player at full power: you can disengage

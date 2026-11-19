@@ -33,6 +33,9 @@ local Economy = ModuleUtil.New({
 	OnBanked = Instance.new("BindableEvent"),
 	OnMultiKill = Instance.new("BindableEvent"), -- (player, chainLength)
 	OnXP = Instance.new("BindableEvent"), -- (player, amount) every XP award (season track)
+	OnReward = Instance.new("BindableEvent"), -- (player, rewardKey, cash) every Economy:Reward (badges, prompts)
+	OnRankUp = Instance.new("BindableEvent"), -- (player, newRank)
+	OnJetUnlocked = Instance.new("BindableEvent"), -- (player, jetId)
 })
 
 local oEvent = Remote:GetEvent("EconomyEvent")
@@ -78,6 +81,7 @@ local function addXP(oPlayer: Player, nXP: number, sSource: string)
 	local after = rank(oPlayer)
 	if after > before then
 		oEvent:FireClient(oPlayer, { a = "RankUp", rank = after })
+		Economy.OnRankUp:Fire(oPlayer, after)
 		analytics():Progression(oPlayer, "AceRank", after)
 	end
 end
@@ -106,6 +110,7 @@ function Economy.Reward(self, oPlayer: Player, sKey: string, opts: { Mult: numbe
 	end
 	addXP(oPlayer, nXP, sKey)
 	oEvent:FireClient(oPlayer, { a = "Toast", text = o.Label or sKey, cash = nCash, xp = nXP, kind = sKey })
+	self.OnReward:Fire(oPlayer, sKey, nCash)
 end
 
 function Economy.Bank(self, oPlayer: Player)
@@ -153,7 +158,7 @@ end
 
 -- Profile helpers (replicated to the client through the "HangarReplica")
 local HANGAR_TOKEN = "HangarReplica"
-local HANGAR_KEYS = { "OwnedJets", "EquippedJet", "EquippedPaint", "Upgrades", "FTUE", "Stats", "Season", "Trails", "EquippedTrail", "Rewards" }
+local HANGAR_KEYS = { "OwnedJets", "EquippedJet", "EquippedPaint", "Upgrades", "FTUE", "Stats", "Season", "Trails", "EquippedTrail", "Rewards", "Mastery", "Prompts" }
 
 local function setKey(oPlayer: Player, sKey: string, fn: (any) -> any)
 	-- only hangar keys replicate to the client; receipts etc. stay server-only
@@ -176,11 +181,26 @@ local function shop(oPlayer: Player, t: any): any
 		if not Economy:Spend(oPlayer, j.CashPrice, "Jet_" .. j.Id) then return { ok = false, err = "cash" } end
 		setKey(oPlayer, "OwnedJets", function(v) v = v or {}; v[j.Id] = true; return v end)
 		analytics():Progression(oPlayer, "JetUnlock", j.Order, j.Id)
+		Economy.OnJetUnlocked:Fire(oPlayer, j.Id)
 		return { ok = true }
 	elseif t.a == "Equip" then
 		local owned = mProfile:GetAsync(oPlayer, "OwnedJets") or {}
 		if not owned[t.jet] then return { ok = false, err = "notowned" } end
 		setKey(oPlayer, "EquippedJet", function() return t.jet end)
+		return { ok = true }
+	elseif t.a == "Paint" then
+		-- liveries: a jet's own paints are free; mastery schemes need the mastery level
+		local j = JetConfig.Jets[t.jet]
+		local owned = mProfile:GetAsync(oPlayer, "OwnedJets") or {}
+		if not j or typeof(t.paint) ~= "string" or not j.Paints[t.paint] then return { ok = false, err = "invalid" } end
+		if not owned[j.Id] then return { ok = false, err = "notowned" } end
+		if JetConfig.IsMasteryPaint(t.paint) then
+			local MasteryConfig = require(ReplicatedStorage.Config.MasteryConfig)
+			local m = (mProfile:GetAsync(oPlayer, "Mastery") or {})[j.Id] or 0
+			if MasteryConfig.LevelFor(m) < MasteryConfig.Schemes[t.paint].Level then return { ok = false, err = "mastery" } end
+		end
+		setKey(oPlayer, "EquippedPaint", function(v) v = v or {}; v[j.Id] = t.paint; return v end)
+		analytics():Log(oPlayer, "paint_equip", { jet = j.Id, paint = t.paint })
 		return { ok = true }
 	elseif t.a == "Upgrade" then
 		local track = t.track
@@ -208,7 +228,7 @@ function Economy.StartAsync(self)
 	oShop:OnServerInvoke(function(oPlayer: Player, t: any)
 		local r = shop(oPlayer, t)
 		-- equip/upgrade on the deck takes effect immediately (fresh jet on the catapult)
-		if r.ok and typeof(t) == "table" and (t.a == "Equip" or t.a == "Upgrade") then
+		if r.ok and typeof(t) == "table" and (t.a == "Equip" or t.a == "Upgrade" or t.a == "Paint") then
 			local Flight = require(ServerStorage.ServerModules.FlightServer)
 			local s = Flight:GetSortie(oPlayer)
 			if s and s.Phase == "Deck" then task.defer(function() Flight:Spawn(oPlayer) end) end

@@ -23,6 +23,8 @@ local ERR = {
 	owned = "You already own this jet.",
 	notowned = "Buy this jet first.",
 	max = "Already maxed out.",
+	mastery = "Reach that mastery level with this jet first: fly it!",
+	invalid = "Can't do that right now.",
 	robux = "Unlock this jet in the Shop.",
 	busy = "Slow down, pilot!",
 	network = "Connection hiccup, try again.",
@@ -63,6 +65,10 @@ end
 
 function Hangar.Equip(self, sJet: string)
 	result(Economy:Shop({ a = "Equip", jet = sJet }), "Equipped. Ready on the catapult.")
+end
+
+function Hangar.Paint(self, sJet: string, sPaint: string)
+	result(Economy:Shop({ a = "Paint", jet = sJet, paint = sPaint }), "Paint applied.")
 end
 
 function Hangar.Upgrade(self, sJet: string, sTrack: string)

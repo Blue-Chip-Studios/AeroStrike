@@ -29,6 +29,7 @@ export type Jet = {
 		GTolerance: number, -- G before vignette/stiffening
 	},
 	Special: string?,
+	Skin: boolean?, -- false = no PBR skin expected (ServerStorage.PBR.<Id>_Body)
 	Paints: { [string]: Paint },
 	DefaultPaint: string,
 }
@@ -123,11 +124,35 @@ local Jets: { [string]: Jet } = {
 		},
 		DefaultPaint = "Standard",
 	},
+	-- Update 1: boom-and-zoom interceptor (fastest cash jet, widest turns): dive in, strike, extend
+	MakoSR9 = {
+		Id = "MakoSR9",
+		DisplayName = "Mako SR-9",
+		Role = "High-Speed Interceptor",
+		Order = 4,
+		ModelAssetId = 101707122038852, -- Assets/Models/Jet_MakoSR9.fbx
+		RankRequired = 11,
+		CashPrice = 32000,
+		Stats = {
+			MinSpeed = 85, CruiseSpeed = 185, MaxSpeed = 325,
+			Accel = 62, TurnRate = 1.42, CornerSpeed = 200,
+			RollRate = 4.8, Health = 110, Fuel = 125,
+			FuelBurn = 0.24, BoostBurn = 1.8,
+			Missiles = 4, Flares = 6, LockTime = 1.0,
+			GTolerance = 6.5,
+		},
+		Skin = false, -- flat paint (no Studio-authored PBR skin)
+		Paints = {
+			Standard = standardPaint(Color3.fromRGB(70, 82, 98), AMBER, Color3.fromRGB(170, 178, 186)),
+			Shark = standardPaint(Color3.fromRGB(120, 132, 146), Color3.fromRGB(230, 60, 60), Color3.fromRGB(220, 226, 232)),
+		},
+		DefaultPaint = "Standard",
+	},
 	WraithX = {
 		Id = "WraithX",
 		DisplayName = "Wraith-X",
 		Role = "Premium Stealth Ace",
-		Order = 4,
+		Order = 5,
 		ModelAssetId = 131181747205851,
 		RankRequired = 15,
 		CashPrice = 60000,
@@ -154,6 +179,30 @@ local Jets: { [string]: Jet } = {
 	},
 }
 
+-- mastery paint schemes: every jet gets them, built on top of its Standard paint
+do
+	local MasteryConfig = require(script.Parent.MasteryConfig)
+	for _, j in pairs(Jets) do
+		local base = j.Paints.Standard or j.Paints[j.DefaultPaint]
+		for id, s in pairs(MasteryConfig.Schemes) do
+			if not j.Paints[id] then
+				local p: Paint = {}
+				for part, v in pairs(base) do p[part] = { Color = v.Color, Material = v.Material } end
+				local mat = s.Material or Enum.Material.SmoothPlastic
+				if p.Body then p.Body = { Color = s.Body, Material = mat } end
+				if p.Accents then p.Accents = { Color = s.Accents, Material = p.Accents.Material } end
+				if p.Intakes and s.Intakes then p.Intakes = { Color = s.Intakes, Material = mat } end
+				j.Paints[id] = p
+			end
+		end
+	end
+end
+
+-- mastery-locked paints; every other paint on a jet is free with the jet
+local function IsMasteryPaint(id: string): boolean
+	return (require(script.Parent.MasteryConfig) :: any).Schemes[id] ~= nil
+end
+
 local function GetOrdered(): { Jet }
 	local t = {}
 	for _, j in pairs(Jets) do table.insert(t, j) end
@@ -165,5 +214,6 @@ return {
 	Jets = Jets,
 	StarterJet = "SparrowT2",
 	GetOrdered = GetOrdered,
+	IsMasteryPaint = IsMasteryPaint,
 	KmhPerStud = 3.6,
 }

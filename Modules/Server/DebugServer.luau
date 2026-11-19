@@ -77,6 +77,20 @@ function Debug.StartAsync(self)
 			if not m then return "no npc" end
 			Combat:Damage(m, b or 100, game:GetService("Players"):GetPlayers()[1], "Cannon")
 			return `hp={m:GetAttribute("Health")}`
+		elseif cmd == "reward" then
+			-- grant an Economy reward to the first player (XP feeds season + mastery), e.g. ("reward", "Kill", 20)
+			local p = game:GetService("Players"):GetPlayers()[1]
+			require(ServerStorage.ServerModules.EconomyServer):Reward(p, a or "Kill", { Bank = true, Mult = b or 1 })
+			return "ok"
+		elseif cmd == "playtime" then
+			-- set the first player's active session seconds (gift ladder QA)
+			local p = game:GetService("Players"):GetPlayers()[1]
+			require(ServerStorage.ServerModules.RetentionServer):QASetActive(p, a or 0)
+			return "ok"
+		elseif cmd == "moment" then
+			-- fire a prompt moment now, ignoring the session-time gate (prompt QA)
+			local p = game:GetService("Players"):GetPlayers()[1]
+			return require(ServerStorage.ServerModules.RetentionServer):QAMoment(p, a or "FirstKill")
 		elseif cmd == "damageSelf" and jet then
 			Combat:Damage(jet, a or 200, nil, "Debug")
 			return "ok"

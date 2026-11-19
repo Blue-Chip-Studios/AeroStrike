@@ -101,7 +101,7 @@ return function(scope: any, props: { [string]: any })
 						end) })
 				end
 				return scope:New("Frame")({
-					Name = "ProgressCard", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 124), Size = UDim2.fromOffset(560, 136),
+					Name = "ProgressCard", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 124), Size = UDim2.fromOffset(560, 158),
 					BackgroundColor3 = Theme.Night, BackgroundTransparency = 0.35,
 					Visible = scope:Computed(function(use) local p = use(V.sPhase) return p == "Deck" or p == "Launching" or p == "Dead" end),
 					[Children] = {
@@ -114,6 +114,8 @@ return function(scope: any, props: { [string]: any })
 						C.HudBar(scope, { Name = "NextJetBar", AnchorPoint = Vector2.zero, Position = UDim2.fromOffset(14, 50), Size = UDim2.new(1, -28, 0, 6),
 							Fill = V.nNextJetFrac, FillColor = Theme.Amber }),
 						row(1), row(2), row(3),
+						C.HudText(scope, { Name = "Board", Font = Theme.Display, TextSize = 13, Color = Theme.Hud, AnchorPoint = Vector2.zero, XAlign = Enum.TextXAlignment.Left,
+							Position = UDim2.fromOffset(14, 134), Size = UDim2.new(1, -28, 0, 18), Text = V.sBoardLine }),
 					},
 				})
 			end)(),
@@ -423,7 +425,7 @@ return function(scope: any, props: { [string]: any })
 				Size = UDim2.fromScale(1, 1),
 				Visible = dead,
 				[Children] = {
-					C.HudText(scope, { Font = Theme.Display, TextSize = 34, Color = Theme.Threat, Position = UDim2.fromScale(0.5, 0.38),
+					C.HudText(scope, { Font = Theme.Display, TextSize = 34, Color = Theme.Threat, Position = UDim2.fromScale(0.5, 0.405),
 						Text = scope:Computed(function(use)
 							local k = use(V.tKillCard)
 							if k and k.Weapon == "Eject" then return "EJECTED" end

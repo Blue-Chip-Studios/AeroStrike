@@ -32,6 +32,8 @@ return {
 		Landing = { Cash = 40, XP = 30 }, -- land at the airfield and stop
 		CarrierTrap = { Cash = 80, XP = 60 }, -- harder: short deck, arrestor wire
 		SonicBoom = { Cash = 0, XP = 15 }, -- first Mach 1 each sortie
+		PlaytimeGift = { Cash = 0, XP = 25 }, -- cash from RetentionConfig.Playtime
+		MasteryLevel = { Cash = 0, XP = 0 }, -- cash from MasteryConfig.Rewards
 	},
 	-- quick kills chain: each kill within ChainWindow of the previous one extends it
 	MultiKill = {

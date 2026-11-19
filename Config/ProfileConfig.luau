@@ -28,5 +28,8 @@ return {
 		Trails = {}, -- [trailId] = true (smoke-trail cosmetics)
 		EquippedTrail = "",
 		Rewards = { Codes = {}, Group = false, Referrals = {} }, -- one-time codes / group / invite rewards
+		Mastery = {}, -- [jetId] = mastery XP (MasteryServer)
+		Prompts = { Fav = 0, Notif = 0 }, -- os.time of the last favourite / notification prompt
+		Badges = {}, -- [badgeKey] = true once awarded (saves BadgeService calls)
 	},
 }

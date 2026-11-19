@@ -362,7 +362,7 @@ function World.PreloadAsync(self)
 			local body = m:FindFirstChild("Body", true)
 			if sa and body and body:IsA("MeshPart") then
 				sa:Clone().Parent = body
-			elseif not sa then
+			elseif not sa and tJet.Skin ~= false then
 				warn(`[World] no PBR skin for {tJet.Id}`)
 			end
 			m.Parent = oTemplates

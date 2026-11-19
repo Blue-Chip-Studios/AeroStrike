@@ -14,8 +14,26 @@ local C = require(script.Parent.Components)
 local JetConfig = require(ReplicatedStorage.Config.JetConfig)
 local EconomyConfig = require(ReplicatedStorage.Config.EconomyConfig)
 local JetStats = require(ReplicatedStorage.Shared.JetStats)
+local MasteryConfig = require(ReplicatedStorage.Config.MasteryConfig)
 
 local Children, OnEvent, peek = Fusion.Children, Fusion.OnEvent, Fusion.peek
+local MAX_SWATCHES = 8
+
+-- paint ids for a jet: Standard, its own liveries, then mastery schemes by level
+local function paintList(j: any): { string }
+	local own, mast = {}, {}
+	for id in pairs(j.Paints) do
+		if id ~= "Standard" then
+			if MasteryConfig.Schemes[id] then table.insert(mast, id) else table.insert(own, id) end
+		end
+	end
+	table.sort(own)
+	table.sort(mast, function(a, b) return MasteryConfig.Schemes[a].Level < MasteryConfig.Schemes[b].Level end)
+	local out = { "Standard" }
+	for _, id in ipairs(own) do table.insert(out, id) end
+	for _, id in ipairs(mast) do table.insert(out, id) end
+	return out
+end
 local V = Store.Values
 
 local TRACKS = {
@@ -136,6 +154,80 @@ return function(scope: any, props: { [string]: any })
 		}))
 	end
 
+	-- MASTERY: level, progress bar, paint swatches
+	local mastXP = scope:Computed(function(use)
+		local h = use(V.tHangar)
+		return (h.Mastery and h.Mastery[use(selected)]) or 0
+	end)
+	local mastLevel = scope:Computed(function(use) return MasteryConfig.LevelFor(use(mastXP)) end)
+	local paints = scope:Computed(function(use) return paintList(use(jetCfg)) end)
+	local equippedPaint = scope:Computed(function(use)
+		local h = use(V.tHangar)
+		return (h.EquippedPaint and h.EquippedPaint[use(selected)]) or use(jetCfg).DefaultPaint
+	end)
+	local swatches: { any } = { scope:New("UIListLayout")({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }) }
+	for i = 1, MAX_SWATCHES do
+		local id = scope:Computed(function(use) return use(paints)[i] end)
+		local locked = scope:Computed(function(use)
+			local pid = use(id)
+			local s = pid and MasteryConfig.Schemes[pid]
+			return s ~= nil and use(mastLevel) < s.Level
+		end)
+		table.insert(swatches, scope:New("TextButton")({
+			Name = "Paint" .. i, LayoutOrder = i, Size = UDim2.fromOffset(80, 46), AutoButtonColor = true, Selectable = true,
+			Visible = scope:Computed(function(use) return use(id) ~= nil end),
+			BackgroundColor3 = scope:Computed(function(use)
+				local pid = use(id)
+				local p = pid and use(jetCfg).Paints[pid]
+				return if p and p.Body then p.Body.Color else Theme.Raised
+			end),
+			FontFace = Theme.Display, TextSize = 11, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Bottom,
+			TextColor3 = Color3.new(1, 1, 1), TextStrokeTransparency = 0.3,
+			Text = scope:Computed(function(use)
+				local pid = use(id)
+				if not pid then return "" end
+				local s = MasteryConfig.Schemes[pid]
+				if s and use(mastLevel) < s.Level then return `LV {s.Level}` end
+				return string.upper(if s then s.Name else pid)
+			end),
+			[OnEvent("Activated")] = function()
+				local pid = peek(id)
+				if pid then Hangar:Paint(peek(selected), pid) end
+			end,
+			[Children] = {
+				scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }),
+				scope:New("UIPadding")({ PaddingBottom = UDim.new(0, 3), PaddingLeft = UDim.new(0, 2), PaddingRight = UDim.new(0, 2) }),
+				scope:New("UIStroke")({ ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+					Thickness = scope:Computed(function(use) return if use(id) == use(equippedPaint) then 3 else 1 end),
+					Color = scope:Computed(function(use) return if use(id) == use(equippedPaint) then Theme.Amber else Theme.Line end) }),
+				scope:New("Frame")({ Name = "Lock", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0,
+					BackgroundTransparency = 0.45, Visible = locked, ZIndex = 0 }),
+			},
+		}))
+	end
+	local masteryBlock = scope:New("Frame")({
+		LayoutOrder = 15, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 88),
+		[Children] = {
+			scope:New("TextLabel")({ BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 18), FontFace = Theme.Display, TextSize = 12,
+				TextColor3 = Theme.Mute, TextXAlignment = Enum.TextXAlignment.Left,
+				Text = scope:Computed(function(use)
+					local lvl = use(mastLevel)
+					if lvl >= MasteryConfig.MaxLevel then return `MASTERY {lvl} · MAXED` end
+					local xp = use(mastXP)
+					return string.format("MASTERY %d · %s / %s XP · PAINTS", lvl, fmt(xp), fmt(MasteryConfig.Levels[lvl + 1]))
+				end) }),
+			scope:New("Frame")({ Position = UDim2.fromOffset(0, 20), Size = UDim2.new(1, 0, 0, 6), BackgroundColor3 = Theme.Raised, BorderSizePixel = 0,
+				[Children] = { scope:New("Frame")({ BorderSizePixel = 0, BackgroundColor3 = Theme.Amber,
+					Size = scope:Computed(function(use)
+						local lvl = use(mastLevel)
+						if lvl >= MasteryConfig.MaxLevel then return UDim2.fromScale(1, 1) end
+						local a, b = MasteryConfig.Levels[lvl], MasteryConfig.Levels[lvl + 1]
+						return UDim2.fromScale(math.clamp((use(mastXP) - a) / (b - a), 0, 1), 1)
+					end) }) } }),
+			scope:New("Frame")({ Position = UDim2.fromOffset(0, 34), Size = UDim2.new(1, 0, 0, 50), BackgroundTransparency = 1, [Children] = swatches }),
+		},
+	})
+
 	local primaryText = scope:Computed(function(use)
 		local j = use(jetCfg)
 		if use(equipped) then return "EQUIPPED" end
@@ -176,9 +268,10 @@ return function(scope: any, props: { [string]: any })
 						[Children] = { scope:New("UIListLayout")({ Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }), jetCards },
 					}),
 					-- detail panel
-					scope:New("Frame")({
+					scope:New("ScrollingFrame")({
 						Name = "Detail", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 56), Size = UDim2.new(0.66, -10, 1, -56),
-						BackgroundColor3 = Theme.Panel, BackgroundTransparency = 0.1,
+						BackgroundColor3 = Theme.Panel, BackgroundTransparency = 0.1, BorderSizePixel = 0,
+						ScrollBarThickness = 4, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ScrollingDirection = Enum.ScrollingDirection.Y,
 						[Children] = {
 							scope:New("UICorner")({ CornerRadius = UDim.new(0, 6) }),
 							scope:New("UIPadding")({ PaddingLeft = UDim.new(0, 18), PaddingRight = UDim.new(0, 18), PaddingTop = UDim.new(0, 14), PaddingBottom = UDim.new(0, 14) }),
@@ -194,15 +287,16 @@ return function(scope: any, props: { [string]: any })
 							statRow("FUEL", function(s) return s.Fuel end, 200, 5),
 							statRow("MISSILES", function(s) return s.Missiles end, 8, 6),
 							statRow("FLARES", function(s) return s.Flares end, 14, 7),
-							scope:New("TextLabel")({ LayoutOrder = 8, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 22), FontFace = Theme.Display, TextSize = 12,
+							masteryBlock,
+							scope:New("TextLabel")({ LayoutOrder = 20, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 22), FontFace = Theme.Display, TextSize = 12,
 								TextColor3 = Theme.Mute, TextXAlignment = Enum.TextXAlignment.Left, Text = "UPGRADES" }),
-							scope:New("Frame")({ LayoutOrder = 9, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 5 * 49),
+							scope:New("Frame")({ LayoutOrder = 21, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 5 * 49),
 								[Children] = { scope:New("UIListLayout")({ Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder }), upgradeRows } }),
-							C.PrimaryButton(scope, { Name = "Primary", Size = UDim2.new(1, 0, 0, 50), AnchorPoint = Vector2.zero, TextSize = 22, Text = primaryText,
+							C.PrimaryButton(scope, { Name = "Primary", LayoutOrder = 13, Size = UDim2.new(1, 0, 0, 50), AnchorPoint = Vector2.zero, TextSize = 22, Text = primaryText,
 								OnClick = function()
 									if peek(owned) then Hangar:Equip(peek(selected)) else Hangar:Buy(peek(selected)) end
 								end }),
-							scope:New("TextLabel")({ LayoutOrder = 11, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 20), FontFace = Theme.Body, TextSize = 15,
+							scope:New("TextLabel")({ LayoutOrder = 14, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 20), FontFace = Theme.Body, TextSize = 15,
 								TextColor3 = Theme.Amber, Text = V.sHangarMsg }),
 						},
 					}),

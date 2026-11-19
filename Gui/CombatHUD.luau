@@ -178,6 +178,25 @@ return function(scope: any, props: { [string]: any })
 				},
 			}),
 
+			-- PLAYTIME GIFT (under the cash: countdown to the next free gift) ---------
+			scope:New("Frame")({
+				Name = "Gift",
+				AnchorPoint = Vector2.new(1, 0),
+				Position = UDim2.new(1, -20, 0, 66),
+				Size = UDim2.fromOffset(250, 34),
+				BackgroundColor3 = Theme.Panel, BackgroundTransparency = 0.25,
+				Visible = scope:Computed(function(use) return use(V.sGiftLine) ~= "" end),
+				[Children] = {
+					scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }),
+					scope:New("UIStroke")({ Color = Theme.Hud, Thickness = 1, Transparency = 0.4 }),
+					scope:New("TextLabel")({ Name = "Text", BackgroundTransparency = 1, Position = UDim2.fromOffset(10, 2), Size = UDim2.new(1, -20, 0, 24),
+						FontFace = Theme.Mono, TextSize = 16, TextColor3 = Theme.Hud, TextXAlignment = Enum.TextXAlignment.Right, Text = V.sGiftLine }),
+					scope:New("Frame")({ Name = "Bar", Position = UDim2.new(0, 10, 1, -6), Size = UDim2.new(1, -20, 0, 3), BackgroundColor3 = Theme.Raised, BorderSizePixel = 0,
+						[Children] = { scope:New("Frame")({ BorderSizePixel = 0, BackgroundColor3 = Theme.Hud,
+							Size = scope:Computed(function(use) return UDim2.fromScale(math.clamp(use(V.nGiftFrac) :: number, 0, 1), 1) end) }) } }),
+				},
+			}),
+
 			-- CASH (top-right, always on) ----------------------------------------
 			scope:New("Frame")({
 				Name = "Cash",

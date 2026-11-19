@@ -1,0 +1,38 @@
+--!strict
+--[[
+    RetentionConfig: session-length and come-back levers.
+      Playtime  - free gifts at minutes into the session (only active time counts: not while
+                  dead on the relaunch screen), granted automatically with a toast.
+      Boards    - daily / weekly Top Aces (player kills + AI pilot kills) on OrderedDataStores,
+                  shown on a board on the carrier deck and as your rank on the progress card.
+      Prompts   - after a high point, ask to favourite the game / turn on notifications
+                  (at most once per CooldownDays each, never in the first MinSessionMins).
+]]
+
+return {
+	Playtime = {
+		-- At = active minutes into this session
+		Gifts = {
+			{ At = 3, Cash = 150, Label = "3-MINUTE GIFT" },
+			{ At = 7, Cash = 300, Label = "7-MINUTE GIFT" },
+			{ At = 12, Cash = 500, Label = "12-MINUTE GIFT" },
+			{ At = 20, Cash = 800, Label = "20-MINUTE GIFT" },
+			{ At = 30, Cash = 1200, Label = "30-MINUTE GIFT" },
+		},
+		DeadGrace = 20, -- seconds on the relaunch screen that still count as active
+	},
+	Boards = {
+		Size = 10,
+		RefreshSecs = 90, -- read the top 10
+		FlushSecs = 45, -- write batched kill increments
+		KillWeight = 1, -- per player kill
+		BotWeight = 1, -- per AI pilot kill (bots fill quiet servers)
+		NpcWeight = 0, -- drones / bombers don't count
+	},
+	Prompts = {
+		MinSessionMins = 4,
+		CooldownDays = 3,
+		-- moments that trigger a prompt (server -> client "Moment")
+		Moments = { FirstKill = true, MultiKill = true, BossPayout = true, RankUp = true, SeasonTier = true, Mastery = true },
+	},
+}
