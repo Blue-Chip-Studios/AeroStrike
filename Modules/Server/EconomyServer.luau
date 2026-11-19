@@ -158,7 +158,7 @@ end
 
 -- Profile helpers (replicated to the client through the "HangarReplica")
 local HANGAR_TOKEN = "HangarReplica"
-local HANGAR_KEYS = { "OwnedJets", "EquippedJet", "EquippedPaint", "Upgrades", "FTUE", "Stats", "Season", "Trails", "EquippedTrail", "Rewards", "Mastery", "Prompts" }
+local HANGAR_KEYS = { "OwnedJets", "EquippedJet", "EquippedPaint", "Upgrades", "FTUE", "Stats", "Season", "Trails", "EquippedTrail", "Rewards", "Mastery", "Prompts", "Settings" }
 
 local function setKey(oPlayer: Player, sKey: string, fn: (any) -> any)
 	-- only hangar keys replicate to the client; receipts etc. stay server-only
@@ -224,7 +224,21 @@ local function shop(oPlayer: Player, t: any): any
 	return { ok = false, err = "unknown" }
 end
 
+local CAMERAS = { Chase = true, Close = true, Nose = true }
+local function saveSettings(oPlayer: Player, t: any)
+	if typeof(t) ~= "table" or not tShopLimiter:Check(oPlayer) then return end
+	setKey(oPlayer, "Settings", function(s)
+		s = s or {}
+		if typeof(t.Sensitivity) == "number" and t.Sensitivity == t.Sensitivity then s.Sensitivity = math.clamp(math.floor(t.Sensitivity * 10 + 0.5) / 10, 0.3, 2.5) end
+		if typeof(t.InvertY) == "boolean" then s.InvertY = t.InvertY end
+		if typeof(t.KillCam) == "boolean" then s.KillCam = t.KillCam end
+		if typeof(t.Camera) == "string" and CAMERAS[t.Camera] then s.Camera = t.Camera end
+		return s
+	end)
+end
+
 function Economy.StartAsync(self)
+	Remote:GetEvent("SettingsRequest"):OnServerEvent(saveSettings)
 	oShop:OnServerInvoke(function(oPlayer: Player, t: any)
 		local r = shop(oPlayer, t)
 		-- equip/upgrade on the deck takes effect immediately (fresh jet on the catapult)

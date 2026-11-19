@@ -29,9 +29,40 @@ local peek = Fusion.peek
 local LocalPlayer = Players.LocalPlayer
 local Responsive = ModuleUtil.New({ Scale = 1 })
 
-local GAME_GUIS = { HUD = true, CombatHUD = true, Hangar = true, Shop = true, Social = true }
+local UserInputService = game:GetService("UserInputService")
+
+local GAME_GUIS = { HUD = true, CombatHUD = true, Hangar = true, Shop = true, Social = true, Season = true, Settings = true }
 local MIN_SCALE, MAX_SCALE, REF_HEIGHT = 0.58, 1.15, 720
+-- LEGIBILITY: after scaling, no text renders smaller than this many pixels (phones need more)
+local MIN_TEXT_TOUCH, MIN_TEXT = 11, 10
 local tScales: { UIScale } = {}
+local tTexts: { [Instance]: number } = {} -- text object -> authored TextSize
+
+local function effectiveScale(o: Instance): number
+	local s = 1
+	local a: Instance? = o
+	while a and not a:IsA("ScreenGui") do
+		local u = a:FindFirstChild("AS_Scale")
+		if u and u:IsA("UIScale") then s *= u.Scale end
+		a = a.Parent
+	end
+	return s
+end
+
+local function fitText(t: Instance)
+	local base = tTexts[t]
+	if not base or not t.Parent then tTexts[t] = nil; return end
+	local floor = if UserInputService.TouchEnabled then MIN_TEXT_TOUCH else MIN_TEXT
+	local s = effectiveScale(t)
+	local want = if base * s < floor then math.ceil(floor / s) else base
+	if (t :: any).TextSize ~= want then (t :: any).TextSize = want end
+end
+
+local function trackText(t: Instance)
+	if not (t:IsA("TextLabel") or t:IsA("TextButton") or t:IsA("TextBox")) or (t :: any).TextScaled or tTexts[t] then return end
+	tTexts[t] = (t :: any).TextSize
+	task.defer(fitText, t) -- after the UIScale above it exists
+end
 
 local function isFixed(g: GuiObject): boolean
 	local s = g.Size
@@ -47,10 +78,34 @@ local function addScale(g: GuiObject)
 	table.insert(tScales, u)
 end
 
+-- Menu windows (Hangar / Shop / Season: a screen-fraction "Window") scale as one unit: the
+-- window gets a UIScale and a proportionally bigger logical size, so on a phone it keeps the
+-- desktop layout instead of showing three oversized cards and a long scroll.
+local tBoxes: { [GuiObject]: UDim2 } = {}
+local function windowScale(): number
+	return math.clamp(Responsive.Scale, 0.62, 1)
+end
+local function fitBox(w: GuiObject)
+	local base = tBoxes[w]
+	if not base or not w.Parent then tBoxes[w] = nil; return end
+	local s = windowScale()
+	local u = w:FindFirstChild("AS_Scale") :: UIScale?
+	if not u then
+		local nu = Instance.new("UIScale")
+		nu.Name = "AS_Scale"
+		nu.Parent = w
+		u = nu
+	end
+	(u :: UIScale).Scale = s
+	w.Size = UDim2.new(base.X.Scale / s, base.X.Offset, base.Y.Scale / s, base.Y.Offset)
+end
+
 -- Fixed-size top-level panels get scaled; full-screen roots pass it down one level.
 local function processGui(gui: ScreenGui)
 	for _, c in ipairs(gui:GetChildren()) do
-		if c:IsA("GuiObject") then
+		if c:IsA("GuiObject") and c.Name == "Window" and not isFixed(c) then
+			if not tBoxes[c] then tBoxes[c] = c.Size; fitBox(c) end
+		elseif c:IsA("GuiObject") then
 			if isFixed(c) then
 				addScale(c)
 			else
@@ -75,12 +130,18 @@ local function rescale()
 		local u = tScales[i]
 		if u.Parent then u.Scale = Responsive.Scale else table.remove(tScales, i) end
 	end
+	for w in pairs(tBoxes) do fitBox(w) end
+	for t in pairs(tTexts) do fitText(t) end
+	if Store.Values.bCompact then Store.Values.bCompact:set(Responsive.Scale < 0.75) end
 end
 
 local function watchGui(gui: Instance)
 	if not gui:IsA("ScreenGui") or not GAME_GUIS[gui.Name] then return end
 	processGui(gui)
 	gui.ChildAdded:Connect(function() task.defer(processGui, gui) end)
+	for _, d in ipairs(gui:GetDescendants()) do trackText(d) end
+	gui.DescendantAdded:Connect(trackText)
+	gui.DescendantRemoving:Connect(function(d) tTexts[d] = nil end)
 end
 
 -- ===== gamepad menus =====
@@ -135,7 +196,7 @@ function Responsive.StartAsync(self)
 
 	local function anyMenu(): boolean
 		return peek(Store.Values.bHangarOpen) or peek(Store.Values.bShopOpen)
-			or peek(Store.Values.bSquadOpen) or peek(Store.Values.bDailyOpen)
+			or peek(Store.Values.bSquadOpen) or peek(Store.Values.bDailyOpen) or peek(Store.Values.bSettingsOpen)
 	end
 	local function onGround(): boolean
 		return Flight.Phase == "Deck" or Flight.Phase == "Dead"
@@ -146,6 +207,7 @@ function Responsive.StartAsync(self)
 		local k = inp.KeyCode
 		if k == Enum.KeyCode.ButtonB and anyMenu() then
 			if peek(Store.Values.bHangarOpen) then Hangar:Close() end
+			if peek(Store.Values.bSettingsOpen) then (require(script.Parent.SettingsClient) :: any):Close() end
 			if peek(Store.Values.bShopOpen) then Shop:Close() end
 			if peek(Store.Values.bSquadOpen) then Social:CloseSquad() end
 			if peek(Store.Values.bDailyOpen) then Social:CloseDaily() end

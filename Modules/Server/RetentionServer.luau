@@ -148,6 +148,7 @@ local function read(kind: "D" | "W"): { { Id: number, Name: string, Score: numbe
 	local ds = store(kind)
 	if ds then
 		local ok, pages = pcall(ds.GetSortedAsync, ds, false, B.Size)
+		if not ok and string.find(tostring(pages), "StudioAccessToApisNotAllowed") then bStoreOk = false end
 		if ok and pages then
 			for _, e in ipairs(pages:GetCurrentPage()) do
 				local uid = tonumber(e.key) or 0

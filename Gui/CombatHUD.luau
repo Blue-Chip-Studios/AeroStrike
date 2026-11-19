@@ -202,10 +202,20 @@ return function(scope: any, props: { [string]: any })
 				Name = "Cash",
 				AnchorPoint = Vector2.new(1, 0),
 				Position = UDim2.new(1, -20, 0, 16),
-				Size = UDim2.fromOffset(330, 44),
+				Size = UDim2.fromOffset(380, 44),
 				BackgroundTransparency = 1,
 				[Children] = {
-					scope:New("UIListLayout")({ FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 8) }),
+					scope:New("UIListLayout")({ FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
+					-- SETTINGS (deck / relaunch screen only)
+					scope:New("TextButton")({
+						Name = "SettingsBtn", LayoutOrder = 0, Size = UDim2.fromOffset(40, 40), BackgroundColor3 = Theme.Panel, BackgroundTransparency = 0.15,
+						FontFace = Theme.Body, TextSize = 24, TextColor3 = Theme.Ink, Text = "⚙", Selectable = true, AutoButtonColor = true,
+						Visible = scope:Computed(function(use) local p = use(V.sPhase) return p == "Deck" or p == "Dead" end),
+						[Fusion.OnEvent("Activated")] = function()
+							(require(ReplicatedStorage:WaitForChild("ClientModules"):WaitForChild("SettingsClient")) :: any):Open()
+						end,
+						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }) },
+					}),
 					scope:New("TextLabel")({
 						Name = "Sortie", LayoutOrder = 1, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 40),
 						BackgroundColor3 = Theme.Panel, BackgroundTransparency = 0.15, FontFace = Theme.Mono, TextSize = 18,
@@ -262,7 +272,11 @@ return function(scope: any, props: { [string]: any })
 				Size = UDim2.fromOffset(520, 250),
 				BackgroundColor3 = Theme.Panel,
 				ZIndex = 20,
-				Visible = V.bStarterOffer,
+				-- only on the deck / relaunch screen: never over the reticle in flight
+				Visible = scope:Computed(function(use)
+					local p = use(V.sPhase)
+					return use(V.bStarterOffer) and (p == "Deck" or p == "Dead")
+				end),
 				[Children] = {
 					scope:New("UICorner")({ CornerRadius = UDim.new(0, 6) }),
 					scope:New("UIStroke")({ Color = Theme.Amber, Thickness = 2 }),

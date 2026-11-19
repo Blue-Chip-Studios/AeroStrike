@@ -237,8 +237,8 @@ local function onMissile(p: Instance)
 	tr.Attachment0, tr.Attachment1 = tail, a1
 	tr.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(215, 218, 224))
 	tr.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(1, 1) })
-	tr.WidthScale = NumberSequence.new(1.2, 3.5)
-	tr.Lifetime = 1.6
+	tr.WidthScale = NumberSequence.new(1.2, 5)
+	tr.Lifetime = 4.2
 	tr.LightEmission = 0.3
 	tr.FaceCamera = true
 	tr.Parent = anchorPart
@@ -252,9 +252,10 @@ local function stepProxies(dt: number)
 			tProxies[real] = nil
 			for _, part in ipairs(px.Visual) do part.Transparency = 1 end
 			for _, em in ipairs(px.Emitters) do em.Rate = 0 end
-			if px.Trail then px.Trail.Enabled = false end
+			-- the trail stops growing (the proxy stops moving) and fades out over its own lifetime,
+			-- so the smoke you just drew across the sky hangs there for a few seconds
 			local pl = px.Tail:FindFirstChildOfClass("PointLight"); if pl then pl:Destroy() end
-			Debris:AddItem(px.Root, 3)
+			Debris:AddItem(px.Root, if px.Trail then px.Trail.Lifetime + 0.5 else 3)
 		else
 			local cur = px.Root:GetPivot()
 			local ease = if px.Own and os.clock() - px.Born < 0.9 then 2.6 else 12
@@ -618,6 +619,10 @@ function Vfx.StartAsync(self)
 			end
 			local mine = t.killerId == LocalPlayer.UserId
 			if mine then killBanner() end
+			if mine and typeof(t.weapon) == "string" and string.find(t.weapon, "Missile") and typeof(t.pos) == "Vector3" then
+				local ok, err = pcall(function() (require(script.Parent.CameraController) :: any):KillCam(t.pos) end)
+				if not ok then warn("[Vfx] kill cam:", err) end
+			end
 			local me = t.victimId == LocalPlayer.UserId
 			local line = if t.killer ~= "" then `{t.killer}  ▸  {t.victim}  [{t.weapon}]` else `{t.victim}  [{t.weapon}]`
 			toast(line, if mine then Color3.fromRGB(255, 194, 61) elseif me then Color3.fromRGB(255, 75, 62) else nil)

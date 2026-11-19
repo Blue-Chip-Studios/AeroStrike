@@ -212,7 +212,7 @@ local function step(dt: number)
 		Store.Values.nLaunchBar:set(frac)
 		-- auto-launch after a few cycles so AFK/new players still go (paused in the hangar)
 		local Fusion = require(ReplicatedStorage.Packages.fusion)
-		if Fusion.peek(Store.Values.bHangarOpen) or Fusion.peek(Store.Values.bSeasonOpen) then
+		if Fusion.peek(Store.Values.bHangarOpen) or Fusion.peek(Store.Values.bSeasonOpen) or Fusion.peek(Store.Values.bSettingsOpen) then
 			nBarStart = os.clock()
 		elseif os.clock() - nBarStart > FlightConfig.LaunchCountdown * 3 then
 			requestLaunch()

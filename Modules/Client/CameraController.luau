@@ -20,7 +20,25 @@ local Workspace = game:GetService("Workspace")
 local ModuleUtil = require(ReplicatedStorage.Shared.ModuleUtil)
 local FlightConfig = require(ReplicatedStorage.Config.FlightConfig)
 
-local Cam = ModuleUtil.New({})
+-- Mode: "Chase" (default), "Close" (tighter chase) or "Nose" (HUD-only view from the nose,
+-- your own jet hidden). KillCamOn toggles the missile kill cam. Both come from Settings.
+local Cam = ModuleUtil.New({ Mode = "Chase", KillCamOn = true })
+local oHiddenJet: Model? = nil
+local function hideOwnJet(jet: Model?, hide: boolean)
+	local want = if hide then jet else nil
+	if want == oHiddenJet then return end
+	if oHiddenJet and oHiddenJet.Parent then
+		for _, d in ipairs(oHiddenJet:GetDescendants()) do
+			if d:IsA("BasePart") then d.LocalTransparencyModifier = 0 end
+		end
+	end
+	oHiddenJet = want
+	if want then
+		for _, d in ipairs(want:GetDescendants()) do
+			if d:IsA("BasePart") then d.LocalTransparencyModifier = 1 end
+		end
+	end
+end
 
 local Flight, Input
 local cfSmooth: CFrame? = nil
@@ -32,6 +50,10 @@ local nFovPunch = 0 -- one-off FOV widen (sonic boom), decays
 local oGrade: ColorCorrectionEffect
 
 local CHASE_OFFSET = Vector3.new(0, 7.5, 34)
+-- KILL CAM: a short cut to your missile kill (only when nothing is locked on you)
+local KILLCAM_TIME, KILLCAM_COOLDOWN = 0.9, 20
+local nKillCamUntil, nKillCamLast = 0, -math.huge
+local vKillPos, vKillFrom = Vector3.zero, Vector3.zero
 local nLookYaw, nLookPitch = 0, 0
 
 local function update(dt: number)
@@ -40,6 +62,9 @@ local function update(dt: number)
 	local jet = Flight.Jet
 	local phase = Flight.Phase
 	local st = Flight.State
+
+	-- nose view hides your own airframe only while flying in that mode (and never in the kill cam)
+	hideOwnJet(jet, Cam.Mode == "Nose" and phase == "Flying" and os.clock() >= nKillCamUntil and jet ~= nil and jet.Parent ~= nil)
 
 	if phase == "Dead" or not jet or not jet.Parent or not jet.PrimaryPart then
 		-- you ejected: watch your own parachute drift down (with the wreck falling away behind)
@@ -65,6 +90,21 @@ local function update(dt: number)
 	local jcf = root.CFrame
 	vDeathPoint = jcf.Position
 
+	if phase == "Flying" and os.clock() < nKillCamUntil then
+		-- framed from your side of the fireball, slight push-in, then the chase blends back
+		local t = 1 - (nKillCamUntil - os.clock()) / KILLCAM_TIME
+		local away = (vKillFrom - vKillPos)
+		away = if away.Magnitude > 1 then away.Unit else Vector3.zAxis
+		local side = away:Cross(Vector3.yAxis)
+		side = if side.Magnitude > 1e-3 then side.Unit else Vector3.xAxis
+		local p = vKillPos + away * (60 - t * 18) + side * 22 + Vector3.new(0, 14, 0)
+		local cf = CFrame.lookAt(p, vKillPos)
+		cam.CFrame = cf
+		cam.FieldOfView = 52 - t * 6
+		cfSmooth = cf -- the chase lerps home from here
+		return
+	end
+
 	if phase == "Deck" or phase == "Launching" then
 		-- cinematic: side-low view sweeping to behind
 		local t = (os.clock() % 30) / 30
@@ -84,9 +124,34 @@ local function update(dt: number)
 	local flatUp = Vector3.yAxis
 	if math.abs(fwd:Dot(flatUp)) > 0.97 then flatUp = jcf.UpVector end
 	local basis = CFrame.lookAt(jcf.Position, jcf.Position + fwd, flatUp)
-	local dist = CHASE_OFFSET.Z + speedFrac * 6
-	local desiredPos = (basis * CFrame.new(0, CHASE_OFFSET.Y, dist)).Position
+	local close = Cam.Mode == "Close"
+	local dist = (if close then 23 else CHASE_OFFSET.Z) + speedFrac * (if close then 4 else 6)
+	local desiredPos = (basis * CFrame.new(0, if close then 5 else CHASE_OFFSET.Y, dist)).Position
 	local lookAt = jcf.Position + fwd * FlightConfig.AimDistance
+
+	if Cam.Mode == "Nose" and phase == "Flying" and not Input.State.FreeLook then
+		-- HUD-only view from just ahead of the canopy, rolling with the jet
+		local span = jet:GetAttribute("GearSpan")
+		local len = if typeof(span) == "Vector3" then span.Z else 27
+		local eye = jcf.Position + jcf.LookVector * (len * 0.5 + 1) + jcf.UpVector * 1.2
+		local cf = CFrame.lookAt(eye, eye + jcf.LookVector * 100, jcf.UpVector)
+		local g0 = if st then st.G else 1
+		local tol0 = if Flight.Stats then Flight.Stats.GTolerance else 6
+		local sh = math.clamp((g0 - tol0) / 3, 0, 1) * 0.35 + nKick
+		nKick = math.max(0, nKick - dt * 2.2)
+		if sh > 0 then
+			nShakeT += dt * 40
+			cf *= CFrame.Angles(math.noise(nShakeT, 1) * sh * 0.03, math.noise(nShakeT, 2) * sh * 0.03, 0)
+		end
+		cam.CFrame = cf
+		cfSmooth = cf
+		local fov = 74 + speedFrac * 12 + (if Input.State.Boost then 4 else 0)
+		cam.FieldOfView += (fov - cam.FieldOfView) * math.clamp(dt * 4, 0, 1)
+		local strain0 = if st then (st.Strain or 0) else 0
+		local gl = if st and st.GLocTimer > 0 then 1 else math.clamp((strain0 - FlightConfig.GreyoutAt) / (1 - FlightConfig.GreyoutAt), 0, 1) * 0.8
+		oGrade.Brightness, oGrade.Contrast, oGrade.Saturation = -0.35 * gl, -0.2 * gl, -0.9 * gl
+		return
+	end
 
 	if Input.State.FreeLook then
 		local a = Input.State.Aim
@@ -133,6 +198,25 @@ local function update(dt: number)
 	oGrade.Brightness = -0.35 * gloc
 	oGrade.Contrast = -0.2 * gloc
 	oGrade.Saturation = -0.9 * gloc
+end
+
+function Cam.KillCam(self, pos: Vector3)
+	local function qa(why: string) if RunService:IsStudio() then Players.LocalPlayer:SetAttribute("QA_KillCam", why) end end
+	if not Cam.KillCamOn or os.clock() - nKillCamLast < KILLCAM_COOLDOWN or not Flight or Flight.Phase ~= "Flying" then
+		qa(`skip: on={Cam.KillCamOn} phase={Flight and Flight.Phase}`)
+		return
+	end
+	local Store = require(ReplicatedStorage.BCDKClient.LMGui.Store)
+	local Fusion = require(ReplicatedStorage.Packages.fusion)
+	local threat = Fusion.peek(Store.Values.sThreat)
+	if threat ~= "None" then qa("skip: threat " .. tostring(threat)); return end -- never look away while a missile is on you
+	qa("shown")
+	local jet = Flight.Jet
+	if not jet or not jet.PrimaryPart then return end
+	if (jet.PrimaryPart.Position - pos).Magnitude > 2500 then return end
+	nKillCamLast = os.clock()
+	nKillCamUntil = os.clock() + KILLCAM_TIME
+	vKillPos, vKillFrom = pos, jet.PrimaryPart.Position
 end
 
 function Cam.StartAsync(self)

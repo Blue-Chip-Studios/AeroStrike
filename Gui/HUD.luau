@@ -101,7 +101,18 @@ return function(scope: any, props: { [string]: any })
 						end) })
 				end
 				return scope:New("Frame")({
-					Name = "ProgressCard", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 124), Size = UDim2.fromOffset(560, 158),
+					Name = "ProgressCard", Size = UDim2.fromOffset(560, 158),
+					-- phones: under the relaunch buttons on the death screen (the top half holds the title +
+					-- killer card), just below the boss bar on the deck
+					AnchorPoint = scope:Computed(function(use)
+						return if use(V.bCompact) and use(V.sPhase) == "Dead" then Vector2.new(0.5, 1) else Vector2.new(0.5, 0)
+					end),
+					Position = scope:Computed(function(use)
+						if use(V.bCompact) then
+							return if use(V.sPhase) == "Dead" then UDim2.new(0.5, 0, 1, -6) else UDim2.new(0.5, 0, 0, 100)
+						end
+						return UDim2.new(0.5, 0, 0, 124)
+					end),
 					BackgroundColor3 = Theme.Night, BackgroundTransparency = 0.35,
 					Visible = scope:Computed(function(use) local p = use(V.sPhase) return p == "Deck" or p == "Launching" or p == "Dead" end),
 					[Children] = {
@@ -195,7 +206,8 @@ return function(scope: any, props: { [string]: any })
 						return scope:New("Frame")({
 							Name = "Challenges", Position = UDim2.new(0, 16, 0.2, 0), Size = UDim2.fromOffset(236, 80),
 							BackgroundColor3 = Theme.Night, BackgroundTransparency = 0.55,
-							Visible = scope:Computed(function(use) return #(use(V.tChallenges) :: any) > 0 end),
+							-- phones: hidden in flight (it's on the deck / relaunch card) so the left side stays clear
+							Visible = scope:Computed(function(use) return #(use(V.tChallenges) :: any) > 0 and not use(V.bCompact) end),
 							[Children] = rows,
 						})
 					end)(),
@@ -210,7 +222,7 @@ return function(scope: any, props: { [string]: any })
 						Color = scope:Computed(function(use) return if use(V.nFuel) < 0.2 then Theme.Threat else Theme.Hud end) }),
 					-- shield
 					C.HudText(scope, { Name = "Shield", Text = "SPAWN SHIELD", Font = Theme.Display, TextSize = 14, Color = Theme.Squad,
-						Position = UDim2.new(0.5, 0, 0.7, 0), Visible = V.bShield }),
+						Position = UDim2.new(0.5, 0, 0.775, 0), Visible = V.bShield }),
 					-- throttle gauge (left of the speed column): green fill = throttle, AB segment glows on afterburner
 					scope:New("Frame")({
 						Name = "Throttle", AnchorPoint = Vector2.new(0.5, 0.5),
