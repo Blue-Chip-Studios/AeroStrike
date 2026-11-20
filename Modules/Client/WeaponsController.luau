@@ -50,6 +50,7 @@ local oLockCandidate: Model? = nil
 local nFlaredUntil = 0 -- our lock target just popped flares
 local nLastDumbFire = 0
 local nNoLockHintUntil = 0
+local nQueuedUntil = 0 -- MISSILE pressed while the lock was still building: fire the moment it locks
 local sAnnounced = ""
 local tMulti: { [Model]: number } = {} -- multi-lock progress per target (one entry per target in the cone)
 local nLastFlare = -100
@@ -392,6 +393,16 @@ local function step(dt: number)
 	end
 	if os.clock() < nFlaredUntil then hint = "FLARES! RE-ACQUIRE" end
 	if os.clock() < nNoLockHintUntil then hint = "NO LOCK - UNGUIDED" end
+	if nQueuedUntil > 0 then
+		if not best then
+			nQueuedUntil = 0
+			hint = "LOCK LOST"
+		elseif os.clock() > nQueuedUntil then
+			nQueuedUntil = 0
+		else
+			hint = "FIRING ON LOCK - KEEP IT IN THE CIRCLE"
+		end
+	end
 	Store.Values.sLockHint:set(hint)
 	local newState = if not best then "None" elseif nLockProgress >= lockTime then "Locked" else "Seeking"
 	if newState ~= sLockState then
@@ -399,6 +410,10 @@ local function step(dt: number)
 		announce(newState, best)
 	end
 	Weapons.LockTarget = if newState == "Locked" then best else nil
+	if nQueuedUntil > 0 and newState == "Locked" and Weapons.FireMissileNow then
+		nQueuedUntil = 0
+		Weapons.FireMissileNow()
+	end
 	Weapons.FocusTarget = best or nearestGun -- what you are shooting at / locking (DamageController health bar)
 	Store.Values.sLockState:set(newState)
 	if RunService:IsStudio() then LocalPlayer:SetAttribute("QA_Lock", newState .. ":" .. (if best then best.Name else "")) end
@@ -432,7 +447,8 @@ local function step(dt: number)
 				local hb = nearestGun:FindFirstChild("Hitbox") :: BasePart? or nearestGun.PrimaryPart
 				if hb then
 					local toT = (hb.Position - cf.Position).Unit
-					local cone = if Input.LastDevice == "KeyboardMouse" then WeaponConfig.Gun.AssistMouse else WeaponConfig.Gun.AssistTouch
+					local cone = if jet:GetAttribute("Training") then WeaponConfig.Gun.AssistTraining
+						elseif Input.LastDevice == "KeyboardMouse" then WeaponConfig.Gun.AssistMouse else WeaponConfig.Gun.AssistTouch
 					if math.acos(math.clamp(cf.LookVector:Dot(toT), -1, 1)) < cone then
 						aimCf = CFrame.lookAt(cf.Position, cf.Position + toT, cf.UpVector)
 					end
@@ -494,6 +510,12 @@ local function fireMissile()
 		return
 	end
 	local t = Weapons.LockTarget
+	if not t and sLockState == "Seeking" then
+		-- the seeker is on a target but not locked yet: hold the shot and release it on lock
+		-- (two thirds of missiles used to leave unguided and miss)
+		nQueuedUntil = os.clock() + WeaponConfig.Missile.QueueWindow
+		return
+	end
 	if not t then
 		-- no lock: the missile still fires, unguided (server flies it straight with a proximity fuse)
 		if os.clock() - nLastDumbFire < WeaponConfig.Missile.ReloadInterval then return end
@@ -566,6 +588,7 @@ function Weapons.StartAsync(self)
 		if sName == "Missile" then fireMissile()
 		elseif sName == "Flare" then fireFlare() end
 	end)
+	Weapons.FireMissileNow = fireMissile
 	RunService.Heartbeat:Connect(step)
 	-- project HUD markers after the camera has moved this frame (on Heartbeat they trailed a frame behind,
 	-- so in a turn the lock box / pip sat beside the plane, worse at low frame rates)

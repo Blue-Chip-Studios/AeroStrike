@@ -457,8 +457,18 @@ return function(scope: any, props: { [string]: any })
 					scope:New("TextButton")({
 						Name = "Revive", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.66, 0.62), Size = UDim2.fromOffset(360, 60),
 						BackgroundColor3 = Theme.Hud, AutoButtonColor = true, Selectable = true, FontFace = Theme.Body, TextSize = 19,
-						TextColor3 = Color3.fromRGB(11, 26, 16), Text = "REVIVE HERE · KEEP YOUR CASH   R$ 25", Visible = V.bReviveOffer,
-						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("ShopClient")) :: any):Buy("ReviveHere") end,
+						TextColor3 = Color3.fromRGB(11, 26, 16), Visible = V.bReviveOffer,
+						Text = scope:Computed(function(use)
+							return if use(V.bReviveFree) then "FREE ROOKIE REVIVE · KEEP YOUR CASH" else "REVIVE HERE · KEEP YOUR CASH   R$ 25"
+						end),
+						[Fusion.OnEvent("Activated")] = function()
+							if Fusion.peek(V.bReviveFree) then
+								Store.Values.bReviveOffer:set(false)
+								require(ReplicatedStorage.BCDKShared.Remote):GetEvent("MonRequest"):FireServer({ a = "FreeRevive" })
+							else
+								(require(ClientModules:WaitForChild("ShopClient")) :: any):Buy("ReviveHere")
+							end
+						end,
 						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }) },
 					}),
 					scope:New("TextButton")({

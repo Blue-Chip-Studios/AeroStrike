@@ -12,6 +12,7 @@ return {
 		ConeTolerance = math.rad(14), -- server: target must be within this of the nose
 		AssistTouch = math.rad(4.5), -- client aim assist: rounds bend onto a target this close to the nose (touch / gamepad)
 		AssistMouse = math.rad(1.5),
+		AssistTraining = math.rad(11), -- tutorial jets: generous assist so the guns step takes seconds, not a minute
 		HeatPerShot = 0.018, -- ~3 s of fire to overheat
 		CoolRate = 0.45, -- per second when not firing
 		OverheatLock = 1.6, -- seconds locked out at 100%
@@ -29,6 +30,7 @@ return {
 		UnguidedFuseMult = 1.8, -- proximity fuse radius x Fuse for unguided shots
 		Fuse = 20, -- proximity fuse radius
 		LockCone = math.rad(18),
+		QueueWindow = 2.5, -- seconds a MISSILE press waits for the lock before it is dropped
 		LockRange = 2600,
 		ReloadInterval = 0.8, -- min seconds between shots
 		RearmTime = 0, -- missiles refill only by touch-and-go / respawn

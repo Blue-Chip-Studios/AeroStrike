@@ -314,8 +314,9 @@ local function validate(self)
 		s.LastPos = pos
 		s.LastCheck = now
 
-		if pos.Y < FlightConfig.WaterLevel - 1.5 then
-			self:DestroyJet(oPlayer, "crash")
+		-- below the sea: a shielded (spawn / tutorial) jet is bounced back up by its client instead
+		if pos.Y < FlightConfig.WaterLevel - 1.5 and not s.Jet:GetAttribute("Shield") then
+			self:DestroyJet(oPlayer, "crash:Sea")
 			continue
 		end
 		local flat = Vector3.new(pos.X, 0, pos.Z) - Vector3.new(MapConfig.MapCentre.X, 0, MapConfig.MapCentre.Z)

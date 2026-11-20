@@ -469,6 +469,21 @@ local function step(dt: number)
 		end
 	end
 
+	-- the sea surface (not always caught by the ray above): shielded jets skim back up, others crash
+	if st.CFrame.Position.Y < FlightConfig.WaterLevel + 1.5 then
+		if shielded then
+			local flat = Vector3.new(st.CFrame.LookVector.X, 0, st.CFrame.LookVector.Z)
+			flat = if flat.Magnitude > 1e-3 then flat.Unit else Vector3.zAxis
+			local up = (flat + Vector3.new(0, 0.35, 0)).Unit
+			local p0 = Vector3.new(st.CFrame.Position.X, FlightConfig.WaterLevel + 14, st.CFrame.Position.Z)
+			st.CFrame = CFrame.lookAt(p0, p0 + up)
+			Flight.AimDir = up
+		else
+			crash("Sea")
+			return
+		end
+	end
+
 	-- soft ceiling and bounds: steer back rather than kill
 	-- (the physics body follows the movers' velocity, so the hard stop has to be on velocity too)
 	local p = st.CFrame.Position

@@ -54,7 +54,7 @@ local nShard = 0
 local tDay: { [number]: { [string]: number } } = {} -- [day] = counters
 local tCohort: { [number]: { [string]: number } } = {} -- [cohortDay] = counters
 type Sess = { start: number, new: boolean, cohort: number, seen: { [string]: boolean }, paid: boolean, errs: number,
-	dev: string?, sortieAt: number?, sortieKills: number, sortieJet: string?, lastDeath: number?, step: string, stepN: number, rank0: number }
+	dev: string?, phase: string?, sortieAt: number?, sortieKills: number, sortieJet: string?, lastDeath: number?, step: string, stepN: number, rank0: number }
 local tSess: { [Player]: Sess } = {}
 -- funnel order for "where did new players stop" (ftue steps then session steps)
 local FUNNEL = { "session_loaded", "ftue_spawned_on_catapult", "ftue_launched", "ftue_guns", "ftue_lock_and_fire", "ftue_first_upgrade",
@@ -99,6 +99,12 @@ local function sbucket(secs: number): string
 	if secs < 15 then return "lt15" elseif secs < 30 then return "15_30" elseif secs < 60 then return "30_60"
 	elseif secs < 120 then return "1_2m" elseif secs < 240 then return "2_4m" elseif secs < 480 then return "4_8m" end
 	return "8mp"
+end
+
+-- errors keep their line numbers (clean() turns digits into # for everything else)
+local function cleanErr(s: string, len: number): string
+	s = string.gsub(s, "[^%w%s%._:#%-]", "")
+	return string.sub(s, 1, len)
 end
 
 local function bucket(secs: number): string
@@ -221,7 +227,7 @@ function Metrics.StartAsync(self)
 	nShard = if game.JobId == "" then 0 else h % SHARDS
 
 	ScriptContext.Error:Connect(function(msg: string)
-		add(tDay, today(), "err_s:" .. clean(msg, 70))
+		add(tDay, today(), "err_s:" .. cleanErr(msg, 90))
 	end)
 
 	Remote:GetEvent("MetricsReport"):OnServerEvent(function(p: Player, t: any)
@@ -240,7 +246,7 @@ function Metrics.StartAsync(self)
 			end
 		elseif t.a == "Error" and typeof(t.m) == "string" and sess.errs < 8 then
 			sess.errs += 1
-			add(tDay, today(), "err_c:" .. clean(t.m, 70))
+			add(tDay, today(), "err_c:" .. cleanErr(t.m, 90))
 		end
 	end)
 
@@ -273,7 +279,7 @@ function Metrics.StartAsync(self)
 				local s = tSess[p]
 				if not s then return end
 				local so = Flight:GetSortie(p)
-				s.sortieAt = os.clock(); s.sortieKills = 0
+				s.sortieAt = os.clock(); s.sortieKills = 0; s.phase = "Flying"
 				local jid = so and so.Jet and so.Jet:GetAttribute("JetId")
 				s.sortieJet = if typeof(jid) == "string" then jid else nil
 				Metrics:Mech(p, "sortie")
@@ -299,6 +305,7 @@ function Metrics.StartAsync(self)
 				end
 				s.sortieAt = nil
 				s.lastDeath = os.clock()
+				s.phase = "Dead"
 			end)
 		end
 		if okC then
@@ -402,10 +409,8 @@ function Metrics.PlayerRemoving(self, p: Player)
 	if s.new then add(tDay, d, "smn_" .. mins) end
 	if s.dev then add(tDay, d, "sess_secs_dev:" .. s.dev, math.floor(secs)); add(tDay, d, "sess_n_dev:" .. s.dev) end
 	-- where and how they left
-	local phase = "Menu"
-	local okF, Flight = pcall(require, game:GetService("ServerStorage").ServerModules.FlightServer)
-	local so = okF and Flight.GetSortie and Flight:GetSortie(p)
-	if so and so.Phase then phase = tostring(so.Phase) end
+	-- (the sortie is already torn down when PlayerRemoving runs, so use the phase tracked from events)
+	local phase = s.phase or "Deck"
 	add(tDay, d, "quit_phase:" .. phase)
 	if s.new then add(tDay, d, "quitn_phase:" .. phase); add(tDay, d, "quitn_step:" .. s.step) end
 	if s.lastDeath and os.clock() - s.lastDeath < 25 then

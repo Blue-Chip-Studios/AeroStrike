@@ -25,6 +25,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local ModuleUtil = require(ReplicatedStorage.Shared.ModuleUtil)
 local Remote = require(ReplicatedStorage.BCDKShared.Remote)
 local MonetizationConfig = require(ReplicatedStorage.Config.MonetizationConfig)
+local FlightConfig = require(ReplicatedStorage.Config.FlightConfig)
 local CurrencyConfig = require(ReplicatedStorage.Config.CurrencyConfig)
 
 local mProfile = require(ServerStorage.BCDKServer.SMProfile)
@@ -35,6 +36,8 @@ local Mon = ModuleUtil.New({
 })
 local oEvent = Remote:GetEvent("MonEvent")
 local oRequest = Remote:GetEvent("MonRequest")
+local tFreeReviveOffered: { [Player]: number? } = {}
+local tFreeReviveUsed: { [Player]: boolean } = {}
 local tPasses: { [Player]: { [string]: boolean } } = {}
 local tBountyShield: { [Player]: boolean } = {}
 local tDeaths: { [Player]: number } = {}
@@ -188,6 +191,16 @@ function Mon.StartAsync(self)
 		if typeof(t) ~= "table" or not oLimiter:Check(oPlayer) then return end
 		if t.a == "Prompted" and typeof(t.key) == "string" and (MonetizationConfig.Passes[t.key] or MonetizationConfig.Products[t.key]) then
 			Analytics:Log(oPlayer, "shop_purchase_prompt", { sku = t.key })
+		elseif t.a == "FreeRevive" then
+			local untilT = tFreeReviveOffered[oPlayer]
+			if untilT and os.clock() <= untilT and not tFreeReviveUsed[oPlayer] then
+				tFreeReviveOffered[oPlayer] = nil
+				if Flight:Revive(oPlayer) then
+					tFreeReviveUsed[oPlayer] = true
+					Analytics:Log(oPlayer, "revive_free")
+					oEvent:FireClient(oPlayer, { a = "Granted", key = "ReviveHere" })
+				end
+			end
 		end
 	end)
 
@@ -197,7 +210,14 @@ function Mon.StartAsync(self)
 		local s = Flight:GetSortie(oPlayer)
 		if s and sCause ~= "reset" and sCause ~= "eject" and os.clock() - (s.LaunchedAt or 0) >= MonetizationConfig.ReviveMinFlight
 			and MonetizationConfig.Products.ReviveHere.Id ~= 0 then
-			oEvent:FireClient(oPlayer, { a = "OfferRevive", secs = MonetizationConfig.ReviveWindow })
+			-- rookies get one FREE revive per session instead of a Robux prompt (half of all leavers quit
+			-- within 25 s of a death; a paywall at that moment pushed them out)
+			local ls = oPlayer:FindFirstChild("leaderstats")
+			local rv = ls and ls:FindFirstChild("Rank")
+			local rank = if rv then tonumber((rv :: any).Value) or 1 else 1
+			local free = rank <= FlightConfig.RookieMaxRank and not tFreeReviveUsed[oPlayer]
+			tFreeReviveOffered[oPlayer] = if free then os.clock() + MonetizationConfig.ReviveWindow else nil
+			oEvent:FireClient(oPlayer, { a = "OfferRevive", secs = MonetizationConfig.ReviveWindow, free = free })
 		end
 		tDeaths[oPlayer] = (tDeaths[oPlayer] or 0) + 1
 		if tDeaths[oPlayer] == MonetizationConfig.StarterOfferAfterDeaths and not tOffered[oPlayer] then
@@ -215,6 +235,8 @@ function Mon.InitProfileAsync(self, oPlayer: Player)
 end
 
 function Mon.PlayerRemoving(self, oPlayer: Player)
+	tFreeReviveOffered[oPlayer] = nil
+	tFreeReviveUsed[oPlayer] = nil
 	tPasses[oPlayer] = nil
 	tBountyShield[oPlayer] = nil
 	tDeaths[oPlayer] = nil

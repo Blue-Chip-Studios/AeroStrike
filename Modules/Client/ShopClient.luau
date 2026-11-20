@@ -92,6 +92,7 @@ function Shop.StartAsync(self)
 		elseif t.a == "OfferStarter" then
 			Store.Values.bStarterOffer:set(true)
 		elseif t.a == "OfferRevive" then
+			Store.Values.bReviveFree:set(t.free == true)
 			Store.Values.bReviveOffer:set(true)
 			local token = os.clock()
 			nReviveToken = token

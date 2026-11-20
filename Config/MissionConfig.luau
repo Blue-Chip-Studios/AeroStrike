@@ -57,8 +57,8 @@ return {
 		Drones = 2,
 		-- straight off the bow, near the climb-out level-off height: a new pilot launches and the
 		-- drone is right in front of them (it used to circle 900 studs off to the side)
-		Offset = Vector3.new(0, 240, -1150), -- from carrier pivot, in carrier space (bow = -Z)
+		Offset = Vector3.new(0, 420, -1150), -- from carrier pivot, in carrier space (bow = -Z); high: chasing it low ended in the sea
 		Orbit = 420, -- wide, gentle circle a rookie can follow (was a tight 160)
-		HitboxScale = 2.2, -- training drones are easier to hit while players learn to aim
+		HitboxScale = 3.0, -- training drones are easier to hit while players learn to aim
 	},
 }

@@ -91,6 +91,7 @@ local tValues = {
 	sRankLine = "", -- ACE RANK 3 · 340 XP TO RANK 4
 	bSeasonOpen = false,
 	bReviveOffer = false, -- REVIVE HERE button on the death screen
+	bReviveFree = false, -- that offer is the free rookie revive (no Robux)
 	bSettingsOpen = false, -- Settings screen (SettingsClient)
 	tStickBase = Vector2.new(-1000, -1000), -- touch Stick steering: where the thumb went down (screen px)
 	tStickKnob = Vector2.new(-1000, -1000), -- ... and where it is now (clamped to the ring)

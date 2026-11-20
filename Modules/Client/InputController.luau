@@ -353,8 +353,9 @@ function Input.Update(self, dt: number): Vector2
 	elseif self.LastDevice == "Gamepad" then
 		local s = if vStick1.Magnitude > vStick2.Magnitude then vStick1 else vStick2
 		if s.Magnitude < 0.12 then s = Vector2.zero end
-		-- squared response: fine control near centre, fast at full deflection
-		s = s * s.Magnitude
+		-- steep response: precise near the centre (tracking a target), full G-pulling rate only at the rim
+		local mag = s.Magnitude
+		s = if mag > 0 then s.Unit * (mag ^ 2.4) else s
 		d = Vector2.new(s.X, s.Y * inv) * PULL_RAD_PER_S * dt
 	else
 		local md = UserInputService:GetMouseDelta()

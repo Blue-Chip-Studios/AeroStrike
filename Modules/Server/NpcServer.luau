@@ -134,21 +134,38 @@ end
 -- SAM site: real (dodgeable) missile at a jet in range with line of sight
 local tSamRay = RaycastParams.new()
 tSamRay.FilterType = Enum.RaycastFilterType.Include
+local releaseLock: (n: Npc) -> ()
+-- SAM site: tracks a jet first (the pilot hears the lock tone and can dive behind terrain), then fires.
+-- Rookies get a longer warning: SAMs were 15% of all shoot-downs of new players.
 local function sam(n: Npc, now: number)
 	local s = n.Cfg.Sam
-	if not s or now - n.LastShot < s.Cooldown then return end
+	if not s then return end
 	local root = n.Model.PrimaryPart :: BasePart
 	local from = root.Position + Vector3.new(0, 10, 0)
 	tSamRay.FilterDescendantsInstances = { workspace.Terrain }
-	for _, jet in ipairs(workspace.Jets:GetChildren()) do
-		if jet:IsA("Model") and jet.PrimaryPart and not jet:GetAttribute("Dead") and not jet:GetAttribute("Shield") then
-			local to = jet.PrimaryPart.Position - from
-			if to.Magnitude < s.Range and not workspace:Raycast(from, to, tSamRay) then
-				n.LastShot = now
-				Combat:FireMissileAt(nil, CFrame.lookAt(from, jet.PrimaryPart.Position), jet, s.Damage, n.Model)
-				return
+	local function ok(jet: Model?): boolean
+		if not jet or not jet.Parent or not jet.PrimaryPart or jet:GetAttribute("Dead") or jet:GetAttribute("Shield") then return false end
+		local to = jet.PrimaryPart.Position - from
+		return to.Magnitude < s.Range and not workspace:Raycast(from, to, tSamRay)
+	end
+	if n.LockOn and not ok(n.LockOn) then releaseLock(n) end
+	if now - n.LastShot < s.Cooldown then return end
+	if not n.LockOn then
+		for _, jet in ipairs(workspace.Jets:GetChildren()) do
+			if jet:IsA("Model") and ok(jet) then
+				n.LockOn, n.LockT0 = jet, now
+				jet:SetAttribute("LockedBy", (jet:GetAttribute("LockedBy") :: number? or 0) + 1)
+				break
 			end
 		end
+		return
+	end
+	local jet = n.LockOn :: Model
+	local track = if jet:GetAttribute("Rookie") then Engage.SamTrackRookie else Engage.SamTrack
+	if now - (n.LockT0 :: number) >= track then
+		releaseLock(n)
+		n.LastShot = now
+		Combat:FireMissileAt(nil, CFrame.lookAt(from, (jet.PrimaryPart :: BasePart).Position), jet, s.Damage, n.Model)
 	end
 end
 
@@ -326,7 +343,7 @@ end
 -- a real missile comes off the rail: flares, a hard break or terrain masking defeat it
 local tLosRay = RaycastParams.new()
 tLosRay.FilterType = Enum.RaycastFilterType.Include
-local function releaseLock(n: Npc)
+function releaseLock(n: Npc)
 	local j = n.LockOn
 	if j and j.Parent then j:SetAttribute("LockedBy", math.max(0, (j:GetAttribute("LockedBy") :: number? or 0) - 1)) end
 	n.LockOn, n.LockT0 = nil, nil
