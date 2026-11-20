@@ -82,8 +82,8 @@ local Jets: { [string]: Jet } = {
 		Role = "Agile Interceptor",
 		Order = 2,
 		ModelAssetId = 90543401942532,
-		RankRequired = 3,
-		CashPrice = 6000,
+		RankRequired = 2, -- was 3 (data: R3 at ~4.9 min, most sessions shorter)
+		CashPrice = 4500, -- was 6000
 		Stats = {
 			MinSpeed = 75, CruiseSpeed = 175, MaxSpeed = 292,
 			Accel = 52, TurnRate = 1.8, CornerSpeed = 180,

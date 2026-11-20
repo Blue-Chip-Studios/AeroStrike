@@ -31,7 +31,7 @@ return {
 		NpcWeight = 0, -- drones / bombers don't count
 	},
 	Prompts = {
-		MinSessionMins = 4,
+		MinSessionMins = 2, -- was 4: 77% of sessions ended before minute 5, so almost nobody saw them
 		CooldownDays = 3,
 		-- moments that trigger a prompt (server -> client "Moment")
 		Moments = { FirstKill = true, MultiKill = true, BossPayout = true, RankUp = true, SeasonTier = true, Mastery = true },

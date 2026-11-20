@@ -204,6 +204,18 @@ function Mon.StartAsync(self)
 		end
 	end)
 
+	-- STARTER ACE offer right after a high (double kill or reaching rank 3), once per session, if not owned.
+	-- (it used to follow the 3rd death: 119 offers, 0 buys - nobody buys at their lowest moment)
+	local function offerStarterOnHigh(p: Player)
+		if tOffered[p] or not p.Parent then return end
+		local once = mProfile:GetAsync(p, "OneTimeProducts") or {}
+		if once.StarterAce then return end
+		tOffered[p] = true
+		task.delay(2.5, function() if p.Parent then oEvent:FireClient(p, { a = "OfferStarter" }) end end)
+	end
+	Economy.OnMultiKill.Event:Connect(function(p: Player, n: number) if n >= 2 then offerStarterOnHigh(p) end end)
+	Economy.OnRankUp.Event:Connect(function(p: Player, r: number) if r >= 3 then offerStarterOnHigh(p) end end)
+
 	-- starter bundle offer on the Nth shoot-down (once per session, only if not owned)
 	Flight.OnJetDestroyed.Event:Connect(function(oPlayer: Player, sCause: string)
 		-- REVIVE HERE: an impulse offer on the death screen after a real sortie
@@ -220,7 +232,7 @@ function Mon.StartAsync(self)
 			oEvent:FireClient(oPlayer, { a = "OfferRevive", secs = MonetizationConfig.ReviveWindow, free = free })
 		end
 		tDeaths[oPlayer] = (tDeaths[oPlayer] or 0) + 1
-		if tDeaths[oPlayer] == MonetizationConfig.StarterOfferAfterDeaths and not tOffered[oPlayer] then
+		if false then -- (starter offer now follows a high, see offerStarterOnHigh below)
 			local once = mProfile:GetAsync(oPlayer, "OneTimeProducts") or {}
 			if not once.StarterAce then
 				tOffered[oPlayer] = true

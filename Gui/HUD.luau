@@ -27,6 +27,28 @@ return function(scope: any, props: { [string]: any })
 	local function colL(y: number) return scope:Computed(function(use) return UDim2.new(if use(V.bTouch) then 0.38 else 0.24, 0, y, 0) end) end
 	local function colR(y: number) return scope:Computed(function(use) return UDim2.new(if use(V.bTouch) then 0.62 else 0.76, 0, y, 0) end) end
 
+	-- cheapest affordable upgrade on the equipped jet (death-screen one-tap button)
+	local TRACK_LABEL = { Engine = "ENGINE", Fuel = "FUEL TANK", GSuit = "G-SUIT", Flares = "FLARES", Seeker = "SEEKER" }
+	local function quickUpgrade(use: any): { Jet: string, Track: string, Label: string, Cost: number }?
+		local EconomyConfig = require(ReplicatedStorage.Config.EconomyConfig)
+		local h = use(V.tHangar) :: any
+		local cash = use(V.nCash) :: number
+		if typeof(h) ~= "table" or typeof(cash) ~= "number" then return nil end
+		local jet = h.EquippedJet or "SparrowT2"
+		local ups = (h.Upgrades and h.Upgrades[jet]) or {}
+		local best = nil
+		for _, track in ipairs({ "Engine", "Seeker", "GSuit", "Fuel", "Flares" }) do
+			local lvl = ups[track] or 0
+			local cost = EconomyConfig.UpgradeCosts[track] and EconomyConfig.UpgradeCosts[track][lvl + 1]
+			-- first affordable in impact order (Engine > Seeker > G-Suit > Fuel > Flares)
+			if cost and cost <= cash then
+				best = { Jet = jet, Track = track, Label = TRACK_LABEL[track] or string.upper(track), Cost = cost }
+				break
+			end
+		end
+		return best
+	end
+
 	local function screenPos(val: any)
 		return scope:Computed(function(use)
 			local v = use(val) :: Vector2
@@ -274,6 +296,14 @@ return function(scope: any, props: { [string]: any })
 								end) }),
 						},
 					}),
+					-- FLARE NOW: an incoming missile is about to hit
+					C.HudText(scope, { Name = "FlareNow", Font = Theme.Display, TextSize = 30, Color = Color3.fromRGB(255, 176, 32),
+						Position = UDim2.new(0.5, 0, 0.33, 0), Size = UDim2.fromOffset(620, 40), Visible = V.bFlareNow,
+						Text = scope:Computed(function(use)
+							if use(V.bTouch) then return "MISSILE CLOSE - FLARE NOW!" end
+								if use(V.bGamepad) then return "MISSILE CLOSE - FLARE NOW! [B]" end
+								return "MISSILE CLOSE - FLARE NOW! [F]"
+							end) }),
 					-- return-to-base guidance and landing / taxi prompts
 					C.HudText(scope, { Name = "RtbHint", Font = Theme.Display, TextSize = 17, Color = Theme.Amber,
 						Position = UDim2.new(0.5, 0, 0.79, 0), Size = UDim2.fromOffset(820, 24), Text = V.sRtbHint }),
@@ -471,11 +501,35 @@ return function(scope: any, props: { [string]: any })
 						end,
 						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }) },
 					}),
+					-- one-tap upgrade: the cheapest upgrade you can afford right now for the jet you fly
+					-- (only 2% of new players ever bought one through the Hangar)
 					scope:New("TextButton")({
-						Name = "HangarBtn", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.62, 40), Size = UDim2.fromOffset(200, 44),
-						BackgroundTransparency = 1, FontFace = Theme.Body, TextSize = 19, TextColor3 = Theme.Amber, Text = "UPGRADE IN HANGAR ›", Selectable = true,
-						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("HangarClient")) :: any):Open() end,
+						Name = "HangarBtn", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.62, 40), Size = UDim2.fromOffset(360, 44),
+						BackgroundColor3 = Theme.Amber, FontFace = Theme.Body, TextSize = 19, Selectable = true,
+						BackgroundTransparency = scope:Computed(function(use) return if quickUpgrade(use) then 0.05 else 1 end),
+						TextColor3 = scope:Computed(function(use) return if quickUpgrade(use) then Color3.fromRGB(26, 18, 4) else Theme.Amber end),
+						Text = scope:Computed(function(use)
+							local q = quickUpgrade(use)
+							if q then return `UPGRADE {q.Label} NOW  ◉{q.Cost}` end
+							return "UPGRADE IN HANGAR ›"
+						end),
+						[Fusion.OnEvent("Activated")] = function()
+							local q = quickUpgrade(Fusion.peek)
+							local H = require(ClientModules:WaitForChild("HangarClient")) :: any
+							if q then H:QuickUpgrade(q.Jet, q.Track, q.Label) else H:Open() end
+						end,
+						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }) },
 					}),
+					-- come back tomorrow: the next daily pay is waiting (D1 retention was 2%)
+					C.HudText(scope, { Font = Theme.Body, TextSize = 16, Color = Theme.Hud, Position = UDim2.new(0.5, 0, 0.62, 104),
+						Size = UDim2.fromOffset(620, 22),
+						Text = scope:Computed(function(use)
+							local d = use(V.tDaily) :: any
+							if not d or d.claimable or not d.day then return "" end
+							local EconomyConfig = require(ReplicatedStorage.Config.EconomyConfig)
+							local pay = EconomyConfig.DailyTrack[d.day] or 0
+							return `COME BACK TOMORROW · DAY {d.day} PAY ◉{pay} · KEEP YOUR {math.max(1, (d.streak or 0))}-DAY STREAK`
+						end) }),
 				},
 			}),
 
@@ -512,6 +566,9 @@ return function(scope: any, props: { [string]: any })
 					C.TouchButton(scope, { Name = "Missile", Label = "MISSILE", Color = Theme.Threat, Position = UDim2.fromOffset(92, 92),
 						OnDown = function() Input:SetTouch("Missile", true) end, OnUp = function() Input:SetTouch("Missile", false) end }),
 					C.TouchButton(scope, { Name = "Flare", Label = "FLARE", Position = UDim2.fromOffset(70, 222), Cooldown = V.nFlareCooldown,
+						Fill = scope:Computed(function(use)
+							return if use(V.bFlareNow) and use(V.nPullUpBlink) then Color3.fromRGB(255, 176, 32) else Theme.Panel
+						end),
 						OnDown = function() Input:SetTouch("Flare", true) end, OnUp = function() Input:SetTouch("Flare", false) end }),
 					-- appears only when the hull is critical (a single tap ejects)
 						C.TouchButton(scope, { Name = "Gear", Label = "GEAR", SizePx = 72, Position = UDim2.fromOffset(92, -20),

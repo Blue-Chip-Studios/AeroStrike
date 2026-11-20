@@ -55,6 +55,7 @@ return {
 		SunCone = 12, Sun = 0.2, -- target within this many degrees of the sun
 	},
 	Flare = {
+		CueDistance = 520, -- HUD says FLARE NOW when an incoming missile is this close (~1.5 s out)
 		Cooldown = 2,
 		DecoyChance = 0.7,
 		AceWindow = 0.6, -- s before impact

@@ -50,7 +50,8 @@ local oLockCandidate: Model? = nil
 local nFlaredUntil = 0 -- our lock target just popped flares
 local nLastDumbFire = 0
 local nNoLockHintUntil = 0
-local nQueuedUntil = 0 -- MISSILE pressed while the lock was still building: fire the moment it locks
+local nQueuedUntil = 0
+local bFlareCue = false -- MISSILE pressed while the lock was still building: fire the moment it locks
 local sAnnounced = ""
 local tMulti: { [Model]: number } = {} -- multi-lock progress per target (one entry per target in the cone)
 local nLastFlare = -100
@@ -489,6 +490,25 @@ local function step(dt: number)
 	if now - nLastFlush > 0.1 then
 		nLastFlush = now
 		flushHits()
+	end
+
+	-- FLARE NOW cue: a missile chasing me is close (flares used to decoy only 0.11 missiles each:
+	-- popped too early or with nothing inbound)
+	do
+		local close = false
+		local mf = Workspace:FindFirstChild("Missiles")
+		if mf then
+			for _, m in ipairs(mf:GetChildren()) do
+				if m:IsA("BasePart") and m:GetAttribute("Target") == jet.Name and (m.Position - cf.Position).Magnitude < WeaponConfig.Flare.CueDistance then
+					close = true
+					break
+				end
+			end
+		end
+		if close ~= bFlareCue then
+			bFlareCue = close
+			Store.Values.bFlareNow:set(close)
+		end
 	end
 
 	-- ammo + threat from replicated attributes

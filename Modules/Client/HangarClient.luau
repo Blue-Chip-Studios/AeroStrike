@@ -75,6 +75,14 @@ function Hangar.Upgrade(self, sJet: string, sTrack: string)
 	result(Economy:Shop({ a = "Upgrade", jet = sJet, track = sTrack }), "Upgrade installed!")
 end
 
+-- one-tap upgrade from the death screen (feedback in the big centre banner, not the hangar line)
+function Hangar.QuickUpgrade(self, sJet: string, sTrack: string, sLabel: string)
+	local r = Economy:Shop({ a = "Upgrade", jet = sJet, track = sTrack })
+	Store.Values.sLaunchResult:set(if r.ok then `{sLabel} UPGRADED!` else (ERR[r.err] or "Can't do that right now."))
+	task.delay(1.8, function() Store.Values.sLaunchResult:set("") end)
+	oAnalytics:FireServer({ e = "ui_button", d = { id = "quick_upgrade", sku = sTrack } })
+end
+
 function Hangar.StartAsync(self)
 	LMGui = require(ReplicatedStorage.BCDKClient.LMGui)
 	Economy = require(script.Parent.EconomyClient)
