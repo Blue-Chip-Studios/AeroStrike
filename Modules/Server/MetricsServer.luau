@@ -40,6 +40,7 @@ local ScriptContext = game:GetService("ScriptContext")
 local ModuleUtil = require(ReplicatedStorage.Shared.ModuleUtil)
 local Remote = require(ReplicatedStorage.BCDKShared.Remote)
 local MonetizationConfig = require(ReplicatedStorage.Config.MonetizationConfig)
+local FTUEConfig = require(ReplicatedStorage.Config.FTUEConfig)
 
 local STORE = "AS_Metrics"
 local SHARDS = 8
@@ -54,7 +55,7 @@ local nShard = 0
 local tDay: { [number]: { [string]: number } } = {} -- [day] = counters
 local tCohort: { [number]: { [string]: number } } = {} -- [cohortDay] = counters
 type Sess = { start: number, new: boolean, cohort: number, seen: { [string]: boolean }, paid: boolean, errs: number,
-	dev: string?, phase: string?, sortieAt: number?, sortieKills: number, sortieJet: string?, lastDeath: number?, step: string, stepN: number, rank0: number }
+	dev: string?, phase: string?, ab: string?, sortieAt: number?, sortieKills: number, sortieJet: string?, lastDeath: number?, step: string, stepN: number, rank0: number }
 local tSess: { [Player]: Sess } = {}
 -- funnel order for "where did new players stop" (ftue steps then session steps)
 local FUNNEL = { "session_loaded", "ftue_spawned_on_catapult", "ftue_launched", "ftue_guns", "ftue_lock_and_fire", "ftue_first_upgrade",
@@ -142,6 +143,9 @@ function Metrics.Count(self, p: Player, sEvent: string, tData: { [string]: any }
 			if s.dev and (string.sub(sEvent, 1, 5) == "ftue_" or string.sub(sEvent, 1, 8) == "session_") then
 				add(tDay, d, `nd_{s.dev}_{sEvent}`)
 			end
+			if s.ab and (string.sub(sEvent, 1, 5) == "ftue_" or string.sub(sEvent, 1, 8) == "session_" or string.sub(sEvent, 1, 5) == "shop_") then
+				add(tDay, d, `ab_{s.ab}_{sEvent}`)
+			end
 		end
 	end
 	if sEvent == "shop_purchase_success" and tData and typeof(tData.sku) == "string" then
@@ -150,8 +154,10 @@ function Metrics.Count(self, p: Player, sEvent: string, tData: { [string]: any }
 		add(tDay, d, "robux", price); add(tDay, d, "buys"); add(tDay, d, "buy_" .. tData.sku)
 		if s then
 			add(tCohort, s.cohort, "robux", price)
+			if s.ab then add(tDay, d, "ab_robux:" .. s.ab, price) end
 			if not s.paid then
 				s.paid = true
+				if s.ab then add(tDay, d, "ab_payers:" .. s.ab) end
 				add(tDay, d, "payers")
 				add(tCohort, s.cohort, "payers")
 			end
@@ -283,6 +289,7 @@ function Metrics.StartAsync(self)
 				local jid = so and so.Jet and so.Jet:GetAttribute("JetId")
 				s.sortieJet = if typeof(jid) == "string" then jid else nil
 				Metrics:Mech(p, "sortie")
+				if s.ab then add(tDay, today(), "ab_sorties:" .. s.ab) end
 				if s.sortieJet then add(tDay, today(), "sortie_jet:" .. s.sortieJet) end
 			end)
 			Flight.OnJetDestroyed.Event:Connect(function(p: Player, sCause: string)
@@ -291,6 +298,7 @@ function Metrics.StartAsync(self)
 				local d = today()
 				local cause = clean((string.gsub(sCause, ":", "_")), 30)
 				add(tDay, d, "death:" .. cause)
+				if s.ab then add(tDay, d, "ab_deaths:" .. s.ab) end
 				add(tDay, d, `death_rb:{band(rankOf(p))}:{cause}`)
 				if s.new then add(tDay, d, "deathn:" .. cause) end
 				if s.sortieJet then add(tDay, d, "death_jet:" .. s.sortieJet) end
@@ -319,6 +327,7 @@ function Metrics.StartAsync(self)
 					local s = tSess[attacker]
 					if s then
 						s.sortieKills += 1
+						if s.ab then add(tDay, d, "ab_kills:" .. s.ab) end
 						if s.sortieJet then add(tDay, d, "kill_jet:" .. s.sortieJet) end
 					end
 				end
@@ -359,17 +368,28 @@ function Metrics.InitProfileAsync(self, p: Player, tProfile: any)
 	if typeof(m) ~= "table" then m = {}; data.Meta = m end
 	local isNew = (m.FirstDay or 0) == 0
 	if isNew then m.FirstDay = d end
+	-- 50/50 tutorial test group (same rule as FTUEServer), remembered for retention by group
+	if isNew and FTUEConfig.ABTest and FTUEConfig.ABTest.Enabled and not m.AB then
+		local f = data.FTUE
+		if not f or ((f.Step or 0) == 0 and (not f.Done or f.Variant == "Direct")) then
+			m.AB = FTUEConfig.VariantFor(p.UserId)
+		end
+	end
 	local cohort = m.FirstDay
 	local firstToday = (m.LastDay or 0) ~= d
 	if firstToday then
 		add(tDay, d, "dau")
 		if isNew then
 			add(tDay, d, "new"); add(tCohort, cohort, "new")
+			if m.AB then add(tCohort, cohort, "new:" .. m.AB); add(tDay, d, "ab_new:" .. m.AB) end
 		else
 			add(tDay, d, "returning")
 			local age = d - cohort
 			for _, k in ipairs(RETURN_DAYS) do
-				if age == k then add(tCohort, cohort, "d" .. k) end
+				if age == k then
+					add(tCohort, cohort, "d" .. k)
+					if m.AB then add(tCohort, cohort, `d{k}:{m.AB}`) end
+				end
 			end
 		end
 		m.DaysPlayed = (m.DaysPlayed or 0) + 1
@@ -379,7 +399,7 @@ function Metrics.InitProfileAsync(self, p: Player, tProfile: any)
 	add(tDay, d, "sessions")
 	add(tDay, d, "ver:" .. tostring(game.PlaceVersion)) -- which published version this server runs
 	local sess: Sess = { start = os.clock(), new = cohort == d, cohort = cohort, seen = {}, paid = false, errs = 0,
-		sortieKills = 0, step = "none", stepN = 0, rank0 = rankOf(p) }
+		sortieKills = 0, step = "none", stepN = 0, rank0 = rankOf(p), ab = if cohort == d then m.AB else nil }
 	tSess[p] = sess
 	for _, ev in ipairs(tPending[p] or {}) do
 		if not sess.seen[ev] then
@@ -406,6 +426,11 @@ function Metrics.PlayerRemoving(self, p: Player)
 	end
 	local mins = math.min(60, math.floor(secs / 60))
 	add(tDay, d, "sm_" .. mins)
+	if s.ab then
+		add(tDay, d, "ab_secs:" .. s.ab, math.floor(secs)); add(tDay, d, "ab_n:" .. s.ab)
+		add(tDay, d, `abm_{s.ab}_{mins}`)
+		add(tDay, d, `ab_rank:{s.ab}`, rankOf(p))
+	end
 	if s.new then add(tDay, d, "smn_" .. mins) end
 	if s.dev then add(tDay, d, "sess_secs_dev:" .. s.dev, math.floor(secs)); add(tDay, d, "sess_n_dev:" .. s.dev) end
 	-- where and how they left

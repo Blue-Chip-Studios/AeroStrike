@@ -49,6 +49,15 @@ local TIPS: { [string]: Tip } = {
 	Stick = { Id = "Stick", Text = { -- tablets only (big touch screens, still on Swipe steering)
 		Touch = "Tablet tip: try STICK steering in ⚙ Settings - hold and push to keep turning",
 		Pad = "", Mouse = "" } },
+	-- pilots who skipped the tutorial (or are in the 50/50 "Direct" group) learn the two weapons here
+	Guns = { Id = "Guns", Text = {
+		Touch = "Hold GUNS to fire - put the green pip on an enemy jet",
+		Pad = "Hold RB to fire - put the green pip on an enemy jet",
+		Mouse = "Hold LEFT MOUSE to fire - put the green pip on an enemy jet" } },
+	Missile = { Id = "Missile", Text = {
+		Touch = "Keep the enemy in the circle until LOCK - tap MISSILE (it fires on lock)",
+		Pad = "Keep the enemy in the circle until LOCK - press LB (it fires on lock)",
+		Mouse = "Keep the enemy in the circle until LOCK - right-click (it fires on lock)" } },
 	Rearm = { Id = "Rearm", Text = {
 		Touch = "Out of missiles: tap GEAR, land at the AIRFIELD or CARRIER and stop to rearm",
 		Pad = "Out of missiles: D-pad down for gear, land at the AIRFIELD or CARRIER and stop",
@@ -86,6 +95,11 @@ function Tips.StartAsync(self)
 		if Flight.Phase == "Flying" and st and stats and jet then
 			local threat = peek(Store.Values.sThreat)
 			if threat == "Inbound" then push("Inbound") elseif threat == "Locked" then push("Lock") end
+			local h = peek(Store.Values.tHangar) :: any
+			if h and h.FTUE and h.FTUE.Skipped then
+				if nFlyingFor > 3 then push("Guns") end
+				if peek(Store.Values.sLockState) == "Seeking" then push("Missile") end
+			end
 			if (st.Strain or 0) > 0.45 then push("Strain") end
 			if Input.State.Boost then push("Boost") end
 			if st.Fuel / stats.Fuel < 0.5 then push("Fuel") end

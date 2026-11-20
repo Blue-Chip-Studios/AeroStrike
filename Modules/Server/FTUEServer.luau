@@ -18,6 +18,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local ModuleUtil = require(ReplicatedStorage.Shared.ModuleUtil)
 local Remote = require(ReplicatedStorage.BCDKShared.Remote)
 local FTUEConfig = require(ReplicatedStorage.Config.FTUEConfig)
+local EconomyConfig = require(ReplicatedStorage.Config.EconomyConfig)
 
 local mProfile = require(ServerStorage.BCDKServer.SMProfile)
 
@@ -143,8 +144,34 @@ end
 
 function FTUE.InitProfileAsync(self, oPlayer: Player, tProfile)
 	local f = tProfile.Data.FTUE
+	-- 50/50 test: only brand-new pilots who haven't started the tutorial are assigned
+	if FTUEConfig.ABTest and FTUEConfig.ABTest.Enabled and f and not f.Variant and (f.Step or 0) == 0 and not f.Done then
+		local variant = FTUEConfig.VariantFor(oPlayer.UserId)
+		Economy:SetProfileKey(oPlayer, "FTUE", function(v)
+			v = v or { Step = 0, Done = false, Skipped = false }
+			v.Variant = variant
+			if variant == "Direct" then v.Done = true; v.Skipped = true end
+			return v
+		end)
+		if variant == "Direct" then
+			-- the same free Flare Pod level the tutorial hands out, so the groups start equal
+			local track = EconomyConfig.FTUEReward and EconomyConfig.FTUEReward.Upgrade
+			if track then
+				Economy:SetProfileKey(oPlayer, "Upgrades", function(u)
+					u = u or {}
+					u.SparrowT2 = u.SparrowT2 or {}
+					u.SparrowT2[track] = math.max(u.SparrowT2[track] or 0, 1)
+					return u
+				end)
+			end
+			Analytics:Log(oPlayer, "ftue_direct")
+		end
+		f = mProfile:GetAsync(oPlayer, "FTUE") or f
+	end
+	if f and f.Variant then oPlayer:SetAttribute("ABTutorial", f.Variant) end
 	task.delay(2, function()
-		oEvent:FireClient(oPlayer, { a = "State", step = f.Step or 0, done = f.Done == true })
+		local cur = mProfile:GetAsync(oPlayer, "FTUE") or f
+		oEvent:FireClient(oPlayer, { a = "State", step = cur.Step or 0, done = cur.Done == true })
 	end)
 end
 

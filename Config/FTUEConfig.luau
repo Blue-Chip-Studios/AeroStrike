@@ -34,4 +34,11 @@ return {
 	TrainingSamDelay = 1.5,
 	TrainingSamDistance = 1100,
 	TrainingShieldMax = 150, -- seconds of tutorial flight with the training shield (then the AI can engage)
+	-- 50/50 TEST: new players get the tutorial ("Tutorial") or go straight into the fight with just-in-time
+	-- tips only ("Direct"). Split by UserId so it's stable across sessions and the same in every module.
+	-- MetricsServer reports both groups side by side; set Enabled = false to give everyone the tutorial.
+	ABTest = { Enabled = true },
+	VariantFor = function(userId: number): string
+		return if userId % 2 == 0 then "Tutorial" else "Direct"
+	end,
 }

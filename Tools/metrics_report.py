@@ -167,6 +167,28 @@ def main():
     def line(items, top=10, fmt=lambda k, v: f"{k} {v}"):
         return ", ".join(fmt(k, v) for k, v in items[:top]) or "-"
 
+    # ---- 50/50 tutorial test
+    groups = ("Tutorial", "Direct")
+    if any(tot.get("ab_n:" + g) for g in groups):
+        print("\n== 50/50 TUTORIAL TEST (new players) ==")
+        print(f"  {'':<26}" + "".join(f"{g:>12}" for g in groups))
+        def row(label, fn):
+            print(f"  {label:<26}" + "".join(f"{fn(g):>12}" for g in groups))
+        row("players", lambda g: str(tot.get("ab_new:" + g, 0)))
+        row("avg session (min)", lambda g: f"{tot.get('ab_secs:' + g, 0) / max(tot.get('ab_n:' + g, 0), 1) / 60:.1f}")
+        for m_ in (1, 3, 5, 10):
+            row(f"still playing at {m_} min", lambda g, m_=m_: pct(sum(v for k, v in tot.items() if k.startswith(f"abm_{g}_") and int(k.rsplit('_', 1)[1]) >= m_), tot.get("ab_n:" + g, 0)).strip())
+        for e in ("session_launched", "session_first_shot", "session_first_lock", "session_first_kill", "session_first_bank", "session_first_upgrade"):
+            row(e.replace("session_", ""), lambda g, e=e: pct(tot.get(f"ab_{g}_{e}", 0), tot.get("ab_new:" + g, 0)).strip())
+        row("kills per life", lambda g: f"{tot.get('ab_kills:' + g, 0) / max(tot.get('ab_sorties:' + g, 0), 1):.2f}")
+        row("deaths per session", lambda g: f"{tot.get('ab_deaths:' + g, 0) / max(tot.get('ab_n:' + g, 0), 1):.2f}")
+        row("avg rank at leave", lambda g: f"{tot.get('ab_rank:' + g, 0) / max(tot.get('ab_n:' + g, 0), 1):.1f}")
+        row("payers", lambda g: str(tot.get("ab_payers:" + g, 0)))
+        row("Robux", lambda g: str(tot.get("ab_robux:" + g, 0)))
+        cn = {g: sum(C[d].get("new:" + g, 0) for d in days if today - d >= 1) for g in groups}
+        row("D1 return (mature days)", lambda g: pct(sum(C[d].get("d1:" + g, 0) for d in days if today - d >= 1), cn[g]).strip())
+        print("  (rule of thumb: wait for ~150+ players per group and a full day of D1 before calling it)")
+
     print("\n== New players: time to each milestone (avg, from join) ==")
     for e in ["session_loaded", "session_spawned", "ftue_launched", "session_first_shot", "ftue_guns", "session_first_lock",
               "ftue_lock_and_fire", "session_first_kill", "ftue_go_live", "session_first_bank", "session_first_upgrade"]:

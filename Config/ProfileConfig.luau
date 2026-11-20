@@ -18,7 +18,7 @@ return {
 		EquippedJet = "SparrowT2",
 		EquippedPaint = { SparrowT2 = "Standard" },
 		Upgrades = {}, -- [jetId] = { Engine = 0, Fuel = 0, GSuit = 0, Flares = 0, Seeker = 0 }
-		FTUE = { Step = 0, Done = false, Skipped = false },
+		FTUE = { Step = 0, Done = false, Skipped = false }, -- (+ Variant = "Tutorial" | "Direct" for the 50/50 test)
 		Stats = { Kills = 0, Deaths = 0, Sorties = 0, MissionsDone = 0, AceEvades = 0, BestStreak = 0, PerfectLaunches = 0 },
 		Daily = { LastClaimDay = 0, Streak = 0 },
 		ProcessedPurchases = {}, -- [PurchaseId] = os.time() (idempotent receipts)
