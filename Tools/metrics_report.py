@@ -293,6 +293,27 @@ def main():
     print("  purchase prompts:  " + line(pref("e_shop_purchase_prompt:")) + "   cancelled: " + line(pref("e_purchase_cancelled:")))
     print("  upgrades bought:   " + line(pref("e_session_first_upgrade:")))
 
+    print("\n== Performance by device (from v112) ==")
+    for d_ in ("Touch", "KBM", "Gamepad"):
+        n_ = tot.get(f"perf_n_{d_}", 0)
+        if not n_:
+            continue
+        loads = "  ".join(f"{b} {pct(tot.get(f'perf_load_{d_}_{b}', 0), n_).strip()}" for b in ("lt10", "10_20", "20_40", "40p"))
+        fpss = "  ".join(f"{b} {pct(tot.get(f'perf_fps_{d_}_{b}', 0), n_).strip()}" for b in ("lt20", "20_30", "30_45", "45p"))
+        print(f"  {d_:<8} n={n_:<4} avg load {tot.get(f'perf_loadsum_{d_}', 0) / n_:.0f}s ({loads})   avg fps {tot.get(f'perf_fpssum_{d_}', 0) / n_:.0f} ({fpss})   stutter (25%+ of secs <30fps) {pct(tot.get(f'perf_stutter_{d_}', 0), n_).strip()}")
+    sl = [(b, tot.get("perf_secs_" + b, 0) / tot["perf_sn_" + b] / 60) for b in ("lt20", "20_30", "30_45", "45p") if tot.get("perf_sn_" + b)]
+    if sl:
+        print("  session length by fps: " + ", ".join(f"{b} fps {m:.1f} min" for b, m in sl))
+    print("  graphics setting: " + line(pref("perf_q:"), 6))
+
+    qn = tot.get("qf_n", 0)
+    if qn:
+        print(f"\n== Why players quit mid-flight ({qn} quits while flying, from v112) ==")
+        print("  time since last fight: " + line(sorted(pref("qf_idle:"), key=lambda x: x[0]), 6, lambda k, v: f"{k} {pct(v, qn).strip()}"))
+        print("  nearest enemy:         " + line(pref("qf_enemy:"), 6, lambda k, v: f"{k} {pct(v, qn).strip()}"))
+        print("  hull:                  " + line(pref("qf_hull:"), 6, lambda k, v: f"{k} {pct(v, qn).strip()}"))
+    print(f"\n  prompts shown: notify {tot.get('e_prompt_notify', 0)}, favourite {tot.get('e_prompt_favorite', 0)}")
+
     errs = sorted(((k, v) for k, v in tot.items() if k.startswith("err_")), key=lambda x: -x[1])
     print(f"\n== Errors ({sum(v for _, v in errs)} total) ==")
     for k, v in errs[:15]:

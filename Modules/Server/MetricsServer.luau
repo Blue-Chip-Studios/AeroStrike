@@ -55,7 +55,7 @@ local nShard = 0
 local tDay: { [number]: { [string]: number } } = {} -- [day] = counters
 local tCohort: { [number]: { [string]: number } } = {} -- [cohortDay] = counters
 type Sess = { start: number, new: boolean, cohort: number, seen: { [string]: boolean }, paid: boolean, errs: number,
-	dev: string?, phase: string?, ab: string?, sortieAt: number?, sortieKills: number, sortieJet: string?, lastDeath: number?, step: string, stepN: number, rank0: number }
+	dev: string?, phase: string?, ab: string?, fpsB: string?, lastCombat: number?, lastPos: Vector3?, lastHull: number?, sortieAt: number?, sortieKills: number, sortieJet: string?, lastDeath: number?, step: string, stepN: number, rank0: number }
 local tSess: { [Player]: Sess } = {}
 -- funnel order for "where did new players stop" (ftue steps then session steps)
 local FUNNEL = { "session_loaded", "ftue_spawned_on_catapult", "ftue_launched", "ftue_guns", "ftue_lock_and_fire", "ftue_first_upgrade",
@@ -63,7 +63,8 @@ local FUNNEL = { "session_loaded", "ftue_spawned_on_catapult", "ftue_launched", 
 local FUNNEL_IDX: { [string]: number } = {}
 for i, e in ipairs(FUNNEL) do FUNNEL_IDX[e] = i end
 local oLimiter = ModuleUtil.RateLimiter(12, 60)
-local tPending: { [Player]: { string } } = {} -- events seen before the profile loaded (replayed for u_/n_)
+local tPending: { [Player]: { string } } = {}
+local tUsers: { [number]: { [number]: boolean } } = {} -- [day] = userIds seen (daily "your pay is ready" notifications) -- events seen before the profile loaded (replayed for u_/n_)
 
 local function today(): number
 	return math.floor(os.time() / 86400)
@@ -171,6 +172,7 @@ function Metrics.Mech(self, p: Player?, key: string, n: number?)
 	add(tDay, d, "m_" .. key, n or 1)
 	local s = p and tSess[p]
 	if s and s.new then add(tDay, d, "mn_" .. key, n or 1) end
+	if s and (key == "gun_shots" or key == "msl_fired" or key == "msl_unguided" or key == "flare_used") then s.lastCombat = os.clock() end
 	if s and s.dev then add(tDay, d, `md_{s.dev}_{key}`, n or 1) end -- by device (gun accuracy etc.)
 end
 
@@ -214,6 +216,26 @@ local function flush()
 			for k, v in pairs(c) do add(tCohort, day, k, v) end
 		end
 	end
+	-- who played each day (Tools/send_daily_notifications.py pings yesterday's players who haven't returned)
+	local users = tUsers
+	tUsers = {}
+	for day, set in pairs(users) do
+		local ok = pcall(function()
+			(oStore :: DataStore):UpdateAsync(`u{day}_s{nShard}`, function(old: any)
+				local list = if typeof(old) == "table" then old else {}
+				local have = {}
+				for _, id in ipairs(list) do have[id] = true end
+				for id in pairs(set) do
+					if not have[id] and #list < 4000 then table.insert(list, id); have[id] = true end
+				end
+				return list
+			end)
+		end)
+		if not ok then
+			tUsers[day] = tUsers[day] or {}
+			for id in pairs(set) do tUsers[day][id] = true end
+		end
+	end
 end
 
 -- debug: current unflushed counters (Studio / AS_Debug)
@@ -251,6 +273,25 @@ function Metrics.StartAsync(self)
 					if string.sub(ev, 1, 5) == "ftue_" or string.sub(ev, 1, 8) == "session_" then add(tDay, today(), `nd_{t.d}_{ev}`) end
 				end
 			end
+		elseif t.a == "Perf" and not sess.seen["_perf"] and typeof(t.load) == "number" and typeof(t.fps) == "number" and typeof(t.low) == "number" then
+			sess.seen["_perf"] = true
+			local dev = sess.dev or "?"
+			local d = today()
+			local load, fps, low = math.clamp(t.load, 0, 600), math.clamp(t.fps, 0, 240), math.clamp(t.low, 0, 1)
+			local lb = if load < 10 then "lt10" elseif load < 20 then "10_20" elseif load < 40 then "20_40" else "40p"
+			local fb = if fps < 20 then "lt20" elseif fps < 30 then "20_30" elseif fps < 45 then "30_45" else "45p"
+			sess.fpsB = fb
+			add(tDay, d, `perf_n_{dev}`)
+			add(tDay, d, `perf_load_{dev}_{lb}`)
+			add(tDay, d, `perf_loadsum_{dev}`, math.floor(load))
+			add(tDay, d, `perf_fps_{dev}_{fb}`)
+			add(tDay, d, `perf_fpssum_{dev}`, math.floor(fps))
+			if low > 0.25 then add(tDay, d, `perf_stutter_{dev}`) end
+			if typeof(t.mem) == "number" then
+				local mb = if t.mem < 800 then "lt800" elseif t.mem < 1500 then "800_1500" else "1500p"
+				add(tDay, d, `perf_mem_{dev}_{mb}`)
+			end
+			if typeof(t.q) == "string" then add(tDay, d, "perf_q:" .. clean(t.q, 24)) end
 		elseif t.a == "Error" and typeof(t.m) == "string" and sess.errs < 8 then
 			sess.errs += 1
 			add(tDay, today(), "err_c:" .. cleanErr(t.m, 90))
@@ -317,7 +358,28 @@ function Metrics.StartAsync(self)
 				s.phase = "Dead"
 			end)
 		end
+		-- where each flying player is, every 2 s (the sortie is gone by the time PlayerRemoving runs)
+		task.spawn(function()
+			while true do
+				task.wait(2)
+				for pl, s in pairs(tSess) do
+					local so = okF and Flight:GetSortie(pl)
+					local jet = so and so.Jet
+					if jet and so.Phase == "Flying" and jet.PrimaryPart then
+						s.lastPos = jet.PrimaryPart.Position
+						local hp, max = jet:GetAttribute("Health") :: number?, jet:GetAttribute("MaxHealth") :: number?
+						s.lastHull = if hp and max and max > 0 then hp / max else nil
+					end
+				end
+			end
+		end)
 		if okC then
+			Combat.OnDamage.Event:Connect(function(attacker: Player?, victim: Model)
+				local now = os.clock()
+				if attacker and tSess[attacker] then tSess[attacker].lastCombat = now end
+				local vp = ownerOf(victim)
+				if vp and tSess[vp] then tSess[vp].lastCombat = now end
+			end)
 			Combat.OnKill.Event:Connect(function(attacker: Player?, victim: Model, weapon: string)
 				local d = today()
 				local w = clean(tostring(weapon or "?"), 20)
@@ -399,6 +461,8 @@ function Metrics.InitProfileAsync(self, p: Player, tProfile: any)
 	m.Sessions = (m.Sessions or 0) + 1
 	add(tDay, d, "sessions")
 	add(tDay, d, "ver:" .. tostring(game.PlaceVersion)) -- which published version this server runs
+	tUsers[d] = tUsers[d] or {}
+	tUsers[d][p.UserId] = true
 	local sess: Sess = { start = os.clock(), new = cohort == d, cohort = cohort, seen = {}, paid = false, errs = 0,
 		sortieKills = 0, step = "none", stepN = 0, rank0 = rankOf(p), ab = if cohort == d then m.AB else nil }
 	tSess[p] = sess
@@ -439,6 +503,29 @@ function Metrics.PlayerRemoving(self, p: Player)
 	local phase = s.phase or "Deck"
 	add(tDay, d, "quit_phase:" .. phase)
 	if s.new then add(tDay, d, "quitn_phase:" .. phase); add(tDay, d, "quitn_step:" .. s.step) end
+	if s.fpsB then add(tDay, d, "perf_secs_" .. s.fpsB, math.floor(secs)); add(tDay, d, "perf_sn_" .. s.fpsB) end
+	-- quitting mid-flight: bored (no fight for a while), lost (no enemy near) or about to die (hull)?
+	if phase == "Flying" then
+		add(tDay, d, "qf_n")
+		local idle = if s.lastCombat then os.clock() - s.lastCombat else math.huge
+		add(tDay, d, "qf_idle:" .. (if idle == math.huge then "never" elseif idle < 10 then "lt10" elseif idle < 30 then "10_30" elseif idle < 60 then "30_60" else "60p"))
+		if s.lastPos then
+			local best = math.huge
+			for _, folder in ipairs({ workspace:FindFirstChild("NPC"), workspace:FindFirstChild("Jets") }) do
+				if folder then
+					for _, m in ipairs(folder:GetChildren()) do
+						if m:IsA("Model") and m.PrimaryPart and not m:GetAttribute("Friendly") and m.Name ~= tostring(p.UserId) then
+							best = math.min(best, (m.PrimaryPart.Position - s.lastPos).Magnitude)
+						end
+					end
+				end
+			end
+			add(tDay, d, "qf_enemy:" .. (if best < 800 then "lt800" elseif best < 2000 then "800_2000" elseif best < 4000 then "2000_4000" else "4000p"))
+		end
+		if s.lastHull then
+			add(tDay, d, "qf_hull:" .. (if s.lastHull < 0.35 then "critical" elseif s.lastHull < 0.7 then "damaged" else "healthy"))
+		end
+	end
 	if s.lastDeath and os.clock() - s.lastDeath < 25 then
 		add(tDay, d, "quit_after_death")
 		if s.new then add(tDay, d, "quitn_after_death") end

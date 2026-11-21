@@ -94,6 +94,7 @@ local tValues = {
 	bReviveFree = false,
 	bFlareNow = false,
 	bRookieJet = false,
+	sGiftNext = "", -- "NEXT GIFT IN 1:12 · +300" (death screen)
 	nMyKills = 0, -- kills this session (hangar nudge after the first)
 	bHangarVisited = false, -- opened the hangar this session -- flying a rookie-assisted jet (no eject push; the hull repairs out of combat) -- a missile is about to hit: flash the FLARE button / cue -- that offer is the free rookie revive (no Robux)
 	bSettingsOpen = false, -- Settings screen (SettingsClient)

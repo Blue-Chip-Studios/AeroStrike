@@ -16,6 +16,7 @@ local ExperienceNotificationService = game:GetService("ExperienceNotificationSer
 local ModuleUtil = require(ReplicatedStorage.Shared.ModuleUtil)
 local Remote = require(ReplicatedStorage.BCDKShared.Remote)
 local Store = require(ReplicatedStorage.BCDKClient.LMGui.Store)
+local Fusion = require(ReplicatedStorage.Packages.fusion)
 local RetentionConfig = require(ReplicatedStorage.Config.RetentionConfig)
 
 local Retention = ModuleUtil.New({})
@@ -36,7 +37,7 @@ local nLocal = 0 -- active seconds counted locally since the last sync
 local function updateGift(dt: number)
 	if not tGift then return end
 	if not tGift.at then
-		if sLast ~= "done" then sLast = "done"; Store.Values.sGiftLine:set("ALL GIFTS CLAIMED ✓"); Store.Values.nGiftFrac:set(1) end
+		if sLast ~= "done" then sLast = "done"; Store.Values.sGiftLine:set("ALL GIFTS CLAIMED ✓"); Store.Values.nGiftFrac:set(1); Store.Values.sGiftNext:set("") end
 		return
 	end
 	if activeNow() then nLocal += dt end
@@ -50,7 +51,11 @@ local function updateGift(dt: number)
 	if frac ~= nFracLast then nFracLast = frac; Store.Values.nGiftFrac:set(frac) end
 	local paused = Flight.Phase == "Dead" and not activeNow()
 	local s = string.format("%sGIFT %d:%02d  +%d", if paused then "❚❚ " else "🎁 ", math.floor(left / 60), math.floor(left % 60), tGift.cash or 0)
-	if s ~= sLast then sLast = s; Store.Values.sGiftLine:set(s) end
+	if s ~= sLast then
+		sLast = s
+		Store.Values.sGiftLine:set(s)
+		Store.Values.sGiftNext:set(string.format("NEXT GIFT IN %d:%02d · +%d CASH · KEEP FLYING", math.floor(left / 60), math.floor(left % 60), tGift.cash or 0))
+	end
 end
 
 local oReq: any = nil
@@ -81,7 +86,16 @@ local function showPrompt(what: string)
 	elseif what == "Notify" then
 		task.spawn(function()
 			local ok, can = pcall(ExperienceNotificationService.CanPromptOptInAsync, ExperienceNotificationService)
-			if ok and can then pcall(ExperienceNotificationService.PromptOptIn, ExperienceNotificationService) end
+			if ok and can then
+				-- say what it's for before Roblox's dialog appears
+				Store.Values.sLaunchResult:set("GET A PING WHEN YOUR DAILY PAY IS READY")
+				task.delay(1.6, function()
+					pcall(ExperienceNotificationService.PromptOptIn, ExperienceNotificationService)
+					task.delay(1.5, function()
+						if Fusion.peek(Store.Values.sLaunchResult) == "GET A PING WHEN YOUR DAILY PAY IS READY" then Store.Values.sLaunchResult:set("") end
+					end)
+				end)
+			end
 		end)
 	end
 end

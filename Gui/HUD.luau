@@ -578,6 +578,9 @@ return function(scope: any, props: { [string]: any })
 						end),
 						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("HangarClient")) :: any):Open("death_nudge") end,
 					}),
+					-- what's coming next if you keep playing (the gift timer only counts while you fly)
+					C.HudText(scope, { Name = "GiftNext", Font = Theme.Display, TextSize = 18, Color = Color3.fromRGB(120, 230, 160),
+						Position = UDim2.new(0.5, 0, 0.62, 196), Size = UDim2.fromOffset(620, 24), Text = V.sGiftNext }),
 					-- the classic carrier launch is still there (perfect launch bonus, takes longer)
 					scope:New("TextButton")({
 						Name = "CarrierLaunch", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.62, 92), Size = UDim2.fromOffset(300, 26),

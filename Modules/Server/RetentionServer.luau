@@ -276,7 +276,8 @@ local function refreshBoards()
 end
 
 -------------------------------------------------------------------------------- prompts
-local tPrompted: { [Player]: boolean } = {}
+local tPrompted: { [Player]: { [string]: boolean } } = {} -- which prompts this session
+local tLastPrompt: { [Player]: number } = {}
 local tOffered: { [Player]: string } = {} -- prompt sent, waiting for the client's "shown"
 
 local function promptShown(p: Player, what: any)
@@ -291,15 +292,22 @@ local function promptShown(p: Player, what: any)
 end
 
 local function moment(p: Player, kind: string)
-	if not PR.Moments[kind] or tPrompted[p] or not p.Parent then return end
+	if not PR.Moments[kind] or not p.Parent then return end
 	if os.clock() - (tJoined[p] or os.clock()) < PR.MinSessionMins * 60 then return end
+	if os.clock() - (tLastPrompt[p] or -math.huge) < 90 then return end -- never two prompts back to back
+	local done = tPrompted[p] or {}
 	local pr = mProfile:GetAsync(p, "Prompts") or {}
 	local now = os.time()
 	local cd = PR.CooldownDays * 86400
+	-- notifications first (they bring players back tomorrow), then favourite; one of each per session.
+	-- (it used to be one prompt per session, favourite first, so new players never saw the notify prompt)
 	local what = nil
-	if now - (pr.Fav or 0) > cd then what = "Favorite" elseif now - (pr.Notif or 0) > cd then what = "Notify" end
+	if not done.Notify and now - (pr.Notif or 0) > cd then what = "Notify"
+	elseif not done.Favorite and now - (pr.Fav or 0) > cd then what = "Favorite" end
 	if not what then return end
-	tPrompted[p] = true
+	done[what] = true
+	tPrompted[p] = done
+	tLastPrompt[p] = os.clock()
 	tOffered[p] = what
 	oEvent:FireClient(p, { a = "Prompt", what = what })
 	Analytics:Log(p, if what == "Favorite" then "prompt_favorite" else "prompt_notify", { moment = kind })
@@ -312,7 +320,7 @@ function Retention.QASetActive(self, p: Player, secs: number)
 end
 function Retention.QAMoment(self, p: Player, kind: string): string
 	tJoined[p] = os.clock() - PR.MinSessionMins * 60 - 1
-	tPrompted[p] = nil
+	tPrompted[p], tLastPrompt[p] = nil, nil
 	moment(p, kind)
 	return if tPrompted[p] then "prompted" else "skipped (cooldown)"
 end
@@ -371,7 +379,7 @@ function Retention.InitProfileAsync(self, p: Player)
 end
 
 function Retention.PlayerRemoving(self, p: Player)
-	tActive[p], tNext[p], tKills[p], tJoined[p], tPrompted[p] = nil, nil, nil, nil, nil
+	tActive[p], tNext[p], tKills[p], tJoined[p], tPrompted[p], tLastPrompt[p] = nil, nil, nil, nil, nil, nil
 	tInputAt[p], tOffered[p] = nil, nil
 end
 

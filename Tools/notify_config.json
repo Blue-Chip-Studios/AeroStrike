@@ -1,0 +1,5 @@
+{
+  "enabled": false,
+  "messageId": "",
+  "note": "Create the notification string in Creator Dashboard > Engagement > Notifications, paste its ID here and set enabled to true. See Tools/send_daily_notifications.py."
+}
