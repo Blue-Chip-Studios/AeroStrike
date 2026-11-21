@@ -287,6 +287,8 @@ def main():
     ru = sorted(((int(k), v) for k, v in pref("rank_up:") if k.isdigit()))
     if ru:
         print("  rank-ups reached:  " + ", ".join(f"R{r} x{v}" for r, v in ru))
+    new_ = tot.get("new", 0) or 1
+    print(f"  hangar: opened by {tot.get('n_ui_hangar_open', 0)} new players ({100 * tot.get('n_ui_hangar_open', 0) / new_:.1f}%), first at {tot.get('tt_ui_hangar_open', 0) / max(tot.get('ttn_ui_hangar_open', 0), 1):.0f} s; opens by source: " + line(pref("e_ui_hangar_open:")) + f"; paint changes {tot.get('e_paint_equip', 0)}")
     print("  shop item views:   " + line(pref("e_shop_product_view:")))
     print("  purchase prompts:  " + line(pref("e_shop_purchase_prompt:")) + "   cancelled: " + line(pref("e_purchase_cancelled:")))
     print("  upgrades bought:   " + line(pref("e_session_first_upgrade:")))

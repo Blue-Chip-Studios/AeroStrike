@@ -49,6 +49,27 @@ return function(scope: any, props: { [string]: any })
 		return best
 	end
 
+	-- a jet you can buy right now (rank + cash), cheapest first
+	local function affordableJet(use: any): { Id: string, Name: string }?
+		local JetConfig = require(ReplicatedStorage.Config.JetConfig)
+		local h = use(V.tHangar) :: any
+		local cash, rank = use(V.nCash) :: number, use(V.nRank) :: number
+		if typeof(h) ~= "table" or typeof(cash) ~= "number" then return nil end
+		local owned = h.OwnedJets or {}
+		local best = nil
+		for id, j in pairs(JetConfig.Jets) do
+			if not owned[id] and (j.CashPrice or 0) > 0 and j.CashPrice <= cash and (j.RankRequired or 1) <= (rank or 1)
+				and (not best or j.CashPrice < best.Price) then
+				best = { Id = id, Name = string.upper(j.DisplayName or id), Price = j.CashPrice }
+			end
+		end
+		return best
+	end
+	-- something new waiting in the hangar (badge on the HANGAR button)
+	local function hangarAlert(use: any): boolean
+		return affordableJet(use) ~= nil or quickUpgrade(use) ~= nil
+	end
+
 	local function screenPos(val: any)
 		return scope:Computed(function(use)
 			local v = use(val) :: Vector2
@@ -408,8 +429,17 @@ return function(scope: any, props: { [string]: any })
 						Name = "HangarBtn", LayoutOrder = 1, Size = UDim2.fromOffset(170, 52),
 						BackgroundColor3 = Theme.Panel, BackgroundTransparency = 0.1, FontFace = Theme.Body, TextSize = 20, TextColor3 = Theme.Ink,
 						Text = "HANGAR", Selectable = true,
-						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("HangarClient")) :: any):Open() end,
-						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }), scope:New("UIStroke")({ Color = Theme.Amber, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }) },
+						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("HangarClient")) :: any):Open("deck") end,
+						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }), scope:New("UIStroke")({ Color = Theme.Amber, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }),
+							-- "!" badge: an upgrade or a jet is affordable (only 15% of new players ever found the hangar)
+							scope:New("TextLabel")({
+								Name = "Alert", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -4, 0, 4),
+								Size = scope:Computed(function(use) return if use(V.nPullUpBlink) then UDim2.fromOffset(30, 30) else UDim2.fromOffset(26, 26) end),
+								BackgroundColor3 = Theme.Amber, Text = "!", FontFace = Theme.Body, TextSize = 20, TextColor3 = Color3.fromRGB(26, 18, 4),
+								Visible = scope:Computed(function(use) return hangarAlert(use) end),
+								[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0.5, 0) }) },
+							}),
+						},
 					}),
 					scope:New("TextButton")({
 						Name = "ShopBtn", LayoutOrder = 2, Size = UDim2.fromOffset(140, 52),
@@ -522,9 +552,31 @@ return function(scope: any, props: { [string]: any })
 						[Fusion.OnEvent("Activated")] = function()
 							local q = quickUpgrade(Fusion.peek)
 							local H = require(ClientModules:WaitForChild("HangarClient")) :: any
-							if q then H:QuickUpgrade(q.Jet, q.Track, q.Label) else H:Open() end
+							if q then H:QuickUpgrade(q.Jet, q.Track, q.Label) else H:Open("death_button") end
 						end,
 						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }) },
+					}),
+					-- when the button above is a quick upgrade, keep a way into the hangar beside it
+					scope:New("TextButton")({
+						Name = "HangarLink", AnchorPoint = Vector2.new(0, 0), Position = UDim2.new(0.5, 190, 0.62, 40), Size = UDim2.fromOffset(150, 44),
+						BackgroundTransparency = 1, FontFace = Theme.Body, TextSize = 18, TextColor3 = Theme.Amber, Text = "HANGAR ›", Selectable = true,
+						Visible = scope:Computed(function(use) return quickUpgrade(use) ~= nil end),
+						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("HangarClient")) :: any):Open("death_link") end,
+					}),
+					-- nudge: a new jet you can buy right now, or (once) "upgrade / paint your jet" after your first kill
+					scope:New("TextButton")({
+						Name = "HangarNudge", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.62, 160), Size = UDim2.fromOffset(640, 30),
+						BackgroundTransparency = 1, FontFace = Theme.Display, TextSize = 19, TextColor3 = Theme.Amber, Selectable = true,
+						Text = scope:Computed(function(use)
+							local j = affordableJet(use)
+							if j then return `NEW JET READY: {j.Name} · OPEN THE HANGAR ›` end
+							if (use(V.nMyKills) :: number) >= 1 and not use(V.bHangarVisited) then return "NICE SHOOTING! UPGRADE OR PAINT YOUR JET IN THE HANGAR ›" end
+							return ""
+						end),
+						Visible = scope:Computed(function(use)
+							return affordableJet(use) ~= nil or ((use(V.nMyKills) :: number) >= 1 and not use(V.bHangarVisited))
+						end),
+						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("HangarClient")) :: any):Open("death_nudge") end,
 					}),
 					-- the classic carrier launch is still there (perfect launch bonus, takes longer)
 					scope:New("TextButton")({

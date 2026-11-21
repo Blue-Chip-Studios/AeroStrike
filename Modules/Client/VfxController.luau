@@ -16,6 +16,7 @@ local Workspace = game:GetService("Workspace")
 local ModuleUtil = require(ReplicatedStorage.Shared.ModuleUtil)
 local Remote = require(ReplicatedStorage.BCDKShared.Remote)
 local Store = require(ReplicatedStorage.BCDKClient.LMGui.Store)
+local Fusion = require(ReplicatedStorage.Packages.fusion)
 
 local LocalPlayer = Players.LocalPlayer
 local Vfx = ModuleUtil.New({
@@ -618,7 +619,10 @@ function Vfx.StartAsync(self)
 				if src and src:IsA("Model") and not ship then wreck(src, if typeof(t.vel) == "Vector3" then t.vel else Vector3.zero) end
 			end
 			local mine = t.killerId == LocalPlayer.UserId
-			if mine then killBanner() end
+			if mine then
+				killBanner()
+				Store.Values.nMyKills:set((Fusion.peek(Store.Values.nMyKills) :: number) + 1)
+			end
 			if mine and typeof(t.weapon) == "string" and string.find(t.weapon, "Missile") and typeof(t.pos) == "Vector3" then
 				local ok, err = pcall(function() (require(script.Parent.CameraController) :: any):KillCam(t.pos) end)
 				if not ok then warn("[Vfx] kill cam:", err) end

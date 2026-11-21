@@ -41,14 +41,15 @@ local function result(r: any, okText: string)
 	if r.ok then msg(okText) else msg(ERR[r.err] or "Can't do that right now.") end
 end
 
-function Hangar.Open(self)
+function Hangar.Open(self, sSource: string?)
 	if Fusion.peek(Store.Values.bHangarOpen) then return end
 	Store.Values.bHangarOpen:set(true)
+	Store.Values.bHangarVisited:set(true)
 	Input:SetFlightMouseLock(false)
 	local h = Fusion.peek(Store.Values.tHangar)
 	Store.Values.sHangarSelected:set(h.EquippedJet or "SparrowT2")
 	LMGui:Mount("Hangar", { Controller = self, Gamepad = Input.LastDevice == "Gamepad" })
-	oAnalytics:FireServer({ e = "ui_hangar_open" })
+	oAnalytics:FireServer({ e = "ui_hangar_open", d = { id = sSource or "deck" } })
 end
 
 function Hangar.Close(self)
