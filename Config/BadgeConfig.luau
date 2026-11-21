@@ -18,10 +18,10 @@ local Badges: { [string]: Badge } = {
 	Fortress = { Id = 3155867454272953, Name = "Fortress Breaker", Desc = "Help bring down the Flying Fortress." },
 	Viper = { Id = 1105414133665114, Name = "Viper Pilot", Desc = "Unlock the Viper IX." },
 	Rhino = { Id = 78176146279756, Name = "Rhino Pilot", Desc = "Unlock the Rhino HX." },
-	Mako = { Id = 0, Name = "Mako Pilot", Desc = "Unlock the Mako SR-9." },
-	Wraith = { Id = 0, Name = "Ghost in the Sky", Desc = "Unlock the Wraith-X." },
-	Mastery = { Id = 0, Name = "Master Aviator", Desc = "Reach mastery level 10 with any jet." },
-	TopAce = { Id = 0, Name = "Top Ace", Desc = "Finish in the daily Top Aces top 10." },
+	Mako = { Id = 3763361030308202, Name = "Mako Pilot", Desc = "Unlock the Mako SR-9." },
+	Wraith = { Id = 4062470418025383, Name = "Ghost in the Sky", Desc = "Unlock the Wraith-X." },
+	Mastery = { Id = 4073046428155101, Name = "Master Aviator", Desc = "Reach mastery level 10 with any jet." },
+	TopAce = { Id = 3625304429786006, Name = "Top Ace", Desc = "Finish in the daily Top Aces top 10." },
 }
 
 -- jet id -> badge key, awarded when the jet is unlocked
