@@ -24,7 +24,7 @@ for _, name in ipairs({
 	"bounty_start", "bounty_claimed", "mission_join", "mission_complete", "squad_create", "squad_join",
 	"perfect_launch", "crash", "bank", "purchase_failed", "purchase_cancelled", "ftue_skip", "ftue_abandon",
 	"landing", "multi_kill", "sonic_boom", "boss_spawn", "boss_kill", "challenge_done", "season_tier", "code_redeemed", "invite_reward", "group_reward",
-	"playtime_gift", "revive_free", "ftue_direct", "redeploy_air", "mastery_level", "badge_awarded", "prompt_favorite", "prompt_notify", "board_top10", "paint_equip",
+	"playtime_gift", "revive_free", "ftue_direct", "redeploy_air", "rookie_bandit", "mastery_level", "badge_awarded", "prompt_favorite", "prompt_notify", "board_top10", "paint_equip",
 }) do
 	Events[name] = { Kind = "Custom" }
 end

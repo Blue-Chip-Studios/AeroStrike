@@ -64,8 +64,12 @@ return {
 	-- Rookie assists (ranks 1..RookieMaxRank): no G-LOC, automatic gear, forgiving touchdowns
 	RookieMaxRank = 5,
 	RookieStrainCap = 0.9, -- strain stops short of a blackout (the warning still shows)
-	RookieTouchdownSpeed = 1.2, -- x the normal touchdown speed limit
-	RookieTouchdownSink = 1.6, -- x the normal sink limit
+	RookieTouchdownSpeed = 1.5, -- x the normal touchdown speed limit (was 1.2: 90 rookie hard-landing deaths in a day)
+	RookieTouchdownSink = 2.4, -- x the normal sink limit (was 1.6)
+	-- Rookie survival (ranks 1..RookieMaxRank). Two thirds of rookie deaths were self-inflicted:
+	-- ejecting when the HUD told them to (32%), flying into the sea / terrain (24%), hard landings (8%).
+	RookieHullRegen = { Delay = 6, PerSec = 0.05, Cap = 0.6 }, -- out of combat for Delay s: +5%/s up to 60%
+	AutoPullUp = { LookAhead = 1.6, SeaMargin = 25, Climb = 0.65 }, -- auto ground-collision avoidance
 
 	-- Launch
 	CatapultTime = 1.1, -- seconds on the catapult before free flight

@@ -91,6 +91,9 @@ function Rtb.StartAsync(self)
 			if st.Fuel <= 0 then
 				hint = string.format("FLAMEOUT! GLIDE TO THE %s (%s) - GEAR DOWN - OR %s", nearest.Name, km, eject())
 				guideTo = nearest
+			elseif hp <= 0.35 and jet:GetAttribute("Rookie") then
+				hint = string.format("HULL CRITICAL - BREAK AWAY TO REPAIR, OR LAND AT THE %s (%s)", nearest.Name, km)
+				guideTo = nearest
 			elseif hp <= 0.35 then
 				hint = string.format("HULL CRITICAL - LAND AT THE %s TO REPAIR (%s) OR %s", nearest.Name, km, eject())
 				guideTo = nearest

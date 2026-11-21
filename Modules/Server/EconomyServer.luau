@@ -306,6 +306,8 @@ function Economy.StartAsync(self)
 					elseif kind == "BotPilot" then `SPLASH! {victim:GetAttribute("Pilot")}` elseif kind == "Fortress" then "FINAL BLOW: FLYING FORTRESS" else `{string.upper(kind or "TARGET")} DOWN`
 				self:Reward(killer, key, { Bank = true, Label = label })
 			end
+			-- an AI / bot kill is a first kill too (this step used to count only real-player kills)
+			if kind ~= "Drone" then analytics():LogOnce(killer, "session_first_kill") end
 		end
 		for _, p in ipairs(info.Assists or {}) do
 			self:Reward(p, "Assist", { Label = "ASSIST" })

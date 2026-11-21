@@ -58,6 +58,7 @@ tGroundRay.FilterType = Enum.RaycastFilterType.Exclude
 local bClimbOut = false
 local nLaunchedAt = -math.huge
 local LAUNCH_SAFE_TIME, LAUNCH_SAFE_ALT = 4, 100
+local bAutoPullUp = false
 local CEILING_BAND = 400 -- studs below FlightConfig.CeilingY where the nose starts being pushed level
 local nPullUpTick = 0
 local pullUpRay = RaycastParams.new()
@@ -403,6 +404,30 @@ local function step(dt: number)
 				if flat.Magnitude < 1e-3 then flat = Vector3.zAxis end
 				Flight.AimDir = (flat.Unit * math.sqrt(1 - maxY * maxY) + Vector3.yAxis * maxY).Unit
 			end
+		end
+	end
+	-- AUTO PULL-UP (rookies): a crash into the sea or terrain ~1.6 s out pulls the nose up by itself
+	-- (gear down = landing: off). 24% of rookie deaths were flying into the sea or the ground.
+	if stats.Rookie and not Flight.GearDown and os.clock() - nLaunchedAt > LAUNCH_SAFE_TIME then
+		local AP = FlightConfig.AutoPullUp
+		local pos = st.CFrame.Position
+		local ahead = st.CFrame.LookVector * st.Speed * AP.LookAhead
+		local danger = (pos + ahead).Y < FlightConfig.WaterLevel + AP.SeaMargin
+		if not danger and ahead.Y < 0 then danger = Workspace:Raycast(pos, ahead, tGroundRay) ~= nil end
+		if danger then
+			local flat = Vector3.new(st.CFrame.LookVector.X, 0, st.CFrame.LookVector.Z)
+			flat = if flat.Magnitude > 1e-3 then flat.Unit else Vector3.zAxis
+			Flight.AimDir = (flat + Vector3.new(0, AP.Climb, 0)).Unit
+			if not bAutoPullUp then
+				bAutoPullUp = true
+				Store.Values.sLaunchResult:set("AUTO PULL-UP")
+				task.delay(1.2, function()
+					local Fusion = require(ReplicatedStorage.Packages.fusion)
+					if Fusion.peek(Store.Values.sLaunchResult) == "AUTO PULL-UP" then Store.Values.sLaunchResult:set("") end
+				end)
+			end
+		else
+			bAutoPullUp = false
 		end
 	end
 	local input: FlightModel.Input = {

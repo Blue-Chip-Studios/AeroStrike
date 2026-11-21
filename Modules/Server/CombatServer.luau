@@ -121,8 +121,11 @@ function Combat.Rearm(self, oPlayer: Player)
 	end
 end
 
+local tLastHit: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any -- rookie hull repair waits for calm
+
 function Combat.Damage(self, victim: Model, nDmg: number, attacker: Player?, sWeapon: string)
 	if victim:GetAttribute("Dead") or victim:GetAttribute("Friendly") then return end
+	tLastHit[victim] = os.clock()
 	local hp = (victim:GetAttribute("Health") :: number? or 0) - nDmg
 	victim:SetAttribute("Health", math.max(0, hp))
 	if attacker then
@@ -533,6 +536,26 @@ function Combat.StartAsync(self)
 	end)
 
 	RunService.Heartbeat:Connect(stepMissiles)
+
+	-- ROOKIE HULL REPAIR: a rookie who breaks away from the fight slowly patches up (instead of the HUD
+	-- telling them to eject: ejects were 32% of rookie deaths)
+	local FlightConfig = require(ReplicatedStorage.Config.FlightConfig)
+	local RG = FlightConfig.RookieHullRegen
+	task.spawn(function()
+		while true do
+			task.wait(0.5)
+			for _, p in ipairs(Players:GetPlayers()) do
+				local s = F:GetSortie(p)
+				local jet = s and s.Jet
+				if jet and s.Phase == "Flying" and jet:GetAttribute("Rookie") and not jet:GetAttribute("Dead") then
+					local hp, max = jet:GetAttribute("Health") :: number?, jet:GetAttribute("MaxHealth") :: number?
+					if hp and max and hp < max * RG.Cap and os.clock() - (tLastHit[jet] or 0) >= RG.Delay then
+						jet:SetAttribute("Health", math.min(max * RG.Cap, hp + max * RG.PerSec * 0.5))
+					end
+				end
+			end
+		end
+	end)
 end
 
 function Combat.PlayerRemoving(self, oPlayer: Player)

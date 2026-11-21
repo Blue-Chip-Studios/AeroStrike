@@ -128,6 +128,43 @@ function FTUE.StartAsync(self)
 			end
 		end
 	end)
+	-- ROOKIE BANDIT: a pilot with no kills yet gets a slow, unarmed target circling just ahead after
+	-- launching (up to MaxPerSession times, until their first kill)
+	local NpcConfig = require(ReplicatedStorage.Config.NpcConfig)
+	local RB = NpcConfig.Engagement.RookieBandit
+	local tBandits: { [Player]: number } = {}
+	local tScored: { [Player]: boolean } = {} -- any kill this session (Stats.Kills only counts real players)
+	Combat.OnKill.Event:Connect(function(killer: Player?, victim: Model)
+		if killer and victim:GetAttribute("NpcKind") ~= "Drone" then tScored[killer] = true end
+	end)
+	Flight.OnLaunched.Event:Connect(function(oPlayer: Player)
+		if self:IsTraining(oPlayer) or tScored[oPlayer] then return end
+		local ls = oPlayer:FindFirstChild("leaderstats")
+		local rv = ls and ls:FindFirstChild("Rank")
+		if rv and (tonumber((rv :: any).Value) or 1) > require(ReplicatedStorage.Config.FlightConfig).RookieMaxRank then return end
+		local stats = mProfile:GetAsync(oPlayer, "Stats")
+		if not stats or (stats.Kills or 0) > 0 or (tBandits[oPlayer] or 0) >= RB.MaxPerSession then return end
+		tBandits[oPlayer] = (tBandits[oPlayer] or 0) + 1
+		task.delay(RB.Delay, function()
+			local s = Flight:GetSortie(oPlayer)
+			if not oPlayer.Parent or not s or s.Phase ~= "Flying" or not s.Jet.PrimaryPart then return end
+			local root = s.Jet.PrimaryPart :: BasePart
+			local look = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+			look = if look.Magnitude > 1e-3 then look.Unit else Vector3.zAxis
+			local c = root.Position + look * RB.Ahead
+			local IslandShape = require(ReplicatedStorage.Shared.IslandShape)
+			c = Vector3.new(c.X, math.max(c.Y, math.max(IslandShape.Height(c.X, c.Z), 0) + 250), c.Z)
+			local Npc = require(ServerStorage.ServerModules.NpcServer)
+			local m = Npc:Spawn("RookieBandit", CFrame.lookAt(c + look:Cross(Vector3.yAxis) * RB.Orbit, c),
+				{ Orbit = { Centre = c, Radius = RB.Orbit }, Tag = "RookieBandit" })
+			if m then
+				Analytics:Log(oPlayer, "rookie_bandit")
+				task.delay(RB.Life, function() if m.Parent then Npc:Remove(m, false) end end)
+			end
+		end)
+	end)
+	Players.PlayerRemoving:Connect(function(p) tBandits[p] = nil; tScored[p] = nil end)
+
 	Combat.OnDamage.Event:Connect(function(attacker: Player?, victim: Model)
 		if not attacker or victim:GetAttribute("MissionTag") == "Training" or not victim:GetAttribute("NpcKind") then return end
 		local s = Flight:GetSortie(attacker)

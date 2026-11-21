@@ -94,6 +94,18 @@ return {
 			NoseGun = { Range = 700, Rate = 5, Damage = 3, Cone = math.rad(10), HitChance = 0.2 },
 			Missile = { Range = 1600, Cone = math.rad(20), LockTime = 3.0, Cooldown = 18, Count = 2, Damage = 30 },
 		},
+		-- ROOKIE BANDIT: a slow, unarmed bot that circles ahead of a pilot who has never scored a kill,
+		-- so every new player gets a first kill early (70% never did; the first kill is when players stay)
+		RookieBandit = {
+			Bot = true,
+			Jets = { "SparrowT2" },
+			Health = 45,
+			Speed = 120,
+			TurnRate = 0.45,
+			MinAGL = 150,
+			FlareChance = 0,
+			LockTimeMult = 0.7,
+		},
 		-- Aerial refuelling tanker: friendly, untargetable, flies a wide orbit near the carrier.
 		-- Slower than military power on purpose: docking means throttling back to match it.
 		Tanker = {
@@ -178,7 +190,8 @@ return {
 		MidRank = 10, -- tiers: Rookie = rank <= FlightConfig.RookieMaxRank, Mid = rank <= MidRank, else Vet
 		Cap = { Rookie = 1, Mid = 2, Vet = 3 },
 		Calm = { Rookie = 20, Mid = 12, Vet = 6 }, -- seconds after launch before any AI fighter engages
-		CalmAirStart = 8, -- ... after a LAUNCH INTO THE FIGHT air start (capped to this)
+		CalmAirStart = 8,
+		RookieBandit = { Delay = 6, Ahead = 800, Orbit = 260, Life = 75, MaxPerSession = 3 }, -- ... after a LAUNCH INTO THE FIGHT air start (capped to this)
 		HoldFire = 3,
 		SelfDefence = 10, -- a bot hit by a player within this many seconds targets that player
 		BotDogfights = true,

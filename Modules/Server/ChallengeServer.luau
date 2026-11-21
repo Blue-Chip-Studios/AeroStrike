@@ -30,8 +30,18 @@ local function send(p: Player)
 	oEvent:FireClient(p, { a = "Set", list = list })
 end
 
+local ROOKIE_SKIP = { Land = true, Trap = true } -- landing challenges killed rookies (hard landings)
+
 local function deal(p: Player)
 	local pool = table.clone(ChallengeConfig.Pool)
+	local ls = p:FindFirstChild("leaderstats")
+	local rv = ls and ls:FindFirstChild("Rank")
+	local rank = if rv then tonumber((rv :: any).Value) or 1 else 1
+	if rank <= require(game:GetService("ReplicatedStorage").Config.FlightConfig).RookieMaxRank then
+		for i = #pool, 1, -1 do
+			if ROOKIE_SKIP[(pool[i] :: any).Id] then table.remove(pool, i) end
+		end
+	end
 	local set: { Entry } = {}
 	for _ = 1, ChallengeConfig.Active do
 		if #pool == 0 then break end

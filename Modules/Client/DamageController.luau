@@ -136,6 +136,7 @@ function Damage.StartAsync(self)
 			local f = hp / max
 			Store.Values.nHull:set(f)
 			Store.Values.bHullCritical:set(f <= CRITICAL)
+			Store.Values.bRookieJet:set(jet:GetAttribute("Rookie") == true)
 			if nLastOwnHp and hp < nLastOwnHp - 0.5 then
 				nHurt = math.min(1, nHurt + 0.35 + (nLastOwnHp - hp) / max)
 				pcall(function() (require(script.Parent.CameraController) :: any):Kick(0.35) end)

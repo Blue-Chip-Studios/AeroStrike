@@ -290,6 +290,7 @@ return function(scope: any, props: { [string]: any })
 								Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1),
 								Text = scope:Computed(function(use)
 									local what = if use(V.bFlameout) then "FLAMEOUT" else "HULL CRITICAL"
+									if what == "HULL CRITICAL" and use(V.bRookieJet) then return "HULL CRITICAL - BREAK AWAY, IT REPAIRS OUT OF COMBAT" end
 									if use(V.bTouch) then return what .. " - TAP THE RED EJECT BUTTON" end
 									if use(V.bGamepad) then return what .. " - HOLD [Y] TO EJECT" end
 									return what .. " - HOLD [X] TO EJECT"
@@ -592,7 +593,7 @@ return function(scope: any, props: { [string]: any })
 					scope:New("Frame")({
 						Name = "EjectHalo", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(118, -122), BackgroundTransparency = 1,
 						Size = scope:Computed(function(use) return if use(V.nPullUpBlink) then UDim2.fromOffset(150, 150) else UDim2.fromOffset(134, 134) end),
-						Visible = scope:Computed(function(use) return use(V.bHullCritical) or use(V.bFlameout) end),
+						Visible = scope:Computed(function(use) return use(V.bFlameout) or (use(V.bHullCritical) and not use(V.bRookieJet)) end),
 						[Children] = {
 							scope:New("UICorner")({ CornerRadius = UDim.new(0, 18) }),
 							scope:New("UIStroke")({ Color = Theme.Threat, Thickness = 4,
@@ -601,7 +602,11 @@ return function(scope: any, props: { [string]: any })
 					}),
 					C.TouchButton(scope, { Name = "Eject", Label = "EJECT", Color = Color3.fromRGB(255, 245, 240), TextSize = 26, SizePx = 118,
 						Position = UDim2.fromOffset(118, -122),
-						Fill = scope:Computed(function(use) return if use(V.nPullUpBlink) then Theme.Threat else Color3.fromRGB(120, 10, 10) end),
+						Fill = scope:Computed(function(use)
+							-- rookies: a calm, steady button (no call to action) - their hull repairs out of combat
+							if use(V.bRookieJet) and not use(V.bFlameout) then return Color3.fromRGB(90, 20, 20) end
+							return if use(V.nPullUpBlink) then Theme.Threat else Color3.fromRGB(120, 10, 10)
+						end),
 						Visible = scope:Computed(function(use) return use(V.bHullCritical) or use(V.bFlameout) end),
 						OnDown = function() Input:SetTouch("Eject", true) end, OnUp = function() Input:SetTouch("Eject", false) end }),
 				},

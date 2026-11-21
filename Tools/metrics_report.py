@@ -128,7 +128,7 @@ def main():
         drop = f"  (-{pct(prev - n, prev).strip()} from previous)" if prev else ""
         print(f"  {s:<24}{n:>6}  {pct(n, new)}{drop}")
         prev = n
-    print("\n== New-player session funnel ==")
+    print("\n== New-player session funnel ==   (first_kill counts AI/bot kills from v109; before, real-player kills only)")
     for s in SESSION:
         n = tot.get("n_session_" + s, 0)
         print(f"  {s:<24}{n:>6}  {pct(n, new)}")
