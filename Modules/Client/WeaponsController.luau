@@ -449,7 +449,8 @@ local function step(dt: number)
 				if hb then
 					local toT = (hb.Position - cf.Position).Unit
 					local cone = if jet:GetAttribute("Training") then WeaponConfig.Gun.AssistTraining
-						elseif Input.LastDevice == "KeyboardMouse" then WeaponConfig.Gun.AssistMouse else WeaponConfig.Gun.AssistTouch
+						elseif Input.LastDevice == "KeyboardMouse" then WeaponConfig.Gun.AssistMouse
+						elseif Input.LastDevice == "Gamepad" then WeaponConfig.Gun.AssistPad else WeaponConfig.Gun.AssistTouch
 					if math.acos(math.clamp(cf.LookVector:Dot(toT), -1, 1)) < cone then
 						aimCf = CFrame.lookAt(cf.Position, cf.Position + toT, cf.UpVector)
 					end

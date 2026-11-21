@@ -52,11 +52,11 @@ local TIPS: { [string]: Tip } = {
 	-- pilots who skipped the tutorial (or are in the 50/50 "Direct" group) learn the two weapons here
 	Guns = { Id = "Guns", Text = {
 		Touch = "Hold GUNS to fire - put the green pip on an enemy jet",
-		Pad = "Hold RB to fire - put the green pip on an enemy jet",
+		Pad = "Hold RT to fire - put the green pip on an enemy jet",
 		Mouse = "Hold LEFT MOUSE to fire - put the green pip on an enemy jet" } },
 	Missile = { Id = "Missile", Text = {
 		Touch = "Keep the enemy in the circle until LOCK - tap MISSILE (it fires on lock)",
-		Pad = "Keep the enemy in the circle until LOCK - press LB (it fires on lock)",
+		Pad = "Keep the enemy in the circle until LOCK - pull LT (it fires on lock)",
 		Mouse = "Keep the enemy in the circle until LOCK - right-click (it fires on lock)" } },
 	Rearm = { Id = "Rearm", Text = {
 		Touch = "Out of missiles: tap GEAR, land at the AIRFIELD or CARRIER and stop to rearm",

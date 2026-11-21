@@ -254,7 +254,9 @@ def main():
     print("\n== Combat mechanics ==")
     gs, gh = tot.get("m_gun_shots", 0), tot.get("m_gun_hits", 0)
     mf, mu, mh = tot.get("m_msl_fired", 0), tot.get("m_msl_unguided", 0), tot.get("m_msl_hit", 0)
-    print(f"  gun accuracy {pct(gh, gs).strip()} ({gh}/{gs} rounds; new {pct(tot.get('mn_gun_hits', 0), tot.get('mn_gun_shots', 0)).strip()})")
+    print(f"  gun accuracy {pct(gh, gs).strip()} ({gh}/{gs} rounds; new {pct(tot.get('mn_gun_hits', 0), tot.get('mn_gun_shots', 0)).strip()})"
+          + "   by device: " + ", ".join(f"{d_} {pct(tot.get(f'md_{d_}_gun_hits', 0), tot.get(f'md_{d_}_gun_shots', 0)).strip()}" for d_ in ("Touch", "KBM", "Gamepad")))
+    print(f"  air-start redeploys {tot.get('e_redeploy_air', 0)} ({tot.get('e_redeploy_air', 0) / max(tot.get('m_sortie', 1), 1) * 100:.0f}% of sorties)")
     print(f"  missiles: {mf} locked + {mu} unguided, hit rate {pct(mh, mf + mu).strip()} (new: {tot.get('mn_msl_fired', 0)} locked, {tot.get('mn_msl_unguided', 0)} unguided, {tot.get('mn_msl_hit', 0)} hits)")
     print(f"  incoming missiles per life: AI {tot.get('m_msl_incoming_ai', 0) / max(so, 1):.2f}, players {tot.get('m_msl_incoming_pvp', 0) / max(so, 1):.2f}"
           f"   (new players: AI {tot.get('mn_msl_incoming_ai', 0) / max(son, 1):.2f})")

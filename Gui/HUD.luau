@@ -323,7 +323,7 @@ return function(scope: any, props: { [string]: any })
 						Visible = scope:Computed(function(use) return not use(V.bTouch) end),
 						Text = scope:Computed(function(use)
 							if use(V.bGamepad) then
-								return "RT/LT THROTTLE   R1 GUNS   L1 MISSILE   B FLARES   D-PAD DOWN GEAR   HOLD Y EJECT   R3 LOOK"
+								return "RT GUNS   LT MISSILE   RB/LB THROTTLE   B FLARES   D-PAD DOWN GEAR   HOLD Y EJECT   R3 LOOK"
 							end
 							return "W/S THROTTLE   SHIFT AFTERBURNER   LMB GUNS   RMB/SPACE MISSILE   F FLARES   G GEAR   HOLD X EJECT   C LOOK"
 						end) }),
@@ -454,7 +454,7 @@ return function(scope: any, props: { [string]: any })
 					C.HudText(scope, { Font = Theme.Body, TextSize = 20, Color = Theme.Mute, Position = UDim2.fromScale(0.5, 0.735), Size = UDim2.fromOffset(700, 30),
 						Text = scope:Computed(function(use)
 							if use(touch) then return "Tap BOOST in the green zone for a Perfect Launch" end
-							if use(V.bGamepad) then return "Press RT / A in the green zone for a Perfect Launch" end
+							if use(V.bGamepad) then return "Press A / RB in the green zone for a Perfect Launch" end
 							return "Press W, Shift or Enter in the green zone for a Perfect Launch"
 						end) }),
 				},
@@ -480,9 +480,14 @@ return function(scope: any, props: { [string]: any })
 							return "SHOT DOWN"
 						end) }),
 					-- while the REVIVE offer is up the two sit side by side (never over the killer card)
-					C.PrimaryButton(scope, { Name = "Relaunch", Text = "RELAUNCH",
+					-- LAUNCH INTO THE FIGHT: straight back into the dogfight in the air (the carrier relaunch
+					-- took ~30 s to get back to the action; tutorial pilots still launch from the carrier)
+					C.PrimaryButton(scope, { Name = "Relaunch",
+						Text = scope:Computed(function(use) return if use(V.bFTUEActive) then "RELAUNCH" else "LAUNCH INTO THE FIGHT" end),
 						Position = scope:Computed(function(use) return UDim2.fromScale(if use(V.bReviveOffer) then 0.36 else 0.5, 0.62) end),
-						OnClick = function() Flight:Relaunch() end }),
+						OnClick = function()
+							if Fusion.peek(V.bFTUEActive) then Flight:Relaunch() else Flight:AirStart() end
+						end }),
 					-- REVIVE HERE (Robux impulse offer for a few seconds after a real sortie)
 					scope:New("TextButton")({
 						Name = "Revive", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.66, 0.62), Size = UDim2.fromOffset(360, 60),
@@ -520,8 +525,16 @@ return function(scope: any, props: { [string]: any })
 						end,
 						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }) },
 					}),
+					-- the classic carrier launch is still there (perfect launch bonus, takes longer)
+					scope:New("TextButton")({
+						Name = "CarrierLaunch", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.62, 92), Size = UDim2.fromOffset(300, 26),
+						BackgroundTransparency = 1, FontFace = Theme.Body, TextSize = 16, TextColor3 = Theme.Hud, Selectable = true,
+						Text = "or launch from the carrier ›",
+						Visible = scope:Computed(function(use) return not use(V.bFTUEActive) end),
+						[Fusion.OnEvent("Activated")] = function() Flight:Relaunch() end,
+					}),
 					-- come back tomorrow: the next daily pay is waiting (D1 retention was 2%)
-					C.HudText(scope, { Font = Theme.Body, TextSize = 16, Color = Theme.Hud, Position = UDim2.new(0.5, 0, 0.62, 104),
+					C.HudText(scope, { Font = Theme.Body, TextSize = 16, Color = Theme.Hud, Position = UDim2.new(0.5, 0, 0.62, 130),
 						Size = UDim2.fromOffset(620, 22),
 						Text = scope:Computed(function(use)
 							local d = use(V.tDaily) :: any

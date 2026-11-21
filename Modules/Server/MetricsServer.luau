@@ -171,6 +171,7 @@ function Metrics.Mech(self, p: Player?, key: string, n: number?)
 	add(tDay, d, "m_" .. key, n or 1)
 	local s = p and tSess[p]
 	if s and s.new then add(tDay, d, "mn_" .. key, n or 1) end
+	if s and s.dev then add(tDay, d, `md_{s.dev}_{key}`, n or 1) end -- by device (gun accuracy etc.)
 end
 
 -- Economy flows (AnalyticsServer.Economy)

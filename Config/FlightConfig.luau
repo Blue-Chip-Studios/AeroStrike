@@ -81,6 +81,9 @@ return {
 	PullUpSeconds = 3, -- ground-proximity warning look-ahead
 	CeilingY = 3200,
 	BoundsRadius = 5200, -- from map centre; beyond = warning, then turn back
+	-- LAUNCH INTO THE FIGHT (death screen): respawn in the air on the edge of the dogfight instead of the
+	-- carrier (half of all leavers quit within 25 s of dying; the carrier relaunch took ~30 s to get back in)
+	AirStart = { Radius = 2300, Alt = 760, Shield = 4 },
 
 	-- Server validation
 	ValidateInterval = 0.5,

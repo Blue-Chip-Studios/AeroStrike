@@ -12,6 +12,7 @@ return {
 		ConeTolerance = math.rad(14), -- server: target must be within this of the nose
 		AssistTouch = math.rad(4.5), -- client aim assist: rounds bend onto a target this close to the nose (touch / gamepad)
 		AssistMouse = math.rad(1.5),
+		AssistPad = math.rad(6.5), -- controller sticks are the hardest to track with
 		AssistTraining = math.rad(11), -- tutorial jets: generous assist so the guns step takes seconds, not a minute
 		HeatPerShot = 0.018, -- ~3 s of fire to overheat
 		CoolRate = 0.45, -- per second when not firing

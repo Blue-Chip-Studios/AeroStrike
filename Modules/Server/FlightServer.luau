@@ -207,6 +207,43 @@ local function landingSite(pos: Vector3): string?
 	return nil
 end
 
+-- LAUNCH INTO THE FIGHT: a fresh jet in the air on the edge of the dogfight, facing the action.
+-- (tutorial pilots still launch from the carrier, their lesson lane is off the bow)
+function Flight.AirStart(self, oPlayer: Player): boolean
+	local old = self.Sorties[oPlayer]
+	if old and old.Phase ~= "Dead" then return false end
+	local okF, FTUE = pcall(require, ServerStorage.ServerModules.FTUEServer)
+	if okF and FTUE.IsTraining and FTUE:IsTraining(oPlayer) then
+		self:Spawn(oPlayer)
+		return false
+	end
+	local NpcConfig = require(ReplicatedStorage.Config.NpcConfig)
+	local centre = NpcConfig.Population.Centre
+	local A = FlightConfig.AirStart
+	local a = math.random() * math.pi * 2
+	local x, z = centre.X + math.cos(a) * A.Radius, centre.Z + math.sin(a) * A.Radius
+	local y = math.max(A.Alt, math.max(IslandShape.Height(x, z), 0) + 300)
+	local pos = Vector3.new(x, y, z)
+	local cf = CFrame.lookAt(pos, Vector3.new(centre.X, y, centre.Z))
+	self:Spawn(oPlayer)
+	local s = self.Sorties[oPlayer]
+	if not s or not s.Jet.PrimaryPart then return false end
+	local root = s.Jet.PrimaryPart :: BasePart
+	s.Jet:PivotTo(cf)
+	s.Jet:SetAttribute("GearDown", false)
+	s.Phase = "Flying"
+	s.LaunchedAt = os.clock()
+	s.AirStart = true
+	s.LastPos = cf.Position
+	s.LastCheck = os.clock()
+	root.Anchored = false
+	root:SetNetworkOwner(oPlayer)
+	oEvent:FireClient(oPlayer, { a = "AirStart", cf = cf, speed = s.Stats.CruiseSpeed, msg = "BACK IN THE FIGHT!" })
+	self.OnLaunched:Fire(oPlayer, false)
+	task.delay(A.Shield, function() if s.Jet.Parent and not s.Jet:GetAttribute("Training") then s.Jet:SetAttribute("Shield", false) end end)
+	return true
+end
+
 -- REVIVE HERE (Robux): a fresh jet where you went down (lifted to a safe height), full ammo,
 -- 4 s of shield, and the Sortie Cash you lost restored. Only within the revive window.
 function Flight.Revive(self, oPlayer: Player): boolean
@@ -347,6 +384,14 @@ function Flight.StartAsync(self)
 			local s = self.Sorties[oPlayer]
 			if not s or s.Phase == "Dead" then
 				self:Spawn(oPlayer)
+			end
+		elseif t.a == "AirStart" then
+			local s = self.Sorties[oPlayer]
+			if not s or s.Phase == "Dead" then
+				if self:AirStart(oPlayer) then
+					local okA, A = pcall(require, ServerStorage.ServerModules.AnalyticsServer)
+					if okA then A:Log(oPlayer, "redeploy_air") end
+				end
 			end
 		elseif t.a == "Gear" then
 			local s = self.Sorties[oPlayer]

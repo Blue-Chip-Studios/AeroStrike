@@ -52,7 +52,7 @@ local vLastDrag = Vector2.zero
 local vStick1 = Vector2.zero
 local vStick2 = Vector2.zero
 local nRollKeys = 0
--- throttle: W / RT ramp up (holding past 100% lights the afterburner), S / LT ramp down,
+-- throttle: W / RB ramp up (holding past 100% lights the afterburner), S / LB ramp down,
 -- Shift = instant afterburner, mouse wheel steps; touch uses the HUD slider + BOOST
 local bThrottleUp, bThrottleDown, bShiftAB, bTouchAB = false, false, false, false
 local nEjectHeldSince: number? = nil -- hold X / Y to eject (no accidents)
@@ -118,11 +118,11 @@ function Input.StartAsync(self)
 		bThrottleUp = st == Enum.UserInputState.Begin or (st == Enum.UserInputState.Change and bThrottleUp)
 		if st == Enum.UserInputState.Begin then fire("Launch") end -- also launches from the deck
 		return Enum.ContextActionResult.Pass
-	end, false, Enum.KeyCode.W, Enum.KeyCode.ButtonR2)
+	end, false, Enum.KeyCode.W, Enum.KeyCode.ButtonR1)
 	ContextActionService:BindAction("AS_ThrottleDown", function(_, st)
 		bThrottleDown = st == Enum.UserInputState.Begin or (st == Enum.UserInputState.Change and bThrottleDown)
 		return Enum.ContextActionResult.Pass
-	end, false, Enum.KeyCode.S, Enum.KeyCode.ButtonL2)
+	end, false, Enum.KeyCode.S, Enum.KeyCode.ButtonL1)
 	ContextActionService:BindAction("AS_Eject", function(_, st)
 		if st == Enum.UserInputState.Begin then nEjectHeldSince = os.clock()
 		elseif st == Enum.UserInputState.End or st == Enum.UserInputState.Cancel then nEjectHeldSince = nil end
@@ -138,8 +138,10 @@ function Input.StartAsync(self)
 			self:SetThrottle(self.State.Throttle + (if inp.Position.Z > 0 then 0.1 else -0.1))
 		end
 	end)
-	bindHold("AS_Guns", "Guns", Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR1)
-	bindPress("AS_Missile", "Missile", Enum.UserInputType.MouseButton2, Enum.KeyCode.Space, Enum.KeyCode.ButtonL1)
+	-- controller: triggers fire (console shooter convention: RT guns, LT missile), bumpers throttle.
+	-- (RT used to be throttle: only 21-23% of controller players got through the guns lesson)
+	bindHold("AS_Guns", "Guns", Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
+	bindPress("AS_Missile", "Missile", Enum.UserInputType.MouseButton2, Enum.KeyCode.Space, Enum.KeyCode.ButtonL2)
 	bindPress("AS_Flare", "Flare", Enum.KeyCode.F, Enum.KeyCode.ButtonB)
 	bindPress("AS_Gear", "Gear", Enum.KeyCode.G, Enum.KeyCode.DPadDown)
 	bindPress("AS_Launch", "Launch", Enum.KeyCode.Return, Enum.KeyCode.ButtonA)

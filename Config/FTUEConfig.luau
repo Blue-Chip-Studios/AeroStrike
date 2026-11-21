@@ -9,10 +9,10 @@
 export type Step = { Id: string, Prompt: { Touch: string, Pad: string, Mouse: string }, Skippable: boolean? }
 
 local Steps: { Step } = {
-	{ Id = "spawned_on_catapult", Prompt = { Touch = "Tap BOOST in the green zone to launch!", Pad = "Press RT in the green zone to launch!", Mouse = "Press W in the green zone to launch!" } },
+	{ Id = "spawned_on_catapult", Prompt = { Touch = "Tap BOOST in the green zone to launch!", Pad = "Press A in the green zone to launch!", Mouse = "Press W in the green zone to launch!" } },
 	{ Id = "launched", Prompt = { Touch = "You're airborne, ace!", Pad = "You're airborne, ace!", Mouse = "You're airborne, ace!" } },
-	{ Id = "guns", Prompt = { Touch = "Hold GUNS and shoot the orange drone (aim at the green pip)", Pad = "Hold RB and shoot the orange drone (aim at the green pip)", Mouse = "Hold left mouse and shoot the orange drone (aim at the green pip)" }, Skippable = true },
-	{ Id = "lock_and_fire", Prompt = { Touch = "Keep the drone in the circle until LOCK, then tap MISSILE", Pad = "Keep the drone in the circle until LOCK, then press LB", Mouse = "Keep the drone in the circle until LOCK, then right-click" }, Skippable = true },
+	{ Id = "guns", Prompt = { Touch = "Hold GUNS and shoot the orange drone (aim at the green pip)", Pad = "Hold RT and shoot the orange drone (aim at the green pip)", Mouse = "Hold left mouse and shoot the orange drone (aim at the green pip)" }, Skippable = true },
+	{ Id = "lock_and_fire", Prompt = { Touch = "Keep the drone in the circle until LOCK, then tap MISSILE", Pad = "Keep the drone in the circle until LOCK, then pull LT", Mouse = "Keep the drone in the circle until LOCK, then right-click" }, Skippable = true },
 	{ Id = "first_upgrade", Prompt = { Touch = "Free upgrade: +1 Flare Pod!", Pad = "Free upgrade: +1 Flare Pod!", Mouse = "Free upgrade: +1 Flare Pod!" } },
 	{ Id = "go_live", Prompt = { Touch = "You're cleared hot. Hunt the bombers!", Pad = "You're cleared hot. Hunt the bombers!", Mouse = "You're cleared hot. Hunt the bombers!" } },
 	{ Id = "first_kill_or_mission", Prompt = { Touch = "", Pad = "", Mouse = "" } },

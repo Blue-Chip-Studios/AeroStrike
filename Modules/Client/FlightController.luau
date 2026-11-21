@@ -623,10 +623,11 @@ function Flight.StartAsync(self)
 				nLaunchedAt = -math.huge
 				Input:ResetThrottle(FlightConfig.DefaultThrottle)
 				setPhase("Flying")
-				Store.Values.sLaunchResult:set("REVIVED! BACK IN THE FIGHT")
+				local msg = if typeof(t.msg) == "string" then t.msg else "REVIVED! BACK IN THE FIGHT"
+				Store.Values.sLaunchResult:set(msg)
 				task.delay(1.8, function()
 					local Fusion = require(ReplicatedStorage.Packages.fusion)
-					if Fusion.peek(Store.Values.sLaunchResult) == "REVIVED! BACK IN THE FIGHT" then Store.Values.sLaunchResult:set("") end
+					if Fusion.peek(Store.Values.sLaunchResult) == msg then Store.Values.sLaunchResult:set("") end
 				end)
 			end)
 		end
@@ -647,6 +648,13 @@ end
 function Flight.Relaunch(self)
 	if self.Phase == "Dead" then
 		oRequest:FireServer({ a = "Relaunch" })
+	end
+end
+
+-- LAUNCH INTO THE FIGHT: respawn in the air on the edge of the dogfight
+function Flight.AirStart(self)
+	if self.Phase == "Dead" then
+		oRequest:FireServer({ a = "AirStart" })
 	end
 end
 

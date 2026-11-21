@@ -178,6 +178,7 @@ return {
 		MidRank = 10, -- tiers: Rookie = rank <= FlightConfig.RookieMaxRank, Mid = rank <= MidRank, else Vet
 		Cap = { Rookie = 1, Mid = 2, Vet = 3 },
 		Calm = { Rookie = 20, Mid = 12, Vet = 6 }, -- seconds after launch before any AI fighter engages
+		CalmAirStart = 8, -- ... after a LAUNCH INTO THE FIGHT air start (capped to this)
 		HoldFire = 3,
 		SelfDefence = 10, -- a bot hit by a player within this many seconds targets that player
 		BotDogfights = true,

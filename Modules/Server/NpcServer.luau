@@ -541,7 +541,8 @@ local function assignTargets(self, now: number)
 			local rv = ls and ls:FindFirstChild("Rank")
 			local rank = if rv then tonumber((rv :: any).Value) or 1 else 1
 			local tier = if rank <= FlightConfig.RookieMaxRank then "Rookie" elseif rank <= Engage.MidRank then "Mid" else "Vet"
-			if os.clock() - (so.LaunchedAt or 0) >= Engage.Calm[tier] then
+			local calm = if so.AirStart then math.min(Engage.Calm[tier], Engage.CalmAirStart) else Engage.Calm[tier]
+			if os.clock() - (so.LaunchedAt or 0) >= calm then
 				tPlayerJets[jet] = { cap = Engage.Cap[tier], count = 0 }
 				tJetOf[p] = jet
 			end
