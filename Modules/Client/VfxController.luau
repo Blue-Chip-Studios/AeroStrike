@@ -545,7 +545,7 @@ function Vfx.SonicBoom(self, jet: Model, mine: boolean)
 	else
 		-- someone else's boom: a 3D double crack where they are, a nudge if it's close
 		local s = Instance.new("Sound")
-		s.SoundId = "rbxassetid://" .. tostring(AudioConfig.SonicBoom.Id)
+		s.SoundId = "rbxassetid://" .. tostring(AudioConfig.Sounds.SonicBoom.Id)
 		s.Volume = 1.6
 		s.RollOffMaxDistance = 2600
 		s.RollOffMinDistance = 120
