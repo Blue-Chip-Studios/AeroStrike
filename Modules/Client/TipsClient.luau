@@ -58,6 +58,10 @@ local TIPS: { [string]: Tip } = {
 		Touch = "Keep the enemy in the circle until LOCK - tap MISSILE (it fires on lock)",
 		Pad = "Keep the enemy in the circle until LOCK - pull LT (it fires on lock)",
 		Mouse = "Keep the enemy in the circle until LOCK - right-click (it fires on lock)" } },
+	RearmRookie = { Id = "RearmRookie", Text = {
+		Touch = "Out of missiles: they reload by themselves when you break away from the fight",
+		Pad = "Out of missiles: they reload by themselves when you break away from the fight",
+		Mouse = "Out of missiles: they reload by themselves when you break away from the fight" } },
 	Rearm = { Id = "Rearm", Text = {
 		Touch = "Out of missiles: tap GEAR, land at the AIRFIELD or CARRIER and stop to rearm",
 		Pad = "Out of missiles: D-pad down for gear, land at the AIRFIELD or CARRIER and stop",
@@ -76,7 +80,49 @@ local function push(id: string)
 	table.insert(tQueue, id)
 end
 
+-- NEXT GOAL: right after your first kill (38% of new players' last milestone) and on every rank-up,
+-- say exactly what's next and what it unlocks
+local function nextGoalText(): string
+	local JetConfig = require(ReplicatedStorage.Config.JetConfig)
+	local EconomyConfig = require(ReplicatedStorage.Config.EconomyConfig)
+	local rank = peek(Store.Values.nRank) :: number
+	local xp = peek(Store.Values.nXPToNext) :: number
+	local perKill = (EconomyConfig.Rewards and EconomyConfig.Rewards.BotKill and EconomyConfig.Rewards.BotKill.XP) or 90
+	local kills = math.max(1, math.ceil(xp / perKill))
+	local h = peek(Store.Values.tHangar) :: any
+	local owned = (h and h.OwnedJets) or {}
+	local unlock = ""
+	for id, j in pairs(JetConfig.Jets) do
+		if not owned[id] and j.RankRequired == rank + 1 and (j.CashPrice or 0) > 0 then
+			unlock = " · UNLOCKS THE " .. string.upper(j.DisplayName or id)
+		end
+	end
+	return string.format("NEXT GOAL: RANK %d IN %d XP (~%d KILL%s)%s", rank + 1, xp, kills, if kills == 1 then "" else "S", unlock)
+end
+
+local nGoalToken = 0
+local function showGoal()
+	nGoalToken += 1
+	local token = nGoalToken
+	task.delay(1.6, function() -- after the kill / rank-up banner
+		if token ~= nGoalToken then return end
+		Store.Values.sNextGoal:set(nextGoalText())
+		task.delay(6, function() if token == nGoalToken then Store.Values.sNextGoal:set("") end end)
+	end)
+end
+
 function Tips.StartAsync(self)
+	local gscope = Fusion.scoped(Fusion)
+	local lastRank = peek(Store.Values.nRank) :: number
+	gscope:Observer(Store.Values.nMyKills):onChange(function()
+		local k = peek(Store.Values.nMyKills) :: number
+		if k == 1 or k == 3 then showGoal() end
+	end)
+	gscope:Observer(Store.Values.nRank):onChange(function()
+		local r = peek(Store.Values.nRank) :: number
+		if r > lastRank and lastRank > 0 then showGoal() end
+		lastRank = r
+	end)
 	local Flight = require(script.Parent.FlightController) :: any
 	local Input = require(script.Parent.InputController) :: any
 	local FTUE = require(script.Parent.FTUEClient) :: any
@@ -104,7 +150,7 @@ function Tips.StartAsync(self)
 			if Input.State.Boost then push("Boost") end
 			if st.Fuel / stats.Fuel < 0.5 then push("Fuel") end
 			if (peek(Store.Values.nSortieCash) :: number) >= 150 then push("Bank") end
-			if (jet:GetAttribute("Missiles") :: number? or 1) <= 0 then push("Rearm") end
+			if (jet:GetAttribute("Missiles") :: number? or 1) <= 0 then push(if jet:GetAttribute("Rookie") then "RearmRookie" else "Rearm") end
 			local vp = workspace.CurrentCamera.ViewportSize
 			if nFlyingFor > 60 and device() == "Touch" and math.min(vp.X, vp.Y) >= 700 and Input.State.TouchMode ~= "Stick" then push("Stick") end
 		end

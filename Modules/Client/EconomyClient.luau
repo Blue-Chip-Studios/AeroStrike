@@ -27,6 +27,7 @@ local function setXP(nXP: number)
 	local a, b = XPConfig.fLevelToXP(r), XPConfig.fLevelToXP(r + 1)
 	Store.Values.nRank:set(r)
 	Store.Values.nRankProgress:set(if b > a then (nXP - a) / (b - a) else 1)
+	Store.Values.nXPToNext:set(math.max(0, math.ceil(b - nXP)))
 end
 
 function Economy.Shop(self, t: { [string]: any }): { [string]: any }

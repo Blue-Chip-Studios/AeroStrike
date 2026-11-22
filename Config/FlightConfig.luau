@@ -68,7 +68,7 @@ return {
 	RookieTouchdownSink = 2.4, -- x the normal sink limit (was 1.6)
 	-- Rookie survival (ranks 1..RookieMaxRank). Two thirds of rookie deaths were self-inflicted:
 	-- ejecting when the HUD told them to (32%), flying into the sea / terrain (24%), hard landings (8%).
-	RookieHullRegen = { Delay = 6, PerSec = 0.05, Cap = 0.6 }, -- out of combat for Delay s: +5%/s up to 60%
+	RookieHullRegen = { Delay = 6, PerSec = 0.05, Cap = 0.6, MissileEvery = 15 }, -- out of combat for Delay s: +5%/s up to 60%; +1 missile per MissileEvery s
 	AutoPullUp = { LookAhead = 1.6, SeaMargin = 25, Climb = 0.65 }, -- auto ground-collision avoidance
 
 	-- Launch

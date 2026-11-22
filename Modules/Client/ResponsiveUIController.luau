@@ -215,7 +215,17 @@ function Responsive.StartAsync(self)
 			return Enum.ContextActionResult.Sink
 		end
 		if not onGround() or anyMenu() then return Enum.ContextActionResult.Pass end
-		if k == Enum.KeyCode.ButtonY then Hangar:Open()
+		-- X on the death screen while the revive offer is up = revive (free for rookies)
+		if k == Enum.KeyCode.ButtonX and Flight.Phase == "Dead" and peek(Store.Values.bReviveOffer) then
+			if peek(Store.Values.bReviveFree) then
+				Store.Values.bReviveOffer:set(false)
+				require(ReplicatedStorage.BCDKShared.Remote):GetEvent("MonRequest"):FireServer({ a = "FreeRevive" })
+			else
+				Shop:Buy("ReviveHere")
+			end
+			return Enum.ContextActionResult.Sink
+		end
+		if k == Enum.KeyCode.ButtonY then Hangar:Open(if Flight.Phase == "Dead" then "death_pad" else "deck")
 		elseif k == Enum.KeyCode.ButtonX then Shop:Open(); focus("Shop")
 		elseif k == Enum.KeyCode.DPadUp then Social:OpenSquad(); focus("Social", "SquadScreen")
 		else return Enum.ContextActionResult.Pass end

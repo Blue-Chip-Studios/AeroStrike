@@ -214,7 +214,7 @@ function Mon.StartAsync(self)
 		task.delay(2.5, function() if p.Parent then oEvent:FireClient(p, { a = "OfferStarter" }) end end)
 	end
 	Economy.OnMultiKill.Event:Connect(function(p: Player, n: number) if n >= 2 then offerStarterOnHigh(p) end end)
-	Economy.OnRankUp.Event:Connect(function(p: Player, r: number) if r >= 3 then offerStarterOnHigh(p) end end)
+	Economy.OnRankUp.Event:Connect(function(p: Player, r: number) if r >= 2 then offerStarterOnHigh(p) end end)
 
 	-- starter bundle offer on the Nth shoot-down (once per session, only if not owned)
 	Flight.OnJetDestroyed.Event:Connect(function(oPlayer: Player, sCause: string)

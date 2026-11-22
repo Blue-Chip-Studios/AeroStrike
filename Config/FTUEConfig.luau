@@ -37,7 +37,7 @@ return {
 	-- 50/50 TEST: new players get the tutorial ("Tutorial") or go straight into the fight with just-in-time
 	-- tips only ("Direct"). Split by UserId so it's stable across sessions and the same in every module.
 	-- MetricsServer reports both groups side by side; set Enabled = false to give everyone the tutorial.
-	ABTest = { Enabled = true },
+	ABTest = { Enabled = false }, -- verdict 22 Nov 2026: Tutorial won (5-min 22.0% vs 18.3%, 3.8 vs 3.4 min, D1 3.2% vs 2.2%)
 	VariantFor = function(userId: number): string
 		return if userId % 2 == 0 then "Tutorial" else "Direct"
 	end,

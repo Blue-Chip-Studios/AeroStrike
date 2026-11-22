@@ -122,6 +122,7 @@ function Combat.Rearm(self, oPlayer: Player)
 end
 
 local tLastHit: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any -- rookie hull repair waits for calm
+local tRookieReload: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
 
 function Combat.Damage(self, victim: Model, nDmg: number, attacker: Player?, sWeapon: string)
 	if victim:GetAttribute("Dead") or victim:GetAttribute("Friendly") then return end
@@ -551,6 +552,18 @@ function Combat.StartAsync(self)
 					local hp, max = jet:GetAttribute("Health") :: number?, jet:GetAttribute("MaxHealth") :: number?
 					if hp and max and hp < max * RG.Cap and os.clock() - (tLastHit[jet] or 0) >= RG.Delay then
 						jet:SetAttribute("Health", math.min(max * RG.Cap, hp + max * RG.PerSec * 0.5))
+					end
+					-- missiles reload by themselves out of combat (rookies were landing to rearm: hard landings)
+					local ammo = tAmmo[jet]
+					local maxM = s.Stats and s.Stats.Missiles
+					if ammo and maxM and ammo.Missiles < maxM and os.clock() - (tLastHit[jet] or 0) >= RG.Delay
+						and os.clock() - (tLastMissile[p] or 0) >= RG.Delay then
+						tRookieReload[jet] = (tRookieReload[jet] or 0) + 0.5
+						if tRookieReload[jet] >= RG.MissileEvery then
+							tRookieReload[jet] = 0
+							ammo.Missiles += 1
+							jet:SetAttribute("Missiles", ammo.Missiles)
+						end
 					end
 				end
 			end

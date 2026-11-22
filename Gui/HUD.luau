@@ -376,6 +376,10 @@ return function(scope: any, props: { [string]: any })
 					-- launch result toast
 					C.HudText(scope, { Name = "LaunchResult", Font = Theme.Display, TextSize = 34, Color = Theme.Amber,
 						Position = UDim2.new(0.5, 0, 0.3, 0), Size = UDim2.fromOffset(700, 50), Text = V.sLaunchResult }),
+					-- NEXT GOAL (after the first kill / each rank-up)
+					C.HudText(scope, { Name = "NextGoal", Font = Theme.Display, TextSize = 21, Color = Color3.fromRGB(120, 230, 160),
+						Position = UDim2.new(0.5, 0, 0.36, 0), Size = UDim2.fromOffset(820, 30), Text = V.sNextGoal,
+						Visible = scope:Computed(function(use) return use(V.sNextGoal) ~= "" end) }),
 					-- objective / prompt (FTUE coaching line on a soft backing so it reads on any sky)
 					scope:New("Frame")({
 						Name = "PromptBack",
@@ -514,7 +518,10 @@ return function(scope: any, props: { [string]: any })
 					-- LAUNCH INTO THE FIGHT: straight back into the dogfight in the air (the carrier relaunch
 					-- took ~30 s to get back to the action; tutorial pilots still launch from the carrier)
 					C.PrimaryButton(scope, { Name = "Relaunch",
-						Text = scope:Computed(function(use) return if use(V.bFTUEActive) then "RELAUNCH" else "LAUNCH INTO THE FIGHT" end),
+						Text = scope:Computed(function(use)
+							local t = if use(V.bFTUEActive) then "RELAUNCH" else "LAUNCH INTO THE FIGHT"
+							return if use(V.bGamepad) then "(A)  " .. t else t
+						end),
 						Position = scope:Computed(function(use) return UDim2.fromScale(if use(V.bReviveOffer) then 0.36 else 0.5, 0.62) end),
 						OnClick = function()
 							if Fusion.peek(V.bFTUEActive) then Flight:Relaunch() else Flight:AirStart() end
@@ -525,7 +532,8 @@ return function(scope: any, props: { [string]: any })
 						BackgroundColor3 = Theme.Hud, AutoButtonColor = true, Selectable = true, FontFace = Theme.Body, TextSize = 19,
 						TextColor3 = Color3.fromRGB(11, 26, 16), Visible = V.bReviveOffer,
 						Text = scope:Computed(function(use)
-							return if use(V.bReviveFree) then "FREE ROOKIE REVIVE · KEEP YOUR CASH" else "REVIVE HERE · KEEP YOUR CASH   R$ 25"
+							local t = if use(V.bReviveFree) then "FREE ROOKIE REVIVE · KEEP YOUR CASH" else "REVIVE HERE · KEEP YOUR CASH   R$ 25"
+							return if use(V.bGamepad) then "(X)  " .. t else t
 						end),
 						[Fusion.OnEvent("Activated")] = function()
 							if Fusion.peek(V.bReviveFree) then
@@ -559,8 +567,9 @@ return function(scope: any, props: { [string]: any })
 					-- when the button above is a quick upgrade, keep a way into the hangar beside it
 					scope:New("TextButton")({
 						Name = "HangarLink", AnchorPoint = Vector2.new(0, 0), Position = UDim2.new(0.5, 190, 0.62, 40), Size = UDim2.fromOffset(150, 44),
-						BackgroundTransparency = 1, FontFace = Theme.Body, TextSize = 18, TextColor3 = Theme.Amber, Text = "HANGAR ›", Selectable = true,
-						Visible = scope:Computed(function(use) return quickUpgrade(use) ~= nil end),
+						BackgroundTransparency = 1, FontFace = Theme.Body, TextSize = 18, TextColor3 = Theme.Amber, Selectable = true,
+						Text = scope:Computed(function(use) return if use(V.bGamepad) then "(Y) HANGAR ›" else "HANGAR ›" end),
+						Visible = scope:Computed(function(use) return quickUpgrade(use) ~= nil or use(V.bGamepad) end),
 						[Fusion.OnEvent("Activated")] = function() (require(ClientModules:WaitForChild("HangarClient")) :: any):Open("death_link") end,
 					}),
 					-- nudge: a new jet you can buy right now, or (once) "upgrade / paint your jet" after your first kill

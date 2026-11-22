@@ -67,7 +67,9 @@ local tRayParams = RaycastParams.new()
 tRayParams.FilterType = Enum.RaycastFilterType.Exclude
 tRayParams.IgnoreWater = false
 
+local nDeadAt = 0
 local function setPhase(p: string)
+	if p == "Dead" and Flight.Phase ~= "Dead" then nDeadAt = os.clock() end
 	Flight.Phase = p
 	Store.Values.sPhase:set(p)
 	if p ~= "Flying" then Store.Values.bPullUp:set(false) end
@@ -658,7 +660,18 @@ function Flight.StartAsync(self)
 		end
 	end)
 	Input.Pressed:Connect(function(sName)
-		if sName == "Launch" then requestLaunch() end
+		if sName == "Launch" then
+			if Flight.Phase == "Dead" then
+				-- A (or W / Enter / RB) on the death screen = LAUNCH INTO THE FIGHT. Controllers had no way to
+				-- press the death-screen buttons: 1.6 sorties per session vs 5.2 on keyboard, 2.0-minute sessions.
+				if os.clock() - nDeadAt < 1.2 then return end -- don't skip the screen with a held key
+				local F = require(ReplicatedStorage.Packages.fusion)
+				if F.peek(Store.Values.bHangarOpen) or F.peek(Store.Values.bShopOpen) then return end
+				if F.peek(Store.Values.bFTUEActive) then Flight:Relaunch() else Flight:AirStart() end
+			else
+				requestLaunch()
+			end
+		end
 	end)
 	RunService.Heartbeat:Connect(step)
 
