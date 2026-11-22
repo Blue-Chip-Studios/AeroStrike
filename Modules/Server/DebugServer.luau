@@ -91,6 +91,11 @@ function Debug.StartAsync(self)
 			-- fire a prompt moment now, ignoring the session-time gate (prompt QA)
 			local p = game:GetService("Players"):GetPlayers()[1]
 			return require(ServerStorage.ServerModules.RetentionServer):QAMoment(p, a or "FirstKill")
+		elseif cmd == "setPrompts" then
+			-- overwrite the first player's prompt cooldown stamps, e.g. ("setPrompts", { Notif = os.time() }) (prompt QA)
+			local p = game:GetService("Players"):GetPlayers()[1]
+			require(ServerStorage.ServerModules.EconomyServer):SetProfileKey(p, "Prompts", function() return a or {} end)
+			return game:GetService("HttpService"):JSONEncode(require(ServerStorage.BCDKServer.SMProfile):GetAsync(p, "Prompts"))
 		elseif cmd == "grantProduct" then
 			-- run a developer product's grant for the first player (Studio QA of purchases)
 			local p = game:GetService("Players"):GetPlayers()[1]

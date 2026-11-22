@@ -96,6 +96,7 @@ local tValues = {
 	bRookieJet = false,
 	sGiftNext = "",
 	sEventLine = "",
+	sPromptLine = "", -- retention prompt explainer (like / notify / invite); shown on the deck and death screen
 	sObjectiveDist = "", -- distance to the mission marker ("1.4 KM") -- "DOUBLE CASH WEEKEND · ENDS IN 1D 4H" (live event banner)
 	nXPToNext = 0, -- XP left to the next rank
 	sNextGoal = "", -- "NEXT GOAL: RANK 2 IN 160 XP (~2 KILLS) · UNLOCKS THE VIPER IX" -- "NEXT GIFT IN 1:12 · +300" (death screen)

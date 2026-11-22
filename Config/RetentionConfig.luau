@@ -33,6 +33,12 @@ return {
 	Prompts = {
 		MinSessionMins = 2, -- was 4: 77% of sessions ended before minute 5, so almost nobody saw them
 		CooldownDays = 3,
+		-- "Enjoying AeroStrike? Give it a thumbs up": a plain on-screen reminder (no reward: Roblox forbids paying
+		-- for likes). Only at big high points, only once a player has flown a while, at most once a week.
+		-- The game page showed 4 likes / 5 dislikes and ads converted only 14% of clicks into plays.
+		LikeCooldownDays = 7,
+		LikeMinSessionMins = 5,
+		LikeMoments = { MultiKill = true, BossPayout = true, RankUp = true, SeasonTier = true, Mastery = true },
 		InviteCooldownDays = 1, -- "invite a friend, you both get +500" (SeasonConfig.Invite pays it when they join)
 		-- moments that trigger a prompt (server -> client "Moment")
 		Moments = { FirstKill = true, MultiKill = true, BossPayout = true, RankUp = true, SeasonTier = true, Mastery = true },

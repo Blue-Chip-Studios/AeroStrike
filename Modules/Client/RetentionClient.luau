@@ -105,25 +105,32 @@ local function showPrompt(what: string)
 			local lp = Players.LocalPlayer
 			local ok, can = pcall(SocialService.CanSendGameInviteAsync, SocialService, lp)
 			if ok and can then
-				Store.Values.sLaunchResult:set("INVITE A FRIEND: YOU BOTH GET +500 CASH")
+				Store.Values.sPromptLine:set("INVITE A FRIEND: YOU BOTH GET +500 CASH")
 				task.delay(1.6, function()
 					pcall(SocialService.PromptGameInvite, SocialService, lp)
 					task.delay(1.5, function()
-						if Fusion.peek(Store.Values.sLaunchResult) == "INVITE A FRIEND: YOU BOTH GET +500 CASH" then Store.Values.sLaunchResult:set("") end
+						if Fusion.peek(Store.Values.sPromptLine) == "INVITE A FRIEND: YOU BOTH GET +500 CASH" then Store.Values.sPromptLine:set("") end
 					end)
 				end)
 			end
+		end)
+	elseif what == "Like" then
+		-- no Roblox API opens the vote buttons, so just ask (no reward: paying for likes breaks Roblox rules)
+		local msg = "ENJOYING AEROSTRIKE?\nGIVE IT A LIKE ON THE GAME PAGE!"
+		Store.Values.sPromptLine:set(msg)
+		task.delay(6, function()
+			if Fusion.peek(Store.Values.sPromptLine) == msg then Store.Values.sPromptLine:set("") end
 		end)
 	elseif what == "Notify" then
 		task.spawn(function()
 			local ok, can = pcall(ExperienceNotificationService.CanPromptOptInAsync, ExperienceNotificationService)
 			if ok and can then
 				-- say what it's for before Roblox's dialog appears
-				Store.Values.sLaunchResult:set("GET A PING WHEN YOUR DAILY PAY IS READY")
+				Store.Values.sPromptLine:set("GET A PING WHEN YOUR DAILY PAY IS READY")
 				task.delay(1.6, function()
 					pcall(ExperienceNotificationService.PromptOptIn, ExperienceNotificationService)
 					task.delay(1.5, function()
-						if Fusion.peek(Store.Values.sLaunchResult) == "GET A PING WHEN YOUR DAILY PAY IS READY" then Store.Values.sLaunchResult:set("") end
+						if Fusion.peek(Store.Values.sPromptLine) == "GET A PING WHEN YOUR DAILY PAY IS READY" then Store.Values.sPromptLine:set("") end
 					end)
 				end)
 			end

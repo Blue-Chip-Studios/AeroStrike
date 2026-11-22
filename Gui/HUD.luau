@@ -189,6 +189,30 @@ return function(scope: any, props: { [string]: any })
 				},
 			}),
 
+			-- retention prompt line: lives at the root because prompts only fire in calm phases
+			-- (deck / death screen / ground), when the Flight frame and its LaunchResult toast are hidden
+			scope:New("TextLabel")({
+				Name = "PromptLine",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.8),
+				Size = UDim2.fromOffset(560, 64),
+				AutomaticSize = Enum.AutomaticSize.X,
+				BackgroundColor3 = Color3.fromRGB(12, 18, 28),
+				BackgroundTransparency = 0.2,
+				FontFace = Theme.Display,
+				Text = V.sPromptLine,
+				TextSize = 24,
+				TextColor3 = Theme.Amber,
+				ZIndex = 20,
+				Visible = scope:Computed(function(use) return use(V.sPromptLine) ~= "" end),
+				[Children] = {
+					scope:New("UICorner")({ CornerRadius = UDim.new(0, 10) }),
+					scope:New("UIStroke")({ Color = Theme.Amber, Thickness = 2, Transparency = 0.3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }),
+					scope:New("UIPadding")({ PaddingLeft = UDim.new(0, 18), PaddingRight = UDim.new(0, 18) }),
+					scope:New("UISizeConstraint")({ MaxSize = Vector2.new(900, 64) }),
+				},
+			}),
+
 			-- FLIGHT HUD ------------------------------------------------------
 			scope:New("Frame")({
 				Name = "Flight",

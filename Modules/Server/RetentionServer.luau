@@ -286,7 +286,7 @@ local function promptShown(p: Player, what: any)
 	local now = os.time()
 	Economy:SetProfileKey(p, "Prompts", function(v)
 		v = v or {}
-		if what == "Favorite" then v.Fav = now elseif what == "Invite" then v.Inv = now else v.Notif = now end
+		if what == "Favorite" then v.Fav = now elseif what == "Invite" then v.Inv = now elseif what == "Like" then v.Like = now else v.Notif = now end
 		return v
 	end)
 end
@@ -302,7 +302,10 @@ local function moment(p: Player, kind: string)
 	-- notifications first (they bring players back tomorrow), then favourite; one of each per session.
 	-- (it used to be one prompt per session, favourite first, so new players never saw the notify prompt)
 	local what = nil
+	local likeOk = PR.LikeMoments and PR.LikeMoments[kind]
+		and os.clock() - (tJoined[p] or os.clock()) >= (PR.LikeMinSessionMins or 5) * 60
 	if not done.Notify and now - (pr.Notif or 0) > cd then what = "Notify"
+	elseif likeOk and not done.Like and now - (pr.Like or 0) > (PR.LikeCooldownDays or 7) * 86400 then what = "Like"
 	elseif not done.Favorite and now - (pr.Fav or 0) > cd then what = "Favorite"
 	elseif not done.Invite and now - (pr.Inv or 0) > (PR.InviteCooldownDays or 1) * 86400 then what = "Invite" end
 	if not what then return end
@@ -311,7 +314,7 @@ local function moment(p: Player, kind: string)
 	tLastPrompt[p] = os.clock()
 	tOffered[p] = what
 	oEvent:FireClient(p, { a = "Prompt", what = what })
-	Analytics:Log(p, if what == "Favorite" then "prompt_favorite" elseif what == "Invite" then "prompt_invite" else "prompt_notify", { moment = kind })
+	Analytics:Log(p, if what == "Favorite" then "prompt_favorite" elseif what == "Invite" then "prompt_invite" elseif what == "Like" then "prompt_like" else "prompt_notify", { moment = kind })
 end
 
 -- Studio QA hooks (DebugServer)
@@ -320,7 +323,7 @@ function Retention.QASetActive(self, p: Player, secs: number)
 	syncGift(p)
 end
 function Retention.QAMoment(self, p: Player, kind: string): string
-	tJoined[p] = os.clock() - PR.MinSessionMins * 60 - 1
+	tJoined[p] = os.clock() - math.max(PR.MinSessionMins, PR.LikeMinSessionMins or 0) * 60 - 1
 	tPrompted[p], tLastPrompt[p] = nil, nil
 	moment(p, kind)
 	return if tPrompted[p] then "prompted" else "skipped (cooldown)"
