@@ -1,13 +1,13 @@
 {
   "enabled": false,
   "streak": {
-    "messageId": "53ee8186-072d-a747-8b0c-52b3a375e435",
-    "note": "StreakEnding: 'Your {days}-day streak ends soon. Hop in to keep it!' - for players who claimed their daily pay yesterday",
+    "messageId": "",
+    "note": "AeroStrike notification string, e.g. 'Your {days}-day streak ends soon. Hop in to keep it!' - for players who claimed their daily pay yesterday",
     "params": { "days": "streak" }
   },
   "daily": {
     "messageId": "",
-    "note": "For players with no streak running. Needs a string like 'Your Day {day} sortie pay is ready: {cash} cash' (the existing DailyReady says QR, not AeroStrike cash). Fields available: day, cash, streak.",
+    "note": "AeroStrike notification string, e.g. 'Your Day {day} sortie pay is ready: {cash} cash' - for players with no streak running. Fields available: day, cash, streak.",
     "params": { "day": "day", "cash": "cash" }
   }
 }
