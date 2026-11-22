@@ -17,21 +17,27 @@ local JetStats = require(ReplicatedStorage.Shared.JetStats)
 local MasteryConfig = require(ReplicatedStorage.Config.MasteryConfig)
 
 local Children, OnEvent, peek = Fusion.Children, Fusion.OnEvent, Fusion.peek
-local MAX_SWATCHES = 8
+local MAX_SWATCHES = 10
 
 -- paint ids for a jet: Standard, its own liveries, then mastery schemes by level
+local CosmeticsConfig = require(game:GetService("ReplicatedStorage").Config.CosmeticsConfig)
+local MonetizationConfig = require(game:GetService("ReplicatedStorage").Config.MonetizationConfig)
 local function paintList(j: any): { string }
-	local own, mast = {}, {}
+	local own, mast, shop = {}, {}, {}
 	for id in pairs(j.Paints) do
 		if id ~= "Standard" then
-			if MasteryConfig.Schemes[id] then table.insert(mast, id) else table.insert(own, id) end
+			if MasteryConfig.Schemes[id] then table.insert(mast, id)
+			elseif CosmeticsConfig.Paints[id] then table.insert(shop, id)
+			else table.insert(own, id) end
 		end
 	end
+	table.sort(shop)
 	table.sort(own)
 	table.sort(mast, function(a, b) return MasteryConfig.Schemes[a].Level < MasteryConfig.Schemes[b].Level end)
 	local out = { "Standard" }
 	for _, id in ipairs(own) do table.insert(out, id) end
 	for _, id in ipairs(mast) do table.insert(out, id) end
+	for _, id in ipairs(shop) do table.insert(out, id) end
 	return out
 end
 local V = Store.Values
@@ -165,12 +171,16 @@ return function(scope: any, props: { [string]: any })
 		local h = use(V.tHangar)
 		return (h.EquippedPaint and h.EquippedPaint[use(selected)]) or use(jetCfg).DefaultPaint
 	end)
-	local swatches: { any } = { scope:New("UIListLayout")({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }) }
+	local swatches: { any } = { scope:New("UIGridLayout")({ CellSize = UDim2.fromOffset(80, 46), CellPadding = UDim2.fromOffset(6, 6), SortOrder = Enum.SortOrder.LayoutOrder }) }
 	for i = 1, MAX_SWATCHES do
 		local id = scope:Computed(function(use) return use(paints)[i] end)
 		local locked = scope:Computed(function(use)
 			local pid = use(id)
 			local s = pid and MasteryConfig.Schemes[pid]
+			if pid and CosmeticsConfig.Paints[pid] then
+				local h = use(V.tHangar)
+				return not (h.ShopPaints and h.ShopPaints[pid])
+			end
 			return s ~= nil and use(mastLevel) < s.Level
 		end)
 		table.insert(swatches, scope:New("TextButton")({
@@ -188,11 +198,28 @@ return function(scope: any, props: { [string]: any })
 				if not pid then return "" end
 				local s = MasteryConfig.Schemes[pid]
 				if s and use(mastLevel) < s.Level then return `LV {s.Level}` end
+				local cp = CosmeticsConfig.Paints[pid]
+				if cp then
+					local h = use(V.tHangar)
+					if not (h.ShopPaints and h.ShopPaints[pid]) then
+						local prod = MonetizationConfig.Products[cp.Product]
+						return `{string.upper(cp.Name)}\nR$ {prod and prod.Price or "?"}`
+					end
+					return string.upper(cp.Name)
+				end
 				return string.upper(if s then s.Name else pid)
 			end),
 			[OnEvent("Activated")] = function()
 				local pid = peek(id)
-				if pid then Hangar:Paint(peek(selected), pid) end
+				if not pid then return end
+				local cp = CosmeticsConfig.Paints[pid]
+				local h = peek(V.tHangar)
+				if cp and not (h.ShopPaints and h.ShopPaints[pid]) then
+					-- locked Robux paint: open the purchase
+					(require(game:GetService("ReplicatedStorage").ClientModules:WaitForChild("ShopClient")) :: any):Buy(cp.Product)
+					return
+				end
+				Hangar:Paint(peek(selected), pid)
 			end,
 			[Children] = {
 				scope:New("UICorner")({ CornerRadius = UDim.new(0, 4) }),
@@ -206,7 +233,7 @@ return function(scope: any, props: { [string]: any })
 		}))
 	end
 	local masteryBlock = scope:New("Frame")({
-		LayoutOrder = 15, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 88),
+		LayoutOrder = 15, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
 		[Children] = {
 			scope:New("TextLabel")({ BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 18), FontFace = Theme.Display, TextSize = 12,
 				TextColor3 = Theme.Mute, TextXAlignment = Enum.TextXAlignment.Left,
@@ -224,7 +251,7 @@ return function(scope: any, props: { [string]: any })
 						local a, b = MasteryConfig.Levels[lvl], MasteryConfig.Levels[lvl + 1]
 						return UDim2.fromScale(math.clamp((use(mastXP) - a) / (b - a), 0, 1), 1)
 					end) }) } }),
-			scope:New("Frame")({ Position = UDim2.fromOffset(0, 34), Size = UDim2.new(1, 0, 0, 50), BackgroundTransparency = 1, [Children] = swatches }),
+			scope:New("Frame")({ Position = UDim2.fromOffset(0, 34), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, [Children] = swatches }),
 		},
 	})
 

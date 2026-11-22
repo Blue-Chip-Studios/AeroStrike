@@ -22,6 +22,10 @@ return {
 		ReviveHere = { Id = 3733440715, Name = "Revive Here", Price = 25, Order = 0, Hidden = true, Grant = { Revive = true } }, -- death screen impulse buy
 		StarterAce = { Id = 3733032938, Name = "Starter Ace Bundle", Price = 49, OneTime = true, Order = 1, -- price was 99 until 22 Nov (Viper now earnable in ~3 min)
 			Grant = { Jet = "ViperIX", Cash = 5000 } },
+		-- cosmetics (cheap, kid-friendly impulse buys; no combat power)
+		HornetPaint = { Id = 3734593027, Name = "Hornet Paint", Price = 25, OneTime = true, Order = 1.2, Grant = { Paints = { "Hornet" } } },
+		PhoenixTrail = { Id = 3734593050, Name = "Phoenix Trail", Price = 49, OneTime = true, Order = 1.4, Grant = { Trails = { "Phoenix" } } },
+		AcePack = { Id = 3734593071, Name = "Ace Pack", Price = 75, OneTime = true, Order = 1.6, Grant = { Paints = { "Hornet", "Nightshade" }, Trails = { "Phoenix" } } },
 		CashS = { Id = 3733032949, Name = "Cash Crate S", Price = 75, Order = 2, Grant = { Cash = 5000 } },
 		CashM = { Id = 3733032958, Name = "Cash Crate M", Price = 299, Order = 3, Grant = { Cash = 25000 } },
 		CashL = { Id = 3733033145, Name = "Cash Crate XL", Price = 899, Order = 4, Grant = { Cash = 100000 } },

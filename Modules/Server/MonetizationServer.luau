@@ -97,6 +97,16 @@ local function grant(oPlayer: Player, sKey: string): boolean
 	if g.Jet then
 		Economy:SetProfileKey(oPlayer, "OwnedJets", function(v) v = v or {}; v[g.Jet] = true; return v end)
 	end
+	if g.Paints then
+		Economy:SetProfileKey(oPlayer, "ShopPaints", function(v) v = v or {}; for _, id in ipairs(g.Paints) do v[id] = true end; return v end)
+		-- wear the first new paint on the jet you fly right away
+		local jet = mProfile:GetAsync(oPlayer, "EquippedJet") or "SparrowT2"
+		Economy:SetProfileKey(oPlayer, "EquippedPaint", function(v) v = v or {}; v[jet] = g.Paints[1]; return v end)
+	end
+	if g.Trails then
+		Economy:SetProfileKey(oPlayer, "Trails", function(v) v = v or {}; for _, id in ipairs(g.Trails) do v[id] = true end; return v end)
+		Economy:SetProfileKey(oPlayer, "EquippedTrail", function() return g.Trails[1] end)
+	end
 	if g.Cash then
 		mCurrency:Add(oPlayer, CurrencyConfig.eCurrency.Cash, g.Cash)
 		Analytics:Economy(oPlayer, "Source", "Cash", g.Cash, mProfile:GetAsync(oPlayer, "Cash") or 0, "IAP", sKey)
@@ -244,6 +254,12 @@ end
 
 function Mon.InitProfileAsync(self, oPlayer: Player)
 	task.spawn(refreshPasses, oPlayer)
+end
+
+-- Studio QA only (DebugServer "grantProduct"): run a product's grant exactly as a receipt would
+function Mon.QAGrant(self, oPlayer: Player, sKey: string): boolean
+	if not game:GetService("RunService"):IsStudio() then return false end
+	return grant(oPlayer, sKey)
 end
 
 function Mon.PlayerRemoving(self, oPlayer: Player)

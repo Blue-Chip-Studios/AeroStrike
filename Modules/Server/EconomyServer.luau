@@ -64,6 +64,9 @@ local function cashMult(oPlayer: Player): number
 		local p = Mon:GetPasses(oPlayer)
 		if p.DoubleCash then m *= 2 end
 	end
+	-- timed live event (EventConfig): e.g. DOUBLE CASH WEEKEND
+	local ev = require(ReplicatedStorage.Config.EventConfig).Active()
+	if ev then m *= ev.CashMult end
 	local ok2, Squad = pcall(require, ServerStorage.ServerModules:FindFirstChild("SocialServer") :: any)
 	if ok2 and Squad and Squad.SquadSize then
 		m *= EconomyConfig.SquadMult[math.clamp(Squad:SquadSize(oPlayer), 1, 4)] or 1
@@ -97,6 +100,17 @@ end
      opts.Bank: true = straight to Cash (missions/onboarding), else Sortie Cash
      opts.Label: toast text override
      opts.Cash: absolute cash override (bounties) ]]
+-- publish the live event for the HUD banner (checked every 30 s)
+task.spawn(function()
+	local EventConfig = require(ReplicatedStorage.Config.EventConfig)
+	while true do
+		local ev = EventConfig.Active()
+		workspace:SetAttribute("EventName", if ev then ev.Name else nil)
+		workspace:SetAttribute("EventEnds", if ev then ev.End else nil)
+		task.wait(30)
+	end
+end)
+
 function Economy.Reward(self, oPlayer: Player, sKey: string, opts: { Mult: number?, Bank: boolean?, Label: string?, Cash: number? }?)
 	local r = EconomyConfig.Rewards[sKey]
 	local o = opts or {}
@@ -158,7 +172,7 @@ end
 
 -- Profile helpers (replicated to the client through the "HangarReplica")
 local HANGAR_TOKEN = "HangarReplica"
-local HANGAR_KEYS = { "OwnedJets", "EquippedJet", "EquippedPaint", "Upgrades", "FTUE", "Stats", "Season", "Trails", "EquippedTrail", "Rewards", "Mastery", "Prompts", "Settings" }
+local HANGAR_KEYS = { "OwnedJets", "EquippedJet", "EquippedPaint", "ShopPaints", "Upgrades", "FTUE", "Stats", "Season", "Trails", "EquippedTrail", "Rewards", "Mastery", "Prompts", "Settings" }
 
 local function setKey(oPlayer: Player, sKey: string, fn: (any) -> any)
 	-- only hangar keys replicate to the client; receipts etc. stay server-only
@@ -194,6 +208,9 @@ local function shop(oPlayer: Player, t: any): any
 		local owned = mProfile:GetAsync(oPlayer, "OwnedJets") or {}
 		if not j or typeof(t.paint) ~= "string" or not j.Paints[t.paint] then return { ok = false, err = "invalid" } end
 		if not owned[j.Id] then return { ok = false, err = "notowned" } end
+		if JetConfig.IsShopPaint(t.paint) and not (mProfile:GetAsync(oPlayer, "ShopPaints") or {})[t.paint] then
+			return { ok = false, err = "robux" }
+		end
 		if JetConfig.IsMasteryPaint(t.paint) then
 			local MasteryConfig = require(ReplicatedStorage.Config.MasteryConfig)
 			local m = (mProfile:GetAsync(oPlayer, "Mastery") or {})[j.Id] or 0

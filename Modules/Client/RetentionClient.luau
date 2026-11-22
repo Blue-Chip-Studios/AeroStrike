@@ -12,6 +12,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local AvatarEditorService = game:GetService("AvatarEditorService")
 local ExperienceNotificationService = game:GetService("ExperienceNotificationService")
+local SocialService = game:GetService("SocialService")
+local Players = game:GetService("Players")
 
 local ModuleUtil = require(ReplicatedStorage.Shared.ModuleUtil)
 local Remote = require(ReplicatedStorage.BCDKShared.Remote)
@@ -77,11 +79,40 @@ local function watchInput()
 	end)
 end
 
+-- live event banner text (EventConfig via workspace attributes)
+task.spawn(function()
+	while true do
+		local name, ends = workspace:GetAttribute("EventName"), workspace:GetAttribute("EventEnds")
+		local line = ""
+		if typeof(name) == "string" and typeof(ends) == "number" then
+			local left = math.max(0, ends - os.time())
+			local d, h, m = math.floor(left / 86400), math.floor(left % 86400 / 3600), math.floor(left % 3600 / 60)
+			line = if d > 0 then string.format("%s · ENDS IN %dD %dH", name, d, h) else string.format("%s · ENDS IN %dH %dM", name, h, m)
+		end
+		if Store.Values.sEventLine and line ~= Fusion.peek(Store.Values.sEventLine) then Store.Values.sEventLine:set(line) end
+		task.wait(5)
+	end
+end)
+
 local function showPrompt(what: string)
 	if oReq then oReq:FireServer({ a = "PromptShown", what = what }) end
 	if what == "Favorite" then
 		pcall(function()
 			AvatarEditorService:PromptSetFavorite(game.PlaceId, Enum.AvatarItemType.Asset, true)
+		end)
+	elseif what == "Invite" then
+		task.spawn(function()
+			local lp = Players.LocalPlayer
+			local ok, can = pcall(SocialService.CanSendGameInviteAsync, SocialService, lp)
+			if ok and can then
+				Store.Values.sLaunchResult:set("INVITE A FRIEND: YOU BOTH GET +500 CASH")
+				task.delay(1.6, function()
+					pcall(SocialService.PromptGameInvite, SocialService, lp)
+					task.delay(1.5, function()
+						if Fusion.peek(Store.Values.sLaunchResult) == "INVITE A FRIEND: YOU BOTH GET +500 CASH" then Store.Values.sLaunchResult:set("") end
+					end)
+				end)
+			end
 		end)
 	elseif what == "Notify" then
 		task.spawn(function()

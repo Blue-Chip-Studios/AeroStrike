@@ -198,6 +198,29 @@ do
 	end
 end
 
+-- Robux cosmetic paints (CosmeticsConfig): every jet gets them too, locked until owned (ShopPaints)
+do
+	local CosmeticsConfig = require(script.Parent.CosmeticsConfig)
+	for _, j in pairs(Jets) do
+		local base = j.Paints.Standard or j.Paints[j.DefaultPaint]
+		for id, s in pairs(CosmeticsConfig.Paints) do
+			if not j.Paints[id] then
+				local p: Paint = {}
+				for part, v in pairs(base) do p[part] = { Color = v.Color, Material = v.Material } end
+				local mat = s.Material or Enum.Material.SmoothPlastic
+				if p.Body then p.Body = { Color = s.Body, Material = mat } end
+				if p.Accents then p.Accents = { Color = s.Accents, Material = p.Accents.Material } end
+				if p.Intakes and s.Intakes then p.Intakes = { Color = s.Intakes, Material = mat } end
+				j.Paints[id] = p
+			end
+		end
+	end
+end
+
+local function IsShopPaint(id: string): boolean
+	return (require(script.Parent.CosmeticsConfig) :: any).Paints[id] ~= nil
+end
+
 -- mastery-locked paints; every other paint on a jet is free with the jet
 local function IsMasteryPaint(id: string): boolean
 	return (require(script.Parent.MasteryConfig) :: any).Schemes[id] ~= nil
@@ -215,5 +238,6 @@ return {
 	StarterJet = "SparrowT2",
 	GetOrdered = GetOrdered,
 	IsMasteryPaint = IsMasteryPaint,
+	IsShopPaint = IsShopPaint,
 	KmhPerStud = 3.6,
 }

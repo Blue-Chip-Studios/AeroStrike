@@ -107,13 +107,20 @@ function MissionClient.StartAsync(self)
 			end
 		end
 	end)
+	local sDistLast = ""
 	RunService.RenderStepped:Connect(function()
 		local target = self.Override or self.Objective
 		if not target then
 			Store.Values.tObjectiveScreen:set(Vector2.new(-1000, -1000))
+			if sDistLast ~= "" then sDistLast = ""; Store.Values.sObjectiveDist:set("") end
 			return
 		end
 		Store.Values.tObjectiveScreen:set(edgeClamp(Workspace.CurrentCamera, target))
+		-- distance under the marker (missions got 0.23 joins per session: make them easy to find)
+		local cam = Workspace.CurrentCamera
+		local d = (target - cam.CFrame.Position).Magnitude
+		local s = if d >= 1000 then string.format("%.1f KM", d / 1000) else string.format("%d M", math.floor(d / 10) * 10)
+		if s ~= sDistLast then sDistLast = s; Store.Values.sObjectiveDist:set(s) end
 	end)
 end
 

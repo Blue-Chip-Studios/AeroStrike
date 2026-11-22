@@ -286,7 +286,7 @@ local function promptShown(p: Player, what: any)
 	local now = os.time()
 	Economy:SetProfileKey(p, "Prompts", function(v)
 		v = v or {}
-		if what == "Favorite" then v.Fav = now else v.Notif = now end
+		if what == "Favorite" then v.Fav = now elseif what == "Invite" then v.Inv = now else v.Notif = now end
 		return v
 	end)
 end
@@ -303,14 +303,15 @@ local function moment(p: Player, kind: string)
 	-- (it used to be one prompt per session, favourite first, so new players never saw the notify prompt)
 	local what = nil
 	if not done.Notify and now - (pr.Notif or 0) > cd then what = "Notify"
-	elseif not done.Favorite and now - (pr.Fav or 0) > cd then what = "Favorite" end
+	elseif not done.Favorite and now - (pr.Fav or 0) > cd then what = "Favorite"
+	elseif not done.Invite and now - (pr.Inv or 0) > (PR.InviteCooldownDays or 1) * 86400 then what = "Invite" end
 	if not what then return end
 	done[what] = true
 	tPrompted[p] = done
 	tLastPrompt[p] = os.clock()
 	tOffered[p] = what
 	oEvent:FireClient(p, { a = "Prompt", what = what })
-	Analytics:Log(p, if what == "Favorite" then "prompt_favorite" else "prompt_notify", { moment = kind })
+	Analytics:Log(p, if what == "Favorite" then "prompt_favorite" elseif what == "Invite" then "prompt_invite" else "prompt_notify", { moment = kind })
 end
 
 -- Studio QA hooks (DebugServer)

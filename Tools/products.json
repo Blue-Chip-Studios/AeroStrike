@@ -1,72 +1,87 @@
-{
-  "WraithX": {
-    "price": 799,
-    "id": 2092347121,
-    "kind": "pass"
-  },
-  "MultiLock": {
-    "price": 499,
-    "id": 2093211054,
-    "kind": "pass"
-  },
-  "Afterburner": {
-    "price": 349,
-    "id": 2094585103,
-    "kind": "pass"
-  },
-  "GSuitPro": {
-    "price": 299,
-    "id": 2094219115,
-    "kind": "pass"
-  },
-  "FlarePod": {
-    "price": 199,
-    "id": 2094537074,
-    "kind": "pass"
-  },
-  "DoubleCash": {
-    "price": 399,
-    "id": 2092701119,
-    "kind": "pass"
-  },
-  "VIP": {
-    "price": 249,
-    "id": 2093127154,
-    "kind": "pass"
-  },
-  "StarterAce": {
-    "price": 49,
-    "id": 3733032938,
-    "kind": "product"
-  },
-  "CashS": {
-    "price": 75,
-    "id": 3733032949,
-    "kind": "product"
-  },
-  "CashM": {
-    "price": 299,
-    "id": 3733032958,
-    "kind": "product"
-  },
-  "Rearm": {
-    "price": 25,
-    "id": 3733032971,
-    "kind": "product"
-  },
-  "BountyShield": {
-    "price": 49,
-    "id": 3733032978,
-    "kind": "product"
-  },
-  "SeasonPremium": {
-    "price": 399,
-    "id": 2094309905,
-    "kind": "pass"
-  },
-  "ReviveHere": {
-    "price": 25,
-    "id": 3733440715,
-    "kind": "product"
-  }
+﻿{
+    "WraithX":  {
+                    "price":  799,
+                    "id":  2092347121,
+                    "kind":  "pass"
+                },
+    "MultiLock":  {
+                      "price":  499,
+                      "id":  2093211054,
+                      "kind":  "pass"
+                  },
+    "Afterburner":  {
+                        "price":  349,
+                        "id":  2094585103,
+                        "kind":  "pass"
+                    },
+    "GSuitPro":  {
+                     "price":  299,
+                     "id":  2094219115,
+                     "kind":  "pass"
+                 },
+    "FlarePod":  {
+                     "price":  199,
+                     "id":  2094537074,
+                     "kind":  "pass"
+                 },
+    "DoubleCash":  {
+                       "price":  399,
+                       "id":  2092701119,
+                       "kind":  "pass"
+                   },
+    "VIP":  {
+                "price":  249,
+                "id":  2093127154,
+                "kind":  "pass"
+            },
+    "StarterAce":  {
+                       "price":  49,
+                       "id":  3733032938,
+                       "kind":  "product"
+                   },
+    "CashS":  {
+                  "price":  75,
+                  "id":  3733032949,
+                  "kind":  "product"
+              },
+    "CashM":  {
+                  "price":  299,
+                  "id":  3733032958,
+                  "kind":  "product"
+              },
+    "Rearm":  {
+                  "price":  25,
+                  "id":  3733032971,
+                  "kind":  "product"
+              },
+    "BountyShield":  {
+                         "price":  49,
+                         "id":  3733032978,
+                         "kind":  "product"
+                     },
+    "SeasonPremium":  {
+                          "price":  399,
+                          "id":  2094309905,
+                          "kind":  "pass"
+                      },
+    "ReviveHere":  {
+                       "price":  25,
+                       "id":  3733440715,
+                       "kind":  "product"
+                   },
+    "HornetPaint":  {
+                        "price":  25,
+                        "id":  3734593027,
+                        "kind":  "product"
+                    },
+    "PhoenixTrail":  {
+                         "price":  49,
+                         "id":  3734593050,
+                         "kind":  "product"
+                     },
+    "AcePack":  {
+                    "price":  75,
+                    "id":  3734593071,
+                    "kind":  "product"
+                }
 }

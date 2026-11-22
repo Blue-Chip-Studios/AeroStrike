@@ -22,6 +22,9 @@ $items = @(
   @{ k='Rearm';       kind='product'; name='Instant Rearm';        price=25;  desc='Refill missiles, flares and fuel mid-air.' },
   @{ k='BountyShield';kind='product'; name='Bounty Shield';        price=49;  desc='Keep 100% of your Sortie Cash the next time you are shot down.' },
   @{ k='SeasonPremium';kind='pass';   name='Season 1 Premium';     price=399; desc='Unlock the exclusive Chrome, Afterglow and Phantom smoke trails, +25% season track XP and double cash from every season tier. Cosmetic and progression only.' },
+  @{ k='HornetPaint'; kind='product'; name='Hornet Paint';         price=25;  desc='Black-and-gold Hornet livery for every jet you own. Cosmetic only.' },
+  @{ k='PhoenixTrail'; kind='product'; name='Phoenix Trail';       price=49;  desc='A blazing gold-to-red Phoenix smoke trail everyone sees behind your jet. Cosmetic only.' },
+  @{ k='AcePack';     kind='product'; name='Ace Pack';             price=75;  desc='Hornet and Nightshade liveries for every jet plus the Phoenix trail. Cosmetic only.' },
   @{ k='ReviveHere';  kind='product'; name='Revive Here';          price=25;  desc='Shot down? Jump straight back into the fight where you went down, with full ammo and the Sortie Cash you lost restored.' }
 )
 if ($Only.Count -gt 0) { $items = $items | Where-Object { $Only -contains $_.k } }

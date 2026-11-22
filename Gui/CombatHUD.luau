@@ -118,6 +118,10 @@ return function(scope: any, props: { [string]: any })
 						BackgroundTransparency = 0.2,
 						[Children] = { scope:New("UICorner")({ CornerRadius = UDim.new(1, 0) }) },
 					}),
+					-- live event banner (e.g. DOUBLE CASH WEEKEND)
+					C.HudText(scope, { Name = "EventLine", Font = Theme.Display, TextSize = 15, Color = Color3.fromRGB(255, 205, 60),
+						Position = UDim2.fromScale(0.5, 0.075), Size = UDim2.fromOffset(600, 20), Text = V.sEventLine,
+						Visible = scope:Computed(function(use) return use(V.sEventLine) ~= "" end) }),
 					-- mission objective marker (clamped to screen edge) + banner
 					scope:New("Frame")({
 						Name = "Objective",
@@ -128,6 +132,14 @@ return function(scope: any, props: { [string]: any })
 						BackgroundTransparency = 1,
 						[Children] = { scope:New("UIStroke")({ Color = Color3.fromRGB(255, 150, 60), Thickness = 3 }) },
 					}),
+					C.HudText(scope, { Name = "ObjectiveDist", Font = Theme.Display, TextSize = 13, Color = Color3.fromRGB(255, 150, 60),
+						AnchorPoint = Vector2.new(0.5, 0),
+						Position = scope:Computed(function(use)
+							local p = use(V.tObjectiveScreen) :: Vector2
+							return UDim2.fromOffset(p.X, p.Y + 22)
+						end),
+						Size = UDim2.fromOffset(120, 16), Text = V.sObjectiveDist,
+						Visible = scope:Computed(function(use) return use(V.sObjectiveDist) ~= "" and (use(V.tObjectiveScreen) :: Vector2).X > -500 end) }),
 					C.HudText(scope, { Name = "ObjectiveText", Font = Theme.Display, TextSize = 14, Color = Color3.fromRGB(255, 150, 60),
 						Position = UDim2.fromScale(0.5, 0.11), Size = UDim2.fromOffset(600, 20), Text = V.sObjective,
 						Visible = scope:Computed(function(use) return not use(V.bFTUEActive) end) }),

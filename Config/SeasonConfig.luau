@@ -16,6 +16,7 @@ local Trails: { [string]: Trail } = {
 	Arctic = { Name = "Arctic", Colors = { Color3.fromRGB(235, 250, 255), Color3.fromRGB(150, 220, 255) }, Glow = 0.4 },
 	Inferno = { Name = "Inferno", Colors = { Color3.fromRGB(255, 230, 90), Color3.fromRGB(255, 70, 20) }, Glow = 0.7 },
 	Spectrum = { Name = "Spectrum", Colors = { Color3.fromRGB(255, 60, 60), Color3.fromRGB(255, 200, 40), Color3.fromRGB(60, 220, 120), Color3.fromRGB(60, 140, 255), Color3.fromRGB(190, 80, 255) }, Glow = 0.5 },
+	Phoenix = { Name = "Phoenix", Colors = { Color3.fromRGB(255, 220, 110), Color3.fromRGB(255, 120, 20), Color3.fromRGB(220, 30, 15) }, Glow = 0.85 }, -- Robux (PhoenixTrail / AcePack)
 	BlueChip = { Name = "Blue Chip Squadron", Colors = { Color3.fromRGB(30, 110, 255), Color3.fromRGB(255, 255, 255) }, Glow = 0.5 }, -- group reward
 	-- Season Premium exclusives
 	Chrome = { Name = "Chrome", Colors = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(140, 150, 165), Color3.fromRGB(255, 255, 255) }, Glow = 0.8 },
@@ -44,6 +45,7 @@ return {
 		LAUNCH = { Cash = 1000, Expires = os.time({ year = 2027, month = 3, day = 1, hour = 0 }) },
 		ACEPILOT = { Cash = 500 },
 		MACHONE = { Cash = 750 },
+		SKYFIRE = { Cash = 500, Expires = os.time({ year = 2027, month = 1, day = 31, hour = 0 }) }, -- launch window code drop
 	},
 	-- Season Premium (game pass): cosmetics and a faster track only, no combat power
 	Premium = { XPMult = 1.25, TierCashMult = 2, Trails = { "Chrome", "Afterglow", "Phantom" } },

@@ -91,6 +91,10 @@ function Debug.StartAsync(self)
 			-- fire a prompt moment now, ignoring the session-time gate (prompt QA)
 			local p = game:GetService("Players"):GetPlayers()[1]
 			return require(ServerStorage.ServerModules.RetentionServer):QAMoment(p, a or "FirstKill")
+		elseif cmd == "grantProduct" then
+			-- run a developer product's grant for the first player (Studio QA of purchases)
+			local p = game:GetService("Players"):GetPlayers()[1]
+			return require(ServerStorage.ServerModules.MonetizationServer):QAGrant(p, a)
 		elseif cmd == "metrics" then
 			-- unflushed MetricsServer counters (Studio never writes the DataStore)
 			return game:GetService("HttpService"):JSONEncode(require(ServerStorage.ServerModules.MetricsServer):Snapshot())
