@@ -20,7 +20,7 @@ return {
 	},
 	Products = {
 		ReviveHere = { Id = 3733440715, Name = "Revive Here", Price = 25, Order = 0, Hidden = true, Grant = { Revive = true } }, -- death screen impulse buy
-		StarterAce = { Id = 3733032938, Name = "Starter Ace Bundle", Price = 99, OneTime = true, Order = 1,
+		StarterAce = { Id = 3733032938, Name = "Starter Ace Bundle", Price = 49, -- was 99 (22 Nov: Viper now earnable in ~3 min) OneTime = true, Order = 1,
 			Grant = { Jet = "ViperIX", Cash = 5000 } },
 		CashS = { Id = 3733032949, Name = "Cash Crate S", Price = 75, Order = 2, Grant = { Cash = 5000 } },
 		CashM = { Id = 3733032958, Name = "Cash Crate M", Price = 299, Order = 3, Grant = { Cash = 25000 } },
