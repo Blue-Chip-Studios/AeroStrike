@@ -1,13 +1,18 @@
 {
-  "enabled": false,
+  "enabled": true,
   "streak": {
-    "messageId": "",
-    "note": "AeroStrike notification string, e.g. 'Your {days}-day streak ends soon. Hop in to keep it!' - for players who claimed their daily pay yesterday",
-    "params": { "days": "streak" }
+    "messageId": "ddb1f929-dc4c-2b47-ac8c-6ef29c102320",
+    "note": "StreakEnding: Your {days}-day streak ends soon. Hop in to keep it!",
+    "params": {
+      "days": "streak"
+    }
   },
   "daily": {
-    "messageId": "",
-    "note": "AeroStrike notification string, e.g. 'Your Day {day} sortie pay is ready: {cash} cash' - for players with no streak running. Fields available: day, cash, streak.",
-    "params": { "day": "day", "cash": "cash" }
+    "messageId": "27d4ee50-9401-9d41-ac4a-9a9b3af886ad",
+    "note": "DailyPay: Your Day {day} sortie pay is ready: {cash} cash",
+    "params": {
+      "day": "day",
+      "cash": "cash"
+    }
   }
 }

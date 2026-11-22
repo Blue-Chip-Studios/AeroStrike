@@ -106,7 +106,7 @@ def main():
     if not (a.send and cfg.get("enabled")):
         print("DRY RUN (needs --send and \"enabled\": true in Tools/notify_config.json).")
         return
-    sent = failed = 0
+    sent = failed = skipped = throttled = 0
     for uid, (kind, tpl, vals) in plans.items():
         params = {name: {"stringValue": vals[field]} for name, field in (tpl.get("params") or {}).items()}
         body = {
@@ -122,6 +122,10 @@ def main():
         code, v = request(key, "POST", f"https://apis.roblox.com/cloud/v2/users/{uid}/notifications", body)
         if code == 200:
             sent += 1
+        elif code == 400 and "not opted in" in str(v):
+            skipped += 1  # normal: only players who accepted the in-game prompt can receive them
+        elif code == 429 or "throttl" in str(v).lower():
+            throttled += 1  # Roblox's one-per-day limit / rate limit
         else:
             failed += 1
             if failed <= 3:
@@ -131,7 +135,7 @@ def main():
             if code == 400 and failed >= 3 and sent == 0:
                 sys.exit("Stopping: the request format was rejected 3 times (see above).")
         time.sleep(0.15)
-    print(f"sent {sent}, failed {failed} (players who never opted in are skipped by Roblox)")
+    print(f"sent {sent}, not opted in {skipped}, throttled {throttled}, failed {failed}")
 
 if __name__ == "__main__":
     main()
