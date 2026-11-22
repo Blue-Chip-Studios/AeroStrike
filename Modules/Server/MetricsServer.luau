@@ -64,7 +64,7 @@ local FUNNEL_IDX: { [string]: number } = {}
 for i, e in ipairs(FUNNEL) do FUNNEL_IDX[e] = i end
 local oLimiter = ModuleUtil.RateLimiter(12, 60)
 local tPending: { [Player]: { string } } = {}
-local tUsers: { [number]: { [number]: boolean } } = {} -- [day] = userIds seen (daily "your pay is ready" notifications) -- events seen before the profile loaded (replayed for u_/n_)
+local tUsers: { [number]: { [number]: { s: number, l: number } } } = {} -- [day] = userIds seen (daily "your pay is ready" notifications) -- events seen before the profile loaded (replayed for u_/n_)
 
 local function today(): number
 	return math.floor(os.time() / 86400)
@@ -223,17 +223,19 @@ local function flush()
 		local ok = pcall(function()
 			(oStore :: DataStore):UpdateAsync(`u{day}_s{nShard}`, function(old: any)
 				local list = if typeof(old) == "table" then old else {}
-				local have = {}
-				for _, id in ipairs(list) do have[id] = true end
-				for id in pairs(set) do
-					if not have[id] and #list < 4000 then table.insert(list, id); have[id] = true end
+				local at = {}
+				for i, e in ipairs(list) do at[if typeof(e) == "table" then e.i else e] = i end
+				for id, rec in pairs(set) do
+					local entry = { i = id, s = rec.s, l = rec.l }
+					if at[id] then list[at[id]] = entry
+					elseif #list < 4000 then table.insert(list, entry); at[id] = #list end
 				end
 				return list
 			end)
 		end)
 		if not ok then
 			tUsers[day] = tUsers[day] or {}
-			for id in pairs(set) do tUsers[day][id] = true end
+			for id, rec in pairs(set) do tUsers[day][id] = rec end
 		end
 	end
 end
@@ -462,7 +464,8 @@ function Metrics.InitProfileAsync(self, p: Player, tProfile: any)
 	add(tDay, d, "sessions")
 	add(tDay, d, "ver:" .. tostring(game.PlaceVersion)) -- which published version this server runs
 	tUsers[d] = tUsers[d] or {}
-	tUsers[d][p.UserId] = true
+	local daily = typeof(data.Daily) == "table" and data.Daily or {}
+	tUsers[d][p.UserId] = { s = tonumber(daily.Streak) or 0, l = tonumber(daily.LastClaimDay) or 0 }
 	local sess: Sess = { start = os.clock(), new = cohort == d, cohort = cohort, seen = {}, paid = false, errs = 0,
 		sortieKills = 0, step = "none", stepN = 0, rank0 = rankOf(p), ab = if cohort == d then m.AB else nil }
 	tSess[p] = sess
@@ -480,6 +483,14 @@ end
 
 function Metrics.PlayerRemoving(self, p: Player)
 	tPending[p] = nil
+	-- latest daily streak for tomorrow's notification (they may have claimed during this session)
+	pcall(function()
+		local daily = require(game:GetService("ServerStorage").BCDKServer.SMProfile):GetAsync(p, "Daily")
+		local d0 = today()
+		if typeof(daily) == "table" and tUsers[d0] then
+			tUsers[d0][p.UserId] = { s = tonumber(daily.Streak) or 0, l = tonumber(daily.LastClaimDay) or 0 }
+		end
+	end)
 	local s = tSess[p]
 	if not s then return end
 	tSess[p] = nil
